@@ -105,7 +105,7 @@ This enables:
 
 ```
 ┌──────────────────────────────────────────────┐
-│              Production Cluster               │
+│              Production Cluster              │
 │                                              │
 │   Service A ──► Service B ──► Service C      │
 │        │                          │          │
@@ -117,7 +117,7 @@ This enables:
    (C + Rust/Aya)            (existing setup)
          │                          │
          ▼                          │
-       Kafka ◄─────────────────────┘
+       Kafka ◄──────────────────────┘
    (raw_kernel_events)
          │
          ▼
