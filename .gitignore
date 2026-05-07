@@ -1,0 +1,100 @@
+# ─── Rust ────────────────────────────────────────────────────────────────────
+target/
+**/*.rs.bk
+Cargo.lock
+*.pdb
+
+# eBPF build artifacts
+probe/target/
+probe/**/.cargo/
+probe/**/*.rs.bk
+probe/debug/
+probe/target/
+
+# ─── Go ──────────────────────────────────────────────────────────────────────
+bin/
+*.exe
+*.test
+*.out
+vendor/
+
+# Go workspace
+go.work.sum
+
+# Build output
+engine/bin/
+replay/bin/
+api/bin/
+
+# ─── Node / React (web/) ─────────────────────────────────────────────────────
+node_modules/
+dist/
+build/
+.vite/
+*.local
+
+# Package manager locks (keep package-lock.json, ignore others)
+yarn.lock
+pnpm-lock.yaml
+
+# ─── Environment & Secrets ───────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.cert
+secrets/
+
+# ─── Docker ──────────────────────────────────────────────────────────────────
+.docker/
+
+# ─── Kubernetes / Helm ───────────────────────────────────────────────────────
+infra/helm/charts/
+infra/helm/*.lock
+kubeconfig
+*.kubeconfig
+
+# ─── Observability / Data ────────────────────────────────────────────────────
+infra/observability/data/
+infra/observability/logs/
+
+# ─── OS ──────────────────────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+desktop.ini
+
+# ─── IDE / Editor ────────────────────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.cursor/
+
+# ─── Logs ────────────────────────────────────────────────────────────────────
+*.log
+logs/
+*.log.*
+
+# ─── Testing / Coverage ──────────────────────────────────────────────────────
+coverage/
+*.coverage
+*.coverprofile
+htmlcov/
+.nyc_output/
+
+# ─── Misc ────────────────────────────────────────────────────────────────────
+*.tmp
+*.bak
+*.orig
+.cache/
+tmp/
