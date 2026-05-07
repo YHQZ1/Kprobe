@@ -10,7 +10,6 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Rust-1.77-000000?style=flat-square&logo=rust&logoColor=white" />
   <img src="https://img.shields.io/badge/Go-1.22-00ADD8?style=flat-square&logo=go&logoColor=white" />
-  <img src="https://img.shields.io/badge/C-eBPF-A8B9CC?style=flat-square&logo=c&logoColor=black" />
   <img src="https://img.shields.io/badge/TypeScript-5.0-007ACC?style=flat-square&logo=typescript&logoColor=white" />
   <img src="https://img.shields.io/badge/React-18-20232A?style=flat-square&logo=react&logoColor=61DAFB" />
   <img src="https://img.shields.io/badge/Apache_Kafka-KRaft-231F20?style=flat-square&logo=apachekafka&logoColor=white" />
@@ -63,7 +62,11 @@ kprobe has three core components that work together continuously from the moment
 
 ### The Recorder
 
-An eBPF probe runs as a Kubernetes DaemonSet on every node in the cluster. It attaches to kernel-level tracepoints and kprobes — `tcp_sendmsg`, `tcp_recvmsg`, `sys_read`, `sys_write`, `sched_switch`, `mm_page_fault` — and captures every relevant event with nanosecond precision. No application code changes. No library imports. No redeployment. The probe is written in C for the kernel-side eBPF program, with a Rust userspace component using the Aya framework to load probes, manage ring buffers, and stream events into Kafka.
+An eBPF probe runs as a Kubernetes DaemonSet on every node in the cluster. It attaches to kernel-level tracepoints and kprobes — `tcp_sendmsg`, `tcp_recvmsg`, `sys_read`, `sys_write`, `sched_switch`, `mm_page_fault` — and captures every relevant event with nanosecond precision. No application code changes. No library imports. No redeployment.
+
+The probe is written entirely in Rust using the [Aya](https://aya-rs.dev) framework — both the kernel-side eBPF programs and the userspace loader. Aya compiles Rust directly to eBPF bytecode, meaning the entire probe stack is memory-safe from the kernel up, with no C code anywhere in the codebase.
+
+The userspace agent loads the eBPF programs into the kernel, manages perf ring buffers, and streams structured events into Kafka.
 
 Every captured event includes:
 
@@ -114,7 +117,7 @@ This enables:
          │                          │
          ▼                          ▼
    eBPF Probes               OpenTelemetry
-   (C + Rust/Aya)            (existing setup)
+   (pure Rust/Aya)           (existing setup)
          │                          │
          ▼                          │
        Kafka ◄──────────────────────┘
@@ -146,20 +149,67 @@ ClickHouse   Go Causal Engine
 
 ---
 
+## Repository Structure
+
+```
+kprobe/
+├── probe/                    # eBPF probe — pure Rust/Aya, kernel-level capture
+│   ├── probe/                # Userspace agent — loads probes, manages ring buffers, streams to Kafka
+│   ├── probe-ebpf/           # Kernel-side eBPF programs (Rust → eBPF bytecode)
+│   └── probe-common/         # Shared event types between kernel and userspace
+│
+├── engine/                   # Causal inference engine — Go
+│   ├── consumer/             # Kafka event consumption
+│   ├── inference/            # Causal graph construction
+│   ├── graph/                # Neo4j interaction
+│   ├── store/                # ClickHouse interaction
+│   └── domain/               # Financial primitives (settlement, order, ledger)
+│
+├── replay/                   # Deterministic replay engine — Go
+│   ├── ptrace/               # Syscall interception via ptrace
+│   ├── session/              # Replay session lifecycle
+│   ├── injector/             # Timing injection and failure simulation
+│   └── store/                # ClickHouse event retrieval for replay
+│
+├── api/                      # gRPC API server — Go
+│   ├── proto/                # Protobuf definitions
+│   ├── handlers/             # gRPC handler implementations
+│   └── stream/               # WebSocket live event streaming
+│
+├── shared/                   # Shared Go module — types and domain primitives
+│   ├── types/                # Common event types (KernelEvent, EventType)
+│   └── domain/               # Financial domain types (Settlement, Order, LedgerEntry)
+│
+├── web/                      # React + TypeScript dashboard
+│   └── src/
+│       ├── components/       # Reusable UI components
+│       ├── views/            # Causal graph view, timeline view, replay panel
+│       ├── hooks/            # WebSocket hook, data fetching
+│       └── lib/              # D3, ECharts setup, gRPC client
+│
+└── infrastructure/
+    ├── docker/               # Docker Compose for local infrastructure
+    ├── helm/                 # Helm chart for Kubernetes deployment
+    ├── k8s/                  # Raw Kubernetes manifests
+    └── observability/        # Prometheus, Grafana, Loki, Jaeger configs
+```
+
+---
+
 ## Tech Stack
 
 ### Data Collection
 
-| Component                 | Technology      | Details                                                                                                          |
-| ------------------------- | --------------- | ---------------------------------------------------------------------------------------------------------------- |
-| Kernel-side eBPF programs | C               | Attached to tracepoints — `tcp_sendmsg`, `tcp_recvmsg`, `sys_read`, `sys_write`, `sched_switch`, `mm_page_fault` |
-| Userspace probe manager   | Rust 1.77 + Aya | Loads eBPF programs, manages perf ring buffers, batches and streams events to Kafka                              |
+| Component                 | Technology      | Details                                                                                                                                                                                     |
+| ------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Kernel-side eBPF programs | Rust + Aya      | Attached to tracepoints — `tcp_sendmsg`, `tcp_recvmsg`, `sys_read`, `sys_write`, `sched_switch`, `mm_page_fault`. Compiled to eBPF bytecode via Aya — no C, memory-safe from the kernel up. |
+| Userspace probe agent     | Rust 1.77 + Aya | Loads eBPF programs, manages perf ring buffers, batches and streams events to Kafka                                                                                                         |
 
 ### Event Pipeline
 
 | Component         | Technology           | Details                                                                                                                                                                                  |
 | ----------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Event transport   | Apache Kafka (KRaft) | High-throughput kernel event streaming. Topic-per-event-type, durable, replayable. Handles millions of events per second.                                                                |
+| Event transport   | Apache Kafka (KRaft) | High-throughput kernel event streaming. Topic-per-event-type, durable, replayable. Handles millions of events per second. Runs in KRaft mode — no Zookeeper dependency.                  |
 | Correlation layer | Vector               | Joins raw eBPF events with OpenTelemetry traces on PID and timestamp. Enriches every kernel event with financial transaction context before routing to ClickHouse and the causal engine. |
 
 ### Storage
@@ -201,7 +251,7 @@ ClickHouse   Go Causal Engine
 | ----------------- | -------------- | ---------------------------------------------------------------------------------------------- |
 | Orchestration     | Kubernetes     | eBPF probe deployed as DaemonSet across all nodes. All other services as standard Deployments. |
 | Packaging         | Helm           | Single `helm install` deploys the full stack into any existing cluster                         |
-| Local development | Docker Compose | Full local environment including Kafka, ClickHouse, Neo4j, and all services                    |
+| Local development | Docker Compose | Infrastructure only (Kafka, ClickHouse, Neo4j). Services run natively for fast iteration.      |
 
 ---
 
@@ -254,7 +304,63 @@ Total investigation time: under 5 minutes.
 
 ---
 
-## Installation
+## Local Development
+
+kprobe uses a split dev model — infrastructure runs in Docker, services run natively. This means no Docker rebuilds on every code change.
+
+### Prerequisites
+
+- Go 1.22+
+- Rust 1.77+ with `cargo`
+- Node.js 20+
+- Docker + Docker Compose
+- Linux kernel 5.15+ (for eBPF — required on the target system, not your dev machine)
+
+### Getting Started
+
+```bash
+git clone https://github.com/YHQZ1/kprobe
+cd kprobe
+```
+
+Start infrastructure (Kafka, ClickHouse, Neo4j):
+
+```bash
+make infra
+```
+
+Run services natively in separate terminals:
+
+```bash
+make engine    # terminal 1 — causal engine on Kafka consumer
+make api       # terminal 2 — gRPC API server on :8080
+make replay    # terminal 3 — replay engine
+make web       # terminal 4 — React dashboard on :5173
+```
+
+Tear down infrastructure when done:
+
+```bash
+make infra-down
+```
+
+See all available commands:
+
+```bash
+make help
+```
+
+### Local Service Ports
+
+| Service    | Port |
+| ---------- | ---- |
+| API (gRPC) | 8080 |
+| Web        | 5173 |
+| Kafka      | 9092 |
+| ClickHouse | 8123 |
+| Neo4j      | 7474 |
+
+### Production Deployment
 
 kprobe deploys into any Kubernetes cluster with a single Helm command. No changes to existing services are required.
 
@@ -269,24 +375,12 @@ Access the dashboard:
 kubectl port-forward svc/kprobe-dashboard 3000:3000 -n monitoring
 ```
 
-Navigate to `http://localhost:3000`.
-
-### Prerequisites
+### Production Prerequisites
 
 - Kubernetes 1.26+
 - Linux kernel 5.15+ on all nodes (eBPF BTF support required)
 - Helm 3.x
 - 4 CPU / 8GB RAM minimum per node for probe overhead
-
-### Local Development
-
-```bash
-git clone https://github.com/yourhandle/kprobe
-cd kprobe
-docker compose up
-```
-
-This starts Kafka, ClickHouse, Neo4j, all Go services, and the React dashboard locally.
 
 ---
 
