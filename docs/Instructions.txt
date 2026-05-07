@@ -1,0 +1,158 @@
+# kprobe — Project Instructions
+
+## What is kprobe
+
+kprobe is a deep kernel observability tool for distributed financial systems. It sits at the Linux kernel level using eBPF and captures everything — network packet timing, CPU scheduling decisions, memory pressure events, database write latency — without touching a single line of application code.
+
+When an incident occurs, it constructs a full causal graph of exactly what caused what, down to the kernel-level event that triggered the failure. It then lets you replay the entire incident deterministically, on a dev machine, hours after it happened.
+
+It is not a monitoring tool. It is not a tracing tool. It is a flight recorder and a debugger for distributed financial systems.
+
+**One-liner for technical context:**
+> An eBPF-based causal profiler with deterministic replay, built specifically for distributed financial systems — zero instrumentation overhead, kernel-level visibility, financial domain primitives baked in.
+
+---
+
+## Key Technical Decisions (locked in — do not revisit)
+
+- **Pure Rust/Aya for the eBPF probe** — both kernel-side and userspace. No C anywhere. Aya compiles Rust directly to eBPF bytecode. This is a deliberate decision for memory safety and developer ergonomics.
+- **Separate Go modules per service** — `engine`, `api`, `replay` each have their own `go.mod`. They share code only through the `shared/` module. This keeps services independently deployable.
+- **`go.work` workspace at the root** — local dev convenience only. Does not affect production builds or CI.
+- **Split dev model** — infrastructure (Kafka, ClickHouse, Neo4j) runs in Docker Compose. Go services and the frontend run natively. No Docker rebuilds during development.
+- **Kafka in KRaft mode** — no Zookeeper dependency.
+- **ClickHouse for raw event storage** — columnar, handles billions of timestamped rows, sub-second queries.
+- **Neo4j for causal graph storage** — graph traversal from any financial event back to root kernel cause.
+- **Vector for correlation** — joins raw eBPF events with OpenTelemetry traces on PID + timestamp before the causal engine sees them.
+
+---
+
+## Repository Structure
+
+```
+kprobe/
+├── probe/                    # eBPF probe — pure Rust/Aya
+│   ├── probe/                # Userspace agent (loads probes, ring buffers, Kafka)
+│   ├── probe-ebpf/           # Kernel-side eBPF programs (Rust → eBPF bytecode)
+│   └── probe-common/         # Shared event types between kernel and userspace
+│
+├── engine/                   # Causal inference engine — Go
+│   ├── consumer/             # Kafka consumption
+│   ├── inference/            # Causal graph construction
+│   ├── graph/                # Neo4j interaction
+│   ├── store/                # ClickHouse interaction
+│   └── domain/               # Financial primitives
+│
+├── replay/                   # Deterministic replay engine — Go
+│   ├── ptrace/               # Syscall interception
+│   ├── session/              # Replay session lifecycle
+│   ├── injector/             # Timing injection + failure simulation
+│   └── store/                # ClickHouse event retrieval
+│
+├── api/                      # gRPC API server — Go
+│   ├── proto/                # Protobuf definitions
+│   ├── handlers/             # gRPC handlers
+│   └── stream/               # WebSocket live streaming
+│
+├── shared/                   # Shared Go module
+│   ├── types/                # KernelEvent, EventType
+│   └── domain/               # Settlement, Order, LedgerEntry
+│
+├── web/                      # React + TypeScript dashboard
+│   └── src/
+│       ├── components/
+│       ├── views/
+│       ├── hooks/
+│       └── lib/
+│
+└── infrastructure/
+    ├── docker/               # docker-compose.yml
+    ├── helm/
+    ├── k8s/
+    └── observability/
+```
+
+---
+
+## Go Module Paths
+
+```
+github.com/YHQZ1/kprobe/shared
+github.com/YHQZ1/kprobe/engine
+github.com/YHQZ1/kprobe/replay
+github.com/YHQZ1/kprobe/api
+```
+
+Each service imports shared via:
+```go
+require github.com/YHQZ1/kprobe/shared v0.0.0
+replace github.com/YHQZ1/kprobe/shared => ../shared
+```
+
+---
+
+## Local Ports
+
+| Service    | Port |
+| ---------- | ---- |
+| API (gRPC) | 8080 |
+| Web        | 5173 |
+| Kafka      | 9092 |
+| ClickHouse | 8123 |
+| Neo4j      | 7474 |
+| Neo4j Bolt | 7687 |
+
+---
+
+## Make Commands
+
+```bash
+make infra          # start Kafka, ClickHouse, Neo4j
+make infra-down     # stop infrastructure
+make engine         # run causal engine natively
+make api            # run API server natively
+make replay         # run replay engine natively
+make probe          # build eBPF probe
+make probe-run      # run eBPF probe (needs sudo)
+make web            # start frontend dev server
+make build          # build all Go services
+make test           # run all tests
+make fmt            # format all code
+make clean          # remove build artifacts
+make help           # show all commands
+```
+
+---
+
+## Kernel Hooks (eBPF tracepoints)
+
+| Hook            | What it captures                        |
+| --------------- | --------------------------------------- |
+| `tcp_sendmsg`   | TCP send — network packet timing        |
+| `tcp_recvmsg`   | TCP receive — network packet timing     |
+| `sys_read`      | Syscall read — database read latency    |
+| `sys_write`     | Syscall write — database write latency  |
+| `sched_switch`  | CPU scheduling decisions                |
+| `mm_page_fault` | Memory pressure events                  |
+
+---
+
+## Financial Domain Primitives (shared/domain)
+
+- `Settlement` — trade settlement with state machine (Pending → Clearing → Settled → Failed)
+- `Order` — financial order (symbol, side, qty, price)
+- `LedgerEntry` — append-only financial record
+- `SettlementState` — enum for settlement lifecycle
+- `OrderSide` — Buy / Sell
+
+---
+
+## Event Types (shared/types)
+
+- `KernelEvent` — raw eBPF event (TimestampNs, PID, TID, CPU, EventType)
+- `EventType` — enum: TCPSend, TCPRecv, SyscallRead, SyscallWrite, SchedSwitch, PageFault
+
+---
+
+## Always Check progress.md First
+
+Before writing any code or making any suggestion, always read `progress.md` to understand the current state of the project. It tracks what is done, what is in progress, and what is next. Do not assume anything is implemented unless it is marked complete in `progress.md`.
