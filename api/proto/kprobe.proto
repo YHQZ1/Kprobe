@@ -1,0 +1,63 @@
+syntax = "proto3";
+
+package kprobe;
+
+option go_package = "github.com/YHQZ1/kprobe/api/proto";
+
+message KernelEventProto {
+  string  event_id       = 1;
+  uint64  timestamp_ns   = 2;
+  uint32  pid            = 3;
+  string  event_type     = 4;
+  string  transaction_id = 5;
+  string  service_name   = 6;
+  string  trace_id       = 7;
+}
+
+message CausalEdgeProto {
+  string from_event_id   = 1;
+  string to_event_id     = 2;
+  string cause_type      = 3;
+  uint64 latency_ns      = 4;
+  string transaction_id  = 5;
+  string service_name    = 6;
+}
+
+message QueryCausalChainRequest {
+  string transaction_id = 1;
+}
+
+message QueryCausalChainResponse {
+  repeated KernelEventProto nodes = 1;
+  repeated CausalEdgeProto  edges = 2;
+}
+
+message QueryEventsRequest {
+  string transaction_id = 1;
+}
+
+message QueryEventsResponse {
+  repeated KernelEventProto events = 1;
+}
+
+message QueryTimeRangeRequest {
+  uint64 from_ns = 1;
+  uint64 to_ns   = 2;
+}
+
+message QueryTimeRangeResponse {
+  repeated KernelEventProto events = 1;
+}
+
+message StreamEventsRequest {}
+
+message StreamEventsResponse {
+  KernelEventProto event = 1;
+}
+
+service KprobeService {
+  rpc QueryCausalChain (QueryCausalChainRequest)   returns (QueryCausalChainResponse);
+  rpc QueryEvents      (QueryEventsRequest)         returns (QueryEventsResponse);
+  rpc QueryTimeRange   (QueryTimeRangeRequest)      returns (QueryTimeRangeResponse);
+  rpc StreamEvents     (StreamEventsRequest)         returns (stream StreamEventsResponse);
+}
