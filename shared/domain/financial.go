@@ -1,35 +1,41 @@
 package domain
 
 type Settlement struct {
-ID       string
-OrderID  string
-Amount   int64
-Currency string
-State    SettlementState
+	ID       string
+	OrderID  string
+	Amount   int64
+	Currency string
+	State    SettlementState
 }
 
 type SettlementState uint8
 
 const (
-SettlementStatePending  SettlementState = iota
-SettlementStateClearing
-SettlementStateSettled
-SettlementStateFailSett
-type Order type Order type OrderngtSymbol typing
-Side   OSide  e
-nt64
-PricePintPric
-typtyptyptyptyptyptyptyptyptypOrderSideBuy  OrderSide = iota
-OrderSidOrder)
-OypeOypeOypeOypeOypeOypeOypeOype shared/OypeOypttlemeOypeOypeOypeOypeOypeOypeOypeOype shared/OypeOypttlemeOypeOypeOyp64OypeOypeOypeOypeOyengOypeOypeOypeOy'
-OypeOypeOypeOyYHOypeOypeOypeOy
-gggggggggggggggggggthgggggggggggggggggggtsharedgggggggggggggggggggthgggggggggggggggggggtsharedgggggggggggggEOF
+	SettlementStatePending SettlementState = iota
+	SettlementStateClearing
+	SettlementStateSettled
+	SettlementStateFailed
+)
 
+type Order struct {
+	ID       string
+	Symbol   string
+	Side     OrderSide
+	Quantity int64
+	Price    int64
+}
 
-ggggggggggggggggggo <ggggOF'
-package main
+type OrderSide uint8
 
-import "log"
+const (
+	OrderSideBuy OrderSide = iota
+	OrderSideSell
+)
 
-func main()func main()func("kfunc main()func maing.func main()func main(lifunc main()func maifka consumer, run causal inference engine
+type LedgerEntry struct {
+	ID          string
+	AccountID   string
+	Amount      int64
+	Currency    string
+	Description string
 }
