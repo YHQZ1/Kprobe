@@ -1,8 +1,16 @@
 #![no_std]
 #![no_main]
 
-use aya_ebpf::{macros::kprobe, programs::ProbeContext};
-use aya_log_ebpf::info;
+use aya_ebpf::{
+    helpers::{bpf_get_current_pid_tgid, bpf_ktime_get_ns, bpf_get_smp_processor_id},
+    macros::{kprobe, map},
+    maps::RingBuf,
+    programs::ProbeContext,
+};
+use probe_common::{TcpEvent, EventType};
+
+#[map]
+static EVENTS: RingBuf = RingBuf::with_byte_size(256 * 1024, 0);
 
 #[kprobe]
 pub fn probe(ctx: ProbeContext) -> u32 {
@@ -13,7 +21,26 @@ pub fn probe(ctx: ProbeContext) -> u32 {
 }
 
 fn try_probe(ctx: ProbeContext) -> Result<u32, u32> {
-    info!(&ctx, "kprobe called");
+    let pid_tgid = unsafe { bpf_get_current_pid_tgid() };
+    let pid = (pid_tgid >> 32) as u32;
+    let tid = pid_tgid as u32;
+    let timestamp_ns = unsafe { bpf_ktime_get_ns() };
+    let cpu = unsafe { bpf_get_smp_processor_id() };
+
+    let event = TcpEvent {
+        pid,
+        tid,
+        cpu,
+        timestamp_ns,
+        data_len: 0,
+        event_type: EventType::TcpSend,
+    };
+
+    if let Some(mut entry) = EVENTS.reserve::<TcpEvent>(0) {
+        unsafe { (*entry.as_mut_ptr()) = event };
+        entry.submit(0);
+    }
+
     Ok(0)
 }
 
