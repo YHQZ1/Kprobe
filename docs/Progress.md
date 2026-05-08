@@ -57,21 +57,17 @@
 
 ---
 
-## In Progress
-
 ### Phase 2 — Causal Intelligence
 
-- [ ] Causal graph engine v1 — event windowing
-- [ ] Causal inference — draw edges between causally related events
-- [ ] Neo4j graph model — node and edge schema
-- [ ] Cypher query library — traverse causal chain from any event
-- [ ] Financial domain primitives in engine — settlement boundaries, clearing windows
-- [ ] gRPC API server — proto definitions
-- [ ] gRPC handlers — query causal graph, stream live events
+- [x] Causal graph engine v1 — event windowing
+- [x] Causal inference — draw edges between causally related events
+- [x] Neo4j graph model — node and edge schema
+- [x] Cypher query library — traverse causal chain from any event
+- [x] Financial domain primitives in engine — settlement boundaries, clearing windows
+- [x] gRPC API server — proto definitions
+- [x] gRPC handlers — query causal graph, stream live events
 
----
-
-## Not Started
+## In Progress
 
 ### Phase 3 — Frontend
 
@@ -80,6 +76,10 @@
 - [ ] ECharts timeline view — nanosecond precision, zoomable
 - [ ] WebSocket hook — live event streaming from API
 - [ ] Replay panel UI
+
+---
+
+## Not Started
 
 ### Phase 4 — Replay
 

@@ -388,18 +388,18 @@ kubectl port-forward svc/kprobe-dashboard 3000:3000 -n monitoring
 
 ### Phase 1 — Core Pipeline
 
-- [ ] eBPF probe: TCP, database write, CPU scheduling, and memory pressure hooks
-- [ ] Rust/Aya userspace loader with ring buffer management
-- [ ] Kafka pipeline with topic-per-event-type schema
-- [ ] Vector correlation layer joining eBPF events with OpenTelemetry traces
-- [ ] ClickHouse ingestion pipeline and time series schema
+- [X] eBPF probe: TCP, database write, CPU scheduling, and memory pressure hooks
+- [X] Rust/Aya userspace loader with ring buffer management
+- [X] Kafka pipeline with topic-per-event-type schema
+- [X] Vector correlation layer joining eBPF events with OpenTelemetry traces
+- [X] ClickHouse ingestion pipeline and time series schema
 
 ### Phase 2 — Causal Intelligence
 
-- [ ] Causal graph engine v1 — event windowing and causal inference
-- [ ] Neo4j graph model and Cypher query library
-- [ ] Financial domain primitives — settlement boundaries, clearing windows, ledger writes
-- [ ] gRPC API server with streaming support
+- [X] Causal graph engine v1 — event windowing and causal inference
+- [X] Neo4j graph model and Cypher query library
+- [X] Financial domain primitives — settlement boundaries, clearing windows, ledger writes
+- [X] gRPC API server with streaming support
 
 ### Phase 3 — Frontend
 
