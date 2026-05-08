@@ -5,7 +5,7 @@ use aya::{
 };
 use aya_log::EbpfLogger;
 use log::{info, warn, debug};
-use probe_common::{TcpEvent, EventType, SchedEvent};
+use probe_common::{TcpEvent, EventType, SchedEvent, SyscallEvent, SyscallEventType};
 use tokio::signal;
 use rdkafka::config::ClientConfig;
 use rdkafka::producer::{FutureProducer, FutureRecord};
@@ -52,7 +52,11 @@ async fn main() -> anyhow::Result<()> {
     sched_prog.load()?;
     sched_prog.attach("sched", "sched_switch")?;
 
-    info!("kprobes attached to tcp_sendmsg, tcp_recvmsg, sched_switch");
+    let write_prog: &mut KProbe = ebpf.program_mut("probe_sys_write").unwrap().try_into()?;
+    write_prog.load()?;
+    write_prog.attach("ksys_write", 0)?;
+
+    info!("kprobes attached to tcp_sendmsg, tcp_recvmsg, sched_switch, ksys_write");
 
     let send_map = ebpf.take_map("EVENTS_SEND").unwrap();
     let mut send_buf = RingBuf::try_from(send_map)?;
@@ -62,6 +66,9 @@ async fn main() -> anyhow::Result<()> {
 
     let sched_map = ebpf.take_map("EVENTS_SCHED").unwrap();
     let mut sched_buf = RingBuf::try_from(sched_map)?;
+
+    let write_map = ebpf.take_map("EVENTS_WRITE").unwrap();
+    let mut write_buf = RingBuf::try_from(write_map)?;
 
     let ctrl_c = signal::ctrl_c();
     tokio::pin!(ctrl_c);
@@ -137,6 +144,31 @@ async fn main() -> anyhow::Result<()> {
                         .key(&key);
                     match producer.send(record, Duration::from_secs(0)).await {
                         Ok(_) => info!("published sched event prev_pid={} next_pid={}", event.prev_pid, event.next_pid),
+                        Err((e, _)) => warn!("kafka publish failed: {e}"),
+                    }
+                }
+
+                while let Some(item) = write_buf.next() {
+                    let event = unsafe { &*(item.as_ptr() as *const SyscallEvent) };
+                    let event_type = match event.event_type {
+                        SyscallEventType::SysWrite => "SYS_WRITE",
+                        SyscallEventType::SysRead => "SYS_READ",
+                    };
+                    let payload = serde_json::json!({
+                        "pid": event.pid,
+                        "tid": event.tid,
+                        "cpu": event.cpu,
+                        "timestamp_ns": event.timestamp_ns,
+                        "fd": event.fd,
+                        "count": event.count,
+                        "event_type": event_type,
+                    }).to_string();
+                    let key = event.pid.to_string();
+                    let record = FutureRecord::to("raw_kernel_events")
+                        .payload(&payload)
+                        .key(&key);
+                    match producer.send(record, Duration::from_secs(0)).await {
+                        Ok(_) => info!("published event pid={} type={} fd={} count={}", event.pid, event_type, event.fd, event.count),
                         Err((e, _)) => warn!("kafka publish failed: {e}"),
                     }
                 }

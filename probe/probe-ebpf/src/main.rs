@@ -7,7 +7,7 @@ use aya_ebpf::{
     maps::RingBuf,
     programs::{ProbeContext, TracePointContext},
 };
-use probe_common::{TcpEvent, EventType, SchedEvent};
+use probe_common::{TcpEvent, EventType, SchedEvent, SyscallEvent, SyscallEventType};
 
 #[map]
 static EVENTS_SEND: RingBuf = RingBuf::with_byte_size(256 * 1024, 0);
@@ -17,6 +17,9 @@ static EVENTS_RECV: RingBuf = RingBuf::with_byte_size(256 * 1024, 0);
 
 #[map]
 static EVENTS_SCHED: RingBuf = RingBuf::with_byte_size(256 * 1024, 0);
+
+#[map]
+static EVENTS_WRITE: RingBuf = RingBuf::with_byte_size(256 * 1024, 0);
 
 #[kprobe]
 pub fn probe_tcp_send(ctx: ProbeContext) -> u32 {
@@ -37,6 +40,14 @@ pub fn probe_tcp_recv(ctx: ProbeContext) -> u32 {
 #[tracepoint]
 pub fn probe_sched_switch(ctx: TracePointContext) -> u32 {
     match try_sched_switch(ctx) {
+        Ok(ret) => ret,
+        Err(ret) => ret,
+    }
+}
+
+#[kprobe]
+pub fn probe_sys_write(ctx: ProbeContext) -> u32 {
+    match try_sys_write(ctx) {
         Ok(ret) => ret,
         Err(ret) => ret,
     }
@@ -109,6 +120,35 @@ fn try_sched_switch(ctx: TracePointContext) -> Result<u32, u32> {
     };
 
     if let Some(mut entry) = EVENTS_SCHED.reserve::<SchedEvent>(0) {
+        unsafe { (*entry.as_mut_ptr()) = event };
+        entry.submit(0);
+    }
+
+    Ok(0)
+}
+
+fn try_sys_write(ctx: ProbeContext) -> Result<u32, u32> {
+    let pid_tgid = bpf_get_current_pid_tgid();
+    let pid = (pid_tgid >> 32) as u32;
+    let tid = pid_tgid as u32;
+    let timestamp_ns = unsafe { bpf_ktime_get_ns() };
+    let cpu = unsafe { bpf_get_smp_processor_id() };
+
+    // sys_write(unsigned int fd, const char __user *buf, size_t count)
+    let fd: u32 = ctx.arg(0).unwrap_or(0);
+    let count: u64 = ctx.arg(2).unwrap_or(0);
+
+    let event = SyscallEvent {
+        pid,
+        tid,
+        cpu,
+        timestamp_ns,
+        fd,
+        count,
+        event_type: SyscallEventType::SysWrite,
+    };
+
+    if let Some(mut entry) = EVENTS_WRITE.reserve::<SyscallEvent>(0) {
         unsafe { (*entry.as_mut_ptr()) = event };
         entry.submit(0);
     }
