@@ -67,6 +67,27 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+  
+  # ─── Vector ────────────────────────────────────────────────────────────────
+  vector:
+    image: timberio/vector:0.38.0-debian
+    container_name: kprobe-vector
+    ports:
+      - "4317:4317"   # OTel gRPC receiver
+      - "8686:8686"   # Vector API
+    volumes:
+      - ../../infrastructure/vector/vector.toml:/etc/vector/vector.toml:ro
+    command: ["--config", "/etc/vector/vector.toml"]
+    depends_on:
+      kafka:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8686/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   kafka-data:

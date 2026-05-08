@@ -91,6 +91,9 @@ endpoint = "http://localhost:8123"
 database = "kprobe"
 table = "kernel_events"
 compression = "gzip"
+auth.strategy = "basic"
+auth.user = "kprobe"
+auth.password = "kprobe"
 
 [sinks.clickhouse.encoding]
 timestamp_format = "unix"
