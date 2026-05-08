@@ -24,6 +24,9 @@ static EVENTS_WRITE: RingBuf = RingBuf::with_byte_size(256 * 1024, 0);
 #[map]
 static EVENTS_PAGE_FAULT: RingBuf = RingBuf::with_byte_size(256 * 1024, 0);
 
+#[map]
+static EVENTS_READ: RingBuf = RingBuf::with_byte_size(256 * 1024, 0);
+
 #[kprobe]
 pub fn probe_tcp_send(ctx: ProbeContext) -> u32 {
     match try_tcp_send(ctx) {
@@ -59,6 +62,14 @@ pub fn probe_sys_write(ctx: ProbeContext) -> u32 {
 #[tracepoint]
 pub fn probe_mm_page_fault(ctx: TracePointContext) -> u32 {
     match try_mm_page_fault(ctx) {
+        Ok(ret) => ret,
+        Err(ret) => ret,
+    }
+}
+
+#[kprobe]
+pub fn probe_sys_read(ctx: ProbeContext) -> u32 {
+    match try_sys_read(ctx) {
         Ok(ret) => ret,
         Err(ret) => ret,
     }
@@ -172,9 +183,6 @@ fn try_mm_page_fault(ctx: TracePointContext) -> Result<u32, u32> {
     let timestamp_ns = unsafe { bpf_ktime_get_ns() };
     let cpu = unsafe { bpf_get_smp_processor_id() };
 
-    // exceptions/page_fault_user and exceptions/page_fault_kernel format:
-    // offset 8:  address (u64) — the faulting virtual address
-    // offset 16: error_code (u64) — fault flags
     let address: u64 = unsafe { ctx.read_at(8).map_err(|_| 0u32)? };
     let flags: u64 = unsafe { ctx.read_at(16).map_err(|_| 0u32)? };
 
@@ -188,6 +196,33 @@ fn try_mm_page_fault(ctx: TracePointContext) -> Result<u32, u32> {
     };
 
     if let Some(mut entry) = EVENTS_PAGE_FAULT.reserve::<PageFaultEvent>(0) {
+        unsafe { (*entry.as_mut_ptr()) = event };
+        entry.submit(0);
+    }
+
+    Ok(0)
+}
+
+fn try_sys_read(ctx: ProbeContext) -> Result<u32, u32> {
+    let pid_tgid = bpf_get_current_pid_tgid();
+    let pid = (pid_tgid >> 32) as u32;
+    let tid = pid_tgid as u32;
+    let timestamp_ns = unsafe { bpf_ktime_get_ns() };
+    let cpu = unsafe { bpf_get_smp_processor_id() };
+    let fd: u32 = ctx.arg(0).unwrap_or(0);
+    let count: u64 = ctx.arg(2).unwrap_or(0);
+
+    let event = SyscallEvent {
+        pid,
+        tid,
+        cpu,
+        timestamp_ns,
+        fd,
+        count,
+        event_type: SyscallEventType::SysRead,
+    };
+
+    if let Some(mut entry) = EVENTS_READ.reserve::<SyscallEvent>(0) {
         unsafe { (*entry.as_mut_ptr()) = event };
         entry.submit(0);
     }

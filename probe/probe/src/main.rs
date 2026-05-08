@@ -60,7 +60,11 @@ async fn main() -> anyhow::Result<()> {
     page_fault_prog.load()?;
     page_fault_prog.attach("exceptions", "page_fault_user")?;
 
-    info!("probes attached to tcp_sendmsg, tcp_recvmsg, sched_switch, ksys_write, page_fault_user");
+    let read_prog: &mut KProbe = ebpf.program_mut("probe_sys_read").unwrap().try_into()?;
+    read_prog.load()?;
+    read_prog.attach("ksys_read", 0)?;
+
+    info!("probes attached to tcp_sendmsg, tcp_recvmsg, sched_switch, ksys_write, page_fault_user, ksys_read");
 
     let send_map = ebpf.take_map("EVENTS_SEND").unwrap();
     let mut send_buf = RingBuf::try_from(send_map)?;
@@ -76,6 +80,9 @@ async fn main() -> anyhow::Result<()> {
 
     let page_fault_map = ebpf.take_map("EVENTS_PAGE_FAULT").unwrap();
     let mut page_fault_buf = RingBuf::try_from(page_fault_map)?;
+
+    let read_map = ebpf.take_map("EVENTS_READ").unwrap();
+    let mut read_buf = RingBuf::try_from(read_map)?;
 
     let ctrl_c = signal::ctrl_c();
     tokio::pin!(ctrl_c);
@@ -197,6 +204,31 @@ async fn main() -> anyhow::Result<()> {
                         .key(&key);
                     match producer.send(record, Duration::from_secs(0)).await {
                         Ok(_) => info!("published page fault event pid={} addr={:#x}", event.pid, event.address),
+                        Err((e, _)) => warn!("kafka publish failed: {e}"),
+                    }
+                }
+
+                while let Some(item) = read_buf.next() {
+                    let event = unsafe { &*(item.as_ptr() as *const SyscallEvent) };
+                    let event_type = match event.event_type {
+                        SyscallEventType::SysWrite => "SYS_WRITE",
+                        SyscallEventType::SysRead => "SYS_READ",
+                    };
+                    let payload = serde_json::json!({
+                        "pid": event.pid,
+                        "tid": event.tid,
+                        "cpu": event.cpu,
+                        "timestamp_ns": event.timestamp_ns,
+                        "fd": event.fd,
+                        "count": event.count,
+                        "event_type": event_type,
+                    }).to_string();
+                    let key = event.pid.to_string();
+                    let record = FutureRecord::to("raw_kernel_events")
+                        .payload(&payload)
+                        .key(&key);
+                    match producer.send(record, Duration::from_secs(0)).await {
+                        Ok(_) => info!("published event pid={} type={} fd={} count={}", event.pid, event_type, event.fd, event.count),
                         Err((e, _)) => warn!("kafka publish failed: {e}"),
                     }
                 }
