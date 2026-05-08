@@ -26,16 +26,18 @@ engine/bin/
 replay/bin/
 api/bin/
 
-# ─── Node / React (web/) ─────────────────────────────────────────────────────
+# ─── Node / React ────────────────────────────────────────────────────────────
 node_modules/
 dist/
 build/
 .vite/
 *.local
 
-# Package manager locks (keep package-lock.json, ignore others)
+# Astro
+.astro/
+
+# Package manager locks (keep pnpm-lock.yaml and package-lock.json)
 yarn.lock
-pnpm-lock.yaml
 
 # ─── Environment & Secrets ───────────────────────────────────────────────────
 .env
