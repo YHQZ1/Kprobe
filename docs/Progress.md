@@ -10,7 +10,7 @@
 
 **Stage:** Phase 1 — Core Pipeline  
 **Last updated:** May 2026  
-**Next immediate task:** Implement `tcp_sendmsg` hook in `probe-ebpf/src/main.rs`
+**Next immediate task:** Vector config — join eBPF events with OTel traces on PID + timestamp
 
 ---
 
@@ -35,22 +35,28 @@
 - [x] Root `Makefile` with full dev workflow
 - [x] `README.md` — complete with architecture, tech stack, incident walkthrough, local dev guide
 
+### Phase 1 — Core Pipeline (Rust)
+
+- [x] eBPF probe: `tcp_sendmsg` hook
+- [x] eBPF probe: `tcp_recvmsg` hook
+- [x] eBPF probe: `sched_switch` hook
+- [x] eBPF probe: `sys_write` hook
+- [x] eBPF probe: `sys_read` hook
+- [x] eBPF probe: `mm_page_fault` hook
+- [x] Rust userspace loader — load eBPF programs via Aya
+- [x] Rust ring buffer management — read events from kernel
+- [x] Kafka producer — batch and stream events from userspace to Kafka
+- [x] Kafka topic schema — topic-per-event-type (`kernel.tcp`, `kernel.sched`, `kernel.syscall`, `kernel.fault`)
+- [x] `probe-common` split into per-type modules (`tcp.rs`, `sched.rs`, `syscall.rs`, `fault.rs`)
+- [x] `probe-ebpf` split into per-hook modules (`tcp.rs`, `sched.rs`, `syscall.rs`, `fault.rs`)
+- [x] Userspace agent split into `main.rs` (startup + attach) and `publisher.rs` (drain + publish)
+
 ---
 
 ## In Progress
 
-### Phase 1 — Core Pipeline
+### Phase 1 — Core Pipeline (Go + Infrastructure)
 
-- [ ] eBPF probe: `tcp_sendmsg` hook
-- [ ] eBPF probe: `sched_switch` hook
-- [ ] eBPF probe: `sys_write` hook
-- [ ] eBPF probe: `mm_page_fault` hook
-- [ ] eBPF probe: `tcp_recvmsg` hook
-- [ ] eBPF probe: `sys_read` hook
-- [ ] Rust userspace loader — load eBPF programs via Aya
-- [ ] Rust ring buffer management — read events from kernel
-- [ ] Kafka producer — batch and stream events from userspace to Kafka
-- [ ] Kafka topic schema — topic-per-event-type
 - [ ] Vector config — join eBPF events with OTel traces on PID + timestamp
 - [ ] ClickHouse schema — time series table for raw kernel events
 - [ ] ClickHouse ingestion pipeline in Go engine
@@ -99,15 +105,19 @@
 
 ## Architecture Decisions Log
 
-| Decision             | Choice                                | Reason                                                             |
+| Decision | Choice | Reason |
 | -------------------- | ------------------------------------- | ------------------------------------------------------------------ |
-| eBPF language        | Pure Rust/Aya                         | Memory safe, no C, Aya handles verifier constraints                |
-| Go module structure  | Separate modules + go.work            | Services deploy independently, shared code via explicit dependency |
-| Kafka mode           | KRaft (no Zookeeper)                  | Simpler ops, one less service                                      |
-| Raw event storage    | ClickHouse                            | Columnar, handles billions of timestamped rows                     |
-| Causal graph storage | Neo4j                                 | Native graph traversal for cause-effect chains                     |
-| OTel correlation     | Vector                                | Joins eBPF events with traces on PID + timestamp                   |
-| Dev model            | Split (infra Docker, services native) | Fast iteration, no Docker rebuilds                                 |
+| eBPF language | Pure Rust/Aya | Memory safe, no C, Aya handles verifier constraints |
+| Go module structure | Separate modules + go.work | Services deploy independently, shared code via explicit dependency |
+| Kafka mode | KRaft (no Zookeeper) | Simpler ops, one less service |
+| Kafka topics | topic-per-event-type | Clean separation, Go engine subscribes only to what it needs |
+| Raw event storage | ClickHouse | Columnar, handles billions of timestamped rows |
+| Causal graph storage | Neo4j | Native graph traversal for cause-effect chains |
+| OTel correlation | Vector | Joins eBPF events with traces on PID + timestamp |
+| Dev model | Split (infra Docker, services native) | Fast iteration, no Docker rebuilds |
+| probe-common structure | Per-type modules | Clean separation, each type owns its own file |
+| probe-ebpf structure | Per-hook modules | Each hook isolated, easy to add new hooks |
+| Userspace agent structure | main.rs + publisher.rs | Startup/attach separated from drain/publish logic |
 
 ---
 
@@ -123,3 +133,4 @@ _None currently._
 - `probe-run` requires `sudo` — eBPF programs need elevated privileges to load into the kernel.
 - Neo4j password is `kprobe_secret` — change before any real deployment.
 - `go.work` is committed — makes local development easier. CI builds ignore it and use the `replace` directives in individual `go.mod` files.
+- Kafka topics: `kernel.tcp`, `kernel.sched`, `kernel.syscall`, `kernel.fault` — one topic per event category.
