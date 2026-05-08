@@ -7,6 +7,9 @@ use aya_log::EbpfLogger;
 use log::{info, warn, debug};
 use probe_common::{TcpEvent, EventType};
 use tokio::signal;
+use rdkafka::config::ClientConfig;
+use rdkafka::producer::{FutureProducer, FutureRecord};
+use std::time::Duration;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -20,6 +23,14 @@ async fn main() -> anyhow::Result<()> {
     if ret != 0 {
         debug!("remove limit on locked memory failed, ret is: {ret}");
     }
+
+    // Setup Kafka producer
+    let producer: FutureProducer = ClientConfig::new()
+        .set("bootstrap.servers", "localhost:9092")
+        .set("message.timeout.ms", "5000")
+        .create()?;
+
+    info!("Kafka producer connected to localhost:9092");
 
     let mut ebpf = Ebpf::load(aya::include_bytes_aligned!(concat!(
         env!("OUT_DIR"),
@@ -56,16 +67,28 @@ async fn main() -> anyhow::Result<()> {
                         EventType::TcpSend => "TCP_SEND",
                         EventType::TcpRecv => "TCP_RECV",
                     };
-                    info!(
-                        "pid={} tid={} cpu={} timestamp_ns={} type={}",
-                        event.pid,
-                        event.tid,
-                        event.cpu,
-                        event.timestamp_ns,
-                        event_type
-                    );
+
+                    // Serialize to JSON
+                    let payload = serde_json::json!({
+                        "pid": event.pid,
+                        "tid": event.tid,
+                        "cpu": event.cpu,
+                        "timestamp_ns": event.timestamp_ns,
+                        "data_len": event.data_len,
+                        "event_type": event_type,
+                    }).to_string();
+
+                    let key = event.pid.to_string();
+                    let record = FutureRecord::to("raw_kernel_events")
+                        .payload(&payload)
+                        .key(&key);
+
+                    match producer.send(record, Duration::from_secs(0)).await {
+                        Ok(_) => info!("published event pid={} type={}", event.pid, event_type),
+                        Err((e, _)) => warn!("kafka publish failed: {e}"),
+                    }
                 }
-                tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+                tokio::time::sleep(Duration::from_millis(10)).await;
             }
         }
     }
