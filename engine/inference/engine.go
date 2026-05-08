@@ -2,7 +2,6 @@ package inference
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"time"
 
@@ -12,16 +11,10 @@ import (
 )
 
 const (
-	// Time window to group related events together
-	windowDuration = 100 * time.Millisecond
-
-	// If two events share a PID and are within this threshold
-	// the earlier one is considered a cause of the later one
-	causalThresholdNs = 50_000_000 // 50ms in nanoseconds
+	windowDuration    = 100 * time.Millisecond
+	causalThresholdNs = 50_000_000
 )
 
-// CausalEngine consumes enriched events, groups them into
-// time windows, and draws causal edges between related events
 type CausalEngine struct {
 	graph  *graph.Neo4jStore
 	window []consumer.EnrichedEvent
@@ -40,12 +33,10 @@ func NewCausalEngine(g *graph.Neo4jStore) *CausalEngine {
 	}
 }
 
-// Ingest adds an event to the engine's input channel
 func (e *CausalEngine) Ingest(event consumer.EnrichedEvent) {
 	e.input <- event
 }
 
-// Run starts the event processing loop
 func (e *CausalEngine) Run(ctx context.Context) {
 	for {
 		select {
@@ -65,7 +56,6 @@ func (e *CausalEngine) Run(ctx context.Context) {
 	}
 }
 
-// flush processes all events in the current window
 func (e *CausalEngine) flush(ctx context.Context) {
 	events := make([]consumer.EnrichedEvent, len(e.window))
 	copy(events, e.window)
@@ -76,15 +66,15 @@ func (e *CausalEngine) flush(ctx context.Context) {
 	}
 }
 
-// processWindow writes nodes and infers causal edges for a batch of events
 func (e *CausalEngine) processWindow(ctx context.Context, events []consumer.EnrichedEvent) error {
-	// Write all events as nodes first
 	nodeIDs := make(map[int]string)
+	nodes := make([]graph.CausalNode, 0, len(events))
+
 	for i, event := range events {
 		id := uuid.New().String()
 		nodeIDs[i] = id
 
-		node := graph.CausalNode{
+		nodes = append(nodes, graph.CausalNode{
 			EventID:       id,
 			TimestampNs:   event.TimestampNs,
 			PID:           event.PID,
@@ -92,14 +82,11 @@ func (e *CausalEngine) processWindow(ctx context.Context, events []consumer.Enri
 			TransactionID: event.TransactionID,
 			ServiceName:   event.ServiceName,
 			TraceID:       event.TraceID,
-		}
-
-		if err := e.graph.WriteNode(ctx, node); err != nil {
-			return fmt.Errorf("failed to write node: %w", err)
-		}
+		})
 	}
 
-	// Infer causal edges between events
+	edges := make([]graph.CausalEdge, 0)
+
 	for i := 0; i < len(events); i++ {
 		for j := i + 1; j < len(events); j++ {
 			a := events[i]
@@ -110,32 +97,23 @@ func (e *CausalEngine) processWindow(ctx context.Context, events []consumer.Enri
 				continue
 			}
 
-			latencyNs := b.TimestampNs - a.TimestampNs
-
-			edge := graph.CausalEdge{
+			edges = append(edges, graph.CausalEdge{
 				FromEventID:   nodeIDs[i],
 				ToEventID:     nodeIDs[j],
 				FromTimestamp: a.TimestampNs,
 				ToTimestamp:   b.TimestampNs,
 				CauseType:     causeType,
-				LatencyNs:     latencyNs,
+				LatencyNs:     b.TimestampNs - a.TimestampNs,
 				TransactionID: a.TransactionID,
 				ServiceName:   a.ServiceName,
-			}
-
-			if err := e.graph.WriteEdge(ctx, edge); err != nil {
-				return fmt.Errorf("failed to write edge: %w", err)
-			}
+			})
 		}
 	}
 
-	return nil
+	return e.graph.WriteBatch(ctx, nodes, edges)
 }
 
-// inferCause determines if event a causally led to event b
-// returns the cause type string or empty string if no causal relationship
 func inferCause(a, b consumer.EnrichedEvent) string {
-	// Must be within causal time threshold
 	if b.TimestampNs <= a.TimestampNs {
 		return ""
 	}
@@ -143,22 +121,18 @@ func inferCause(a, b consumer.EnrichedEvent) string {
 		return ""
 	}
 
-	// Same transaction — strong causal signal
 	if a.TransactionID != "unknown" && a.TransactionID == b.TransactionID {
 		return causalTypeFromTopics(a.SourceTopic, b.SourceTopic)
 	}
 
-	// Same PID — weaker but still causal
 	if a.PID == b.PID {
 		return causalTypeFromTopics(a.SourceTopic, b.SourceTopic)
 	}
 
-	// Scheduler switch followed by syscall — classic kernel delay pattern
 	if a.SourceTopic == "kernel.sched" && isSyscall(b.SourceTopic) {
 		return "SCHED_DELAY"
 	}
 
-	// Page fault followed by syscall — memory pressure pattern
 	if a.SourceTopic == "kernel.fault" && isSyscall(b.SourceTopic) {
 		return "MEMORY_PRESSURE"
 	}
@@ -187,7 +161,6 @@ func isSyscall(topic string) bool {
 	return topic == "kernel.syscall"
 }
 
-// Wait blocks until the engine has fully shut down
 func (e *CausalEngine) Wait() {
 	<-e.done
 }

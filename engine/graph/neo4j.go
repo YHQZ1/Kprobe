@@ -112,6 +112,58 @@ func (s *Neo4jStore) WriteEdge(ctx context.Context, edge CausalEdge) error {
 	return nil
 }
 
+func (s *Neo4jStore) WriteBatch(ctx context.Context, nodes []CausalNode, edges []CausalEdge) error {
+	session := s.driver.NewSession(ctx, neo4j.SessionConfig{})
+	defer session.Close(ctx)
+
+	_, err := session.ExecuteWrite(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
+		for _, node := range nodes {
+			_, err := tx.Run(ctx, `
+                MERGE (e:KernelEvent {event_id: $event_id})
+                SET e.timestamp_ns  = $timestamp_ns,
+                    e.pid           = $pid,
+                    e.event_type    = $event_type,
+                    e.transaction_id = $transaction_id,
+                    e.service_name  = $service_name,
+                    e.trace_id      = $trace_id
+            `, map[string]any{
+				"event_id":       node.EventID,
+				"timestamp_ns":   node.TimestampNs,
+				"pid":            node.PID,
+				"event_type":     node.EventType,
+				"transaction_id": node.TransactionID,
+				"service_name":   node.ServiceName,
+				"trace_id":       node.TraceID,
+			})
+			if err != nil {
+				return nil, err
+			}
+		}
+		for _, edge := range edges {
+			_, err := tx.Run(ctx, `
+                MATCH (from:KernelEvent {event_id: $from_id})
+                MATCH (to:KernelEvent   {event_id: $to_id})
+                MERGE (from)-[r:CAUSED {cause_type: $cause_type}]->(to)
+                SET r.latency_ns     = $latency_ns,
+                    r.transaction_id = $transaction_id,
+                    r.service_name   = $service_name
+            `, map[string]any{
+				"from_id":        edge.FromEventID,
+				"to_id":          edge.ToEventID,
+				"cause_type":     edge.CauseType,
+				"latency_ns":     edge.LatencyNs,
+				"transaction_id": edge.TransactionID,
+				"service_name":   edge.ServiceName,
+			})
+			if err != nil {
+				return nil, err
+			}
+		}
+		return nil, nil
+	})
+	return err
+}
+
 func (s *Neo4jStore) QueryCausalChain(ctx context.Context, transactionID string) ([]CausalNode, []CausalEdge, error) {
 	session := s.driver.NewSession(ctx, neo4j.SessionConfig{})
 	defer session.Close(ctx)
