@@ -103,20 +103,20 @@
 
 ## Architecture Decisions Log
 
-| Decision | Choice | Reason |
-| -------------------- | ------------------------------------- | ------------------------------------------------------------------ |
-| eBPF language | Pure Rust/Aya | Memory safe, no C, Aya handles verifier constraints |
-| Go module structure | Separate modules + go.work | Services deploy independently, shared code via explicit dependency |
-| Kafka mode | KRaft (no Zookeeper) | Simpler ops, one less service |
-| Kafka topics | topic-per-event-type | Clean separation, Go engine subscribes only to what it needs |
-| Raw event storage | ClickHouse | Columnar, handles billions of timestamped rows |
-| Causal graph storage | Neo4j | Native graph traversal for cause-effect chains |
-| OTel correlation | Vector | Joins eBPF events with traces on PID + timestamp |
-| Dev model | Split (infra Docker, services native) | Fast iteration, no Docker rebuilds |
-| probe-common structure | Per-type modules | Clean separation, each type owns its own file |
-| probe-ebpf structure | Per-hook modules | Each hook isolated, easy to add new hooks |
-| Userspace agent structure | main.rs + publisher.rs | Startup/attach separated from drain/publish logic |
-| Phase 1 ingestion | Vector ClickHouse sink | Vector handles Kafka → ClickHouse natively, no Go duplication needed |
+| Decision                  | Choice                                | Reason                                                               |
+| ------------------------- | ------------------------------------- | -------------------------------------------------------------------- |
+| eBPF language             | Pure Rust/Aya                         | Memory safe, no C, Aya handles verifier constraints                  |
+| Go module structure       | Separate modules + go.work            | Services deploy independently, shared code via explicit dependency   |
+| Kafka mode                | KRaft (no Zookeeper)                  | Simpler ops, one less service                                        |
+| Kafka topics              | topic-per-event-type                  | Clean separation, Go engine subscribes only to what it needs         |
+| Raw event storage         | ClickHouse                            | Columnar, handles billions of timestamped rows                       |
+| Causal graph storage      | Neo4j                                 | Native graph traversal for cause-effect chains                       |
+| OTel correlation          | Vector                                | Joins eBPF events with traces on PID + timestamp                     |
+| Dev model                 | Split (infra Docker, services native) | Fast iteration, no Docker rebuilds                                   |
+| probe-common structure    | Per-type modules                      | Clean separation, each type owns its own file                        |
+| probe-ebpf structure      | Per-hook modules                      | Each hook isolated, easy to add new hooks                            |
+| Userspace agent structure | main.rs + publisher.rs                | Startup/attach separated from drain/publish logic                    |
+| Phase 1 ingestion         | Vector ClickHouse sink                | Vector handles Kafka → ClickHouse natively, no Go duplication needed |
 
 ---
 
