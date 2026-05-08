@@ -23,5 +23,19 @@ pub enum EventType {
     TcpRecv = 1,
 }
 
+#[repr(C)]
+#[derive(Clone, Copy)]
+#[cfg_attr(feature = "user", derive(Serialize, Deserialize))]
+pub struct SchedEvent {
+    pub cpu: u32,
+    pub timestamp_ns: u64,
+    pub prev_pid: u32,
+    pub next_pid: u32,
+    pub prev_state: u64,
+}
+
 #[cfg(feature = "user")]
 unsafe impl aya::Pod for TcpEvent {}
+
+#[cfg(feature = "user")]
+unsafe impl aya::Pod for SchedEvent {}
