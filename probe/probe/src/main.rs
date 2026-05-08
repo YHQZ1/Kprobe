@@ -5,7 +5,7 @@ use aya::{
 };
 use aya_log::EbpfLogger;
 use log::{info, warn, debug};
-use probe_common::{TcpEvent, EventType, SchedEvent, SyscallEvent, SyscallEventType};
+use probe_common::{TcpEvent, EventType, SchedEvent, SyscallEvent, SyscallEventType, PageFaultEvent};
 use tokio::signal;
 use rdkafka::config::ClientConfig;
 use rdkafka::producer::{FutureProducer, FutureRecord};
@@ -56,7 +56,11 @@ async fn main() -> anyhow::Result<()> {
     write_prog.load()?;
     write_prog.attach("ksys_write", 0)?;
 
-    info!("kprobes attached to tcp_sendmsg, tcp_recvmsg, sched_switch, ksys_write");
+    let page_fault_prog: &mut TracePoint = ebpf.program_mut("probe_mm_page_fault").unwrap().try_into()?;
+    page_fault_prog.load()?;
+    page_fault_prog.attach("exceptions", "page_fault_user")?;
+
+    info!("probes attached to tcp_sendmsg, tcp_recvmsg, sched_switch, ksys_write, page_fault_user");
 
     let send_map = ebpf.take_map("EVENTS_SEND").unwrap();
     let mut send_buf = RingBuf::try_from(send_map)?;
@@ -69,6 +73,9 @@ async fn main() -> anyhow::Result<()> {
 
     let write_map = ebpf.take_map("EVENTS_WRITE").unwrap();
     let mut write_buf = RingBuf::try_from(write_map)?;
+
+    let page_fault_map = ebpf.take_map("EVENTS_PAGE_FAULT").unwrap();
+    let mut page_fault_buf = RingBuf::try_from(page_fault_map)?;
 
     let ctrl_c = signal::ctrl_c();
     tokio::pin!(ctrl_c);
@@ -169,6 +176,27 @@ async fn main() -> anyhow::Result<()> {
                         .key(&key);
                     match producer.send(record, Duration::from_secs(0)).await {
                         Ok(_) => info!("published event pid={} type={} fd={} count={}", event.pid, event_type, event.fd, event.count),
+                        Err((e, _)) => warn!("kafka publish failed: {e}"),
+                    }
+                }
+
+                while let Some(item) = page_fault_buf.next() {
+                    let event = unsafe { &*(item.as_ptr() as *const PageFaultEvent) };
+                    let payload = serde_json::json!({
+                        "pid": event.pid,
+                        "tid": event.tid,
+                        "cpu": event.cpu,
+                        "timestamp_ns": event.timestamp_ns,
+                        "address": event.address,
+                        "flags": event.flags,
+                        "event_type": "PAGE_FAULT",
+                    }).to_string();
+                    let key = event.pid.to_string();
+                    let record = FutureRecord::to("raw_kernel_events")
+                        .payload(&payload)
+                        .key(&key);
+                    match producer.send(record, Duration::from_secs(0)).await {
+                        Ok(_) => info!("published page fault event pid={} addr={:#x}", event.pid, event.address),
                         Err((e, _)) => warn!("kafka publish failed: {e}"),
                     }
                 }
