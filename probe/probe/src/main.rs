@@ -5,11 +5,11 @@ use aya::{
 };
 use aya_log::EbpfLogger;
 use log::{info, warn, debug};
-use probe_common::{TcpEvent, EventType, SchedEvent, SyscallEvent, SyscallEventType, PageFaultEvent};
 use tokio::signal;
 use rdkafka::config::ClientConfig;
-use rdkafka::producer::{FutureProducer, FutureRecord};
-use std::time::Duration;
+use rdkafka::producer::FutureProducer;
+
+mod publisher;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -94,146 +94,13 @@ async fn main() -> anyhow::Result<()> {
                 break;
             }
             else => {
-                while let Some(item) = send_buf.next() {
-                    let event = unsafe { &*(item.as_ptr() as *const TcpEvent) };
-                    let event_type = match event.event_type {
-                        EventType::TcpSend => "TCP_SEND",
-                        EventType::TcpRecv => "TCP_RECV",
-                    };
-                    let payload = serde_json::json!({
-                        "pid": event.pid,
-                        "tid": event.tid,
-                        "cpu": event.cpu,
-                        "timestamp_ns": event.timestamp_ns,
-                        "data_len": event.data_len,
-                        "event_type": event_type,
-                    }).to_string();
-                    let key = event.pid.to_string();
-                    let record = FutureRecord::to("raw_kernel_events")
-                        .payload(&payload)
-                        .key(&key);
-                    match producer.send(record, Duration::from_secs(0)).await {
-                        Ok(_) => info!("published event pid={} type={}", event.pid, event_type),
-                        Err((e, _)) => warn!("kafka publish failed: {e}"),
-                    }
-                }
-
-                while let Some(item) = recv_buf.next() {
-                    let event = unsafe { &*(item.as_ptr() as *const TcpEvent) };
-                    let event_type = match event.event_type {
-                        EventType::TcpSend => "TCP_SEND",
-                        EventType::TcpRecv => "TCP_RECV",
-                    };
-                    let payload = serde_json::json!({
-                        "pid": event.pid,
-                        "tid": event.tid,
-                        "cpu": event.cpu,
-                        "timestamp_ns": event.timestamp_ns,
-                        "data_len": event.data_len,
-                        "event_type": event_type,
-                    }).to_string();
-                    let key = event.pid.to_string();
-                    let record = FutureRecord::to("raw_kernel_events")
-                        .payload(&payload)
-                        .key(&key);
-                    match producer.send(record, Duration::from_secs(0)).await {
-                        Ok(_) => info!("published event pid={} type={}", event.pid, event_type),
-                        Err((e, _)) => warn!("kafka publish failed: {e}"),
-                    }
-                }
-
-                while let Some(item) = sched_buf.next() {
-                    let event = unsafe { &*(item.as_ptr() as *const SchedEvent) };
-                    let payload = serde_json::json!({
-                        "cpu": event.cpu,
-                        "timestamp_ns": event.timestamp_ns,
-                        "prev_pid": event.prev_pid,
-                        "next_pid": event.next_pid,
-                        "prev_state": event.prev_state,
-                        "event_type": "SCHED_SWITCH",
-                    }).to_string();
-                    let key = event.prev_pid.to_string();
-                    let record = FutureRecord::to("raw_kernel_events")
-                        .payload(&payload)
-                        .key(&key);
-                    match producer.send(record, Duration::from_secs(0)).await {
-                        Ok(_) => info!("published sched event prev_pid={} next_pid={}", event.prev_pid, event.next_pid),
-                        Err((e, _)) => warn!("kafka publish failed: {e}"),
-                    }
-                }
-
-                while let Some(item) = write_buf.next() {
-                    let event = unsafe { &*(item.as_ptr() as *const SyscallEvent) };
-                    let event_type = match event.event_type {
-                        SyscallEventType::SysWrite => "SYS_WRITE",
-                        SyscallEventType::SysRead => "SYS_READ",
-                    };
-                    let payload = serde_json::json!({
-                        "pid": event.pid,
-                        "tid": event.tid,
-                        "cpu": event.cpu,
-                        "timestamp_ns": event.timestamp_ns,
-                        "fd": event.fd,
-                        "count": event.count,
-                        "event_type": event_type,
-                    }).to_string();
-                    let key = event.pid.to_string();
-                    let record = FutureRecord::to("raw_kernel_events")
-                        .payload(&payload)
-                        .key(&key);
-                    match producer.send(record, Duration::from_secs(0)).await {
-                        Ok(_) => info!("published event pid={} type={} fd={} count={}", event.pid, event_type, event.fd, event.count),
-                        Err((e, _)) => warn!("kafka publish failed: {e}"),
-                    }
-                }
-
-                while let Some(item) = page_fault_buf.next() {
-                    let event = unsafe { &*(item.as_ptr() as *const PageFaultEvent) };
-                    let payload = serde_json::json!({
-                        "pid": event.pid,
-                        "tid": event.tid,
-                        "cpu": event.cpu,
-                        "timestamp_ns": event.timestamp_ns,
-                        "address": event.address,
-                        "flags": event.flags,
-                        "event_type": "PAGE_FAULT",
-                    }).to_string();
-                    let key = event.pid.to_string();
-                    let record = FutureRecord::to("raw_kernel_events")
-                        .payload(&payload)
-                        .key(&key);
-                    match producer.send(record, Duration::from_secs(0)).await {
-                        Ok(_) => info!("published page fault event pid={} addr={:#x}", event.pid, event.address),
-                        Err((e, _)) => warn!("kafka publish failed: {e}"),
-                    }
-                }
-
-                while let Some(item) = read_buf.next() {
-                    let event = unsafe { &*(item.as_ptr() as *const SyscallEvent) };
-                    let event_type = match event.event_type {
-                        SyscallEventType::SysWrite => "SYS_WRITE",
-                        SyscallEventType::SysRead => "SYS_READ",
-                    };
-                    let payload = serde_json::json!({
-                        "pid": event.pid,
-                        "tid": event.tid,
-                        "cpu": event.cpu,
-                        "timestamp_ns": event.timestamp_ns,
-                        "fd": event.fd,
-                        "count": event.count,
-                        "event_type": event_type,
-                    }).to_string();
-                    let key = event.pid.to_string();
-                    let record = FutureRecord::to("raw_kernel_events")
-                        .payload(&payload)
-                        .key(&key);
-                    match producer.send(record, Duration::from_secs(0)).await {
-                        Ok(_) => info!("published event pid={} type={} fd={} count={}", event.pid, event_type, event.fd, event.count),
-                        Err((e, _)) => warn!("kafka publish failed: {e}"),
-                    }
-                }
-
-                tokio::time::sleep(Duration::from_millis(10)).await;
+                publisher::drain_tcp(&mut send_buf, &producer).await;
+                publisher::drain_tcp(&mut recv_buf, &producer).await;
+                publisher::drain_sched(&mut sched_buf, &producer).await;
+                publisher::drain_syscall(&mut write_buf, &producer).await;
+                publisher::drain_syscall(&mut read_buf, &producer).await;
+                publisher::drain_page_fault(&mut page_fault_buf, &producer).await;
+                tokio::time::sleep(std::time::Duration::from_millis(10)).await;
             }
         }
     }
