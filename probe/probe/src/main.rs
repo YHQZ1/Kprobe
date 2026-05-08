@@ -24,7 +24,6 @@ async fn main() -> anyhow::Result<()> {
         debug!("remove limit on locked memory failed, ret is: {ret}");
     }
 
-    // Setup Kafka producer
     let producer: FutureProducer = ClientConfig::new()
         .set("bootstrap.servers", "localhost:9092")
         .set("message.timeout.ms", "5000")
@@ -41,13 +40,21 @@ async fn main() -> anyhow::Result<()> {
         warn!("failed to initialize eBPF logger: {e}");
     }
 
-    let program: &mut KProbe = ebpf.program_mut("probe").unwrap().try_into()?;
-    program.load()?;
-    program.attach("tcp_sendmsg", 0)?;
+    let send_prog: &mut KProbe = ebpf.program_mut("probe_tcp_send").unwrap().try_into()?;
+    send_prog.load()?;
+    send_prog.attach("tcp_sendmsg", 0)?;
 
-    info!("kprobe attached to tcp_sendmsg, waiting for events...");
+    let recv_prog: &mut KProbe = ebpf.program_mut("probe_tcp_recv").unwrap().try_into()?;
+    recv_prog.load()?;
+    recv_prog.attach("tcp_recvmsg", 0)?;
 
-    let mut ring_buf = RingBuf::try_from(ebpf.map_mut("EVENTS").unwrap())?;
+    info!("kprobes attached to tcp_sendmsg and tcp_recvmsg");
+
+    let send_map = ebpf.take_map("EVENTS_SEND").unwrap();
+    let mut send_buf = RingBuf::try_from(send_map)?;
+
+    let recv_map = ebpf.take_map("EVENTS_RECV").unwrap();
+    let mut recv_buf = RingBuf::try_from(recv_map)?;
 
     let ctrl_c = signal::ctrl_c();
     tokio::pin!(ctrl_c);
@@ -59,33 +66,35 @@ async fn main() -> anyhow::Result<()> {
                 break;
             }
             else => {
-                while let Some(item) = ring_buf.next() {
-                    let event = unsafe {
-                        &*(item.as_ptr() as *const TcpEvent)
-                    };
-                    let event_type = match event.event_type {
-                        EventType::TcpSend => "TCP_SEND",
-                        EventType::TcpRecv => "TCP_RECV",
-                    };
+                for (buf, label) in [
+                    (&mut send_buf as &mut RingBuf<_>, "TCP_SEND"),
+                    (&mut recv_buf as &mut RingBuf<_>, "TCP_RECV"),
+                ] {
+                    while let Some(item) = buf.next() {
+                        let event = unsafe { &*(item.as_ptr() as *const TcpEvent) };
+                        let event_type = match event.event_type {
+                            EventType::TcpSend => "TCP_SEND",
+                            EventType::TcpRecv => "TCP_RECV",
+                        };
 
-                    // Serialize to JSON
-                    let payload = serde_json::json!({
-                        "pid": event.pid,
-                        "tid": event.tid,
-                        "cpu": event.cpu,
-                        "timestamp_ns": event.timestamp_ns,
-                        "data_len": event.data_len,
-                        "event_type": event_type,
-                    }).to_string();
+                        let payload = serde_json::json!({
+                            "pid": event.pid,
+                            "tid": event.tid,
+                            "cpu": event.cpu,
+                            "timestamp_ns": event.timestamp_ns,
+                            "data_len": event.data_len,
+                            "event_type": event_type,
+                        }).to_string();
 
-                    let key = event.pid.to_string();
-                    let record = FutureRecord::to("raw_kernel_events")
-                        .payload(&payload)
-                        .key(&key);
+                        let key = event.pid.to_string();
+                        let record = FutureRecord::to("raw_kernel_events")
+                            .payload(&payload)
+                            .key(&key);
 
-                    match producer.send(record, Duration::from_secs(0)).await {
-                        Ok(_) => info!("published event pid={} type={}", event.pid, event_type),
-                        Err((e, _)) => warn!("kafka publish failed: {e}"),
+                        match producer.send(record, Duration::from_secs(0)).await {
+                            Ok(_) => info!("published event pid={} type={} label={}", event.pid, event_type, label),
+                            Err((e, _)) => warn!("kafka publish failed: {e}"),
+                        }
                     }
                 }
                 tokio::time::sleep(Duration::from_millis(10)).await;
