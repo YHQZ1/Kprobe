@@ -8,9 +8,9 @@
 
 ## Current Status
 
-**Stage:** Phase 1 — Core Pipeline  
+**Stage:** Phase 2 — Causal Intelligence  
 **Last updated:** May 2026  
-**Next immediate task:** Vector config — join eBPF events with OTel traces on PID + timestamp
+**Next immediate task:** Causal graph engine v1 — event windowing and causal inference in Go
 
 ---
 
@@ -31,11 +31,11 @@
   - `probe/probe-common/` — shared types
 - [x] React + Vite frontend scaffolded in `web/`
 - [x] Infrastructure folder structure (`infrastructure/docker/`, `helm/`, `k8s/`, `observability/`)
-- [x] `infrastructure/docker/docker-compose.yml` — Kafka (KRaft), ClickHouse, Neo4j
+- [x] `infrastructure/docker/docker-compose.yml` — Kafka (KRaft), ClickHouse, Neo4j, Vector
 - [x] Root `Makefile` with full dev workflow
 - [x] `README.md` — complete with architecture, tech stack, incident walkthrough, local dev guide
 
-### Phase 1 — Core Pipeline (Rust)
+### Phase 1 — Core Pipeline ✅ COMPLETE
 
 - [x] eBPF probe: `tcp_sendmsg` hook
 - [x] eBPF probe: `tcp_recvmsg` hook
@@ -50,20 +50,14 @@
 - [x] `probe-common` split into per-type modules (`tcp.rs`, `sched.rs`, `syscall.rs`, `fault.rs`)
 - [x] `probe-ebpf` split into per-hook modules (`tcp.rs`, `sched.rs`, `syscall.rs`, `fault.rs`)
 - [x] Userspace agent split into `main.rs` (startup + attach) and `publisher.rs` (drain + publish)
+- [x] Vector config — joins eBPF events with OTel traces on PID + timestamp
+- [x] Vector pipeline — routes enriched events to ClickHouse and `kernel.enriched` Kafka topic
+- [x] ClickHouse schema — `kprobe.kernel_events` time series table with bloom filter indexes
+- [x] Docker Compose — Kafka (KRaft), ClickHouse, Neo4j, Vector all wired together
 
 ---
 
 ## In Progress
-
-### Phase 1 — Core Pipeline (Go + Infrastructure)
-
-- [ ] Vector config — join eBPF events with OTel traces on PID + timestamp
-- [ ] ClickHouse schema — time series table for raw kernel events
-- [ ] ClickHouse ingestion pipeline in Go engine
-
----
-
-## Not Started
 
 ### Phase 2 — Causal Intelligence
 
@@ -74,6 +68,10 @@
 - [ ] Financial domain primitives in engine — settlement boundaries, clearing windows
 - [ ] gRPC API server — proto definitions
 - [ ] gRPC handlers — query causal graph, stream live events
+
+---
+
+## Not Started
 
 ### Phase 3 — Frontend
 
@@ -118,6 +116,7 @@
 | probe-common structure | Per-type modules | Clean separation, each type owns its own file |
 | probe-ebpf structure | Per-hook modules | Each hook isolated, easy to add new hooks |
 | Userspace agent structure | main.rs + publisher.rs | Startup/attach separated from drain/publish logic |
+| Phase 1 ingestion | Vector ClickHouse sink | Vector handles Kafka → ClickHouse natively, no Go duplication needed |
 
 ---
 
@@ -129,8 +128,10 @@ _None currently._
 
 ## Notes
 
-- eBPF requires Linux kernel 5.15+ with BTF support. Local dev on macOS will not run the probe — use a Linux VM or remote machine for probe testing.
+- eBPF requires Linux kernel 5.15+ with BTF support. Local dev on macOS will not run the probe — use Codespaces or a Linux VM for probe development and testing.
 - `probe-run` requires `sudo` — eBPF programs need elevated privileges to load into the kernel.
 - Neo4j password is `kprobe_secret` — change before any real deployment.
 - `go.work` is committed — makes local development easier. CI builds ignore it and use the `replace` directives in individual `go.mod` files.
 - Kafka topics: `kernel.tcp`, `kernel.sched`, `kernel.syscall`, `kernel.fault` — one topic per event category.
+- `kernel.enriched` — Vector output topic consumed by the Go causal engine.
+- Codespaces used for Rust/eBPF development — all other work done locally on Mac.
