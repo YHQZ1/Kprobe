@@ -1,0 +1,97 @@
+---
+import "../styles/global.css";
+import Navbar from "../components/Navbar.astro";
+import Footer from "../components/Footer.astro";
+
+interface Props {
+  title: string;
+  description?: string;
+}
+
+const {
+  title,
+  description = "Deep kernel observability for financial systems.",
+} = Astro.props;
+---
+
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content={description} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>{title} — kprobe</title>
+    <script is:inline>
+      (function () {
+        const saved = localStorage.getItem("kprobe-theme") || "dark";
+        document.documentElement.setAttribute("data-theme", saved);
+      })();
+    </script>
+    <style is:inline>
+      :root,
+      [data-theme="dark"] {
+        --bg: #0e0e0f;
+        --bg-subtle: #141415;
+        --bg-elevated: #1a1a1b;
+        --border: #242426;
+        --border-subtle: #1e1e20;
+        --text-primary: #f0eeeb;
+        --text-secondary: #a09e9b;
+        --text-muted: #5c5a57;
+        --accent: #f59e0b;
+        --accent-dim: rgba(245, 158, 11, 0.12);
+        --accent-dim-hover: rgba(245, 158, 11, 0.2);
+      }
+      [data-theme="light"] {
+        --bg: #f5f3f0;
+        --bg-subtle: #edeae6;
+        --bg-elevated: #e5e2de;
+        --border: #d0cdc8;
+        --border-subtle: #d8d5d0;
+        --text-primary: #0e0e0f;
+        --text-secondary: #4a4845;
+        --text-muted: #8a8784;
+        --accent: #d97706;
+        --accent-dim: rgba(217, 119, 6, 0.1);
+        --accent-dim-hover: rgba(217, 119, 6, 0.18);
+      }
+      html {
+        background-color: var(--bg);
+        color: var(--text-primary);
+      }
+      body {
+        background-color: var(--bg);
+        visibility: hidden;
+      }
+    </style>
+    <script is:inline>
+      document.addEventListener("DOMContentLoaded", () => {
+        document.body.style.visibility = "visible";
+      });
+    </script>
+  </head>
+  <body>
+    <Navbar />
+    <main>
+      <slot />
+    </main>
+    <Footer />
+  </body>
+</html>
+
+<style>
+  body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background-color: var(--bg);
+    color: var(--text-primary);
+    font-family: var(--font);
+  }
+
+  main {
+    flex: 1;
+    padding-top: 56px;
+  }
+</style>

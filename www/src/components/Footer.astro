@@ -1,0 +1,86 @@
+---
+const year = new Date().getFullYear();
+---
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-left">
+      <span class="footer-brand">kprobe</span>
+      <span class="footer-sep">—</span>
+      <span class="footer-tagline"
+        >Deep kernel observability for financial systems</span
+      >
+    </div>
+    <div class="footer-right">
+      <a href="/docs">Docs</a>
+      <a href="/compare">Compare</a>
+      <a href="/about">About</a>
+      <a
+        href="https://github.com/YHQZ1/kprobe"
+        target="_blank"
+        rel="noopener noreferrer">GitHub</a
+      >
+      <span class="footer-copy">© {year}</span>
+    </div>
+  </div>
+</footer>
+
+<style>
+  footer {
+    width: 100%;
+    border-top: 1px solid var(--border-subtle);
+    padding: 1.5rem 2rem;
+    margin-top: auto;
+  }
+
+  .footer-inner {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .footer-left {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.825rem;
+  }
+
+  .footer-brand {
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--text-primary);
+  }
+
+  .footer-sep {
+    color: var(--text-muted);
+  }
+
+  .footer-tagline {
+    color: var(--text-muted);
+  }
+
+  .footer-right {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    font-size: 0.825rem;
+  }
+
+  .footer-right a {
+    color: var(--text-muted);
+    text-decoration: none;
+    transition: color 0.15s ease;
+  }
+
+  .footer-right a:hover {
+    color: var(--text-primary);
+  }
+
+  .footer-copy {
+    color: var(--text-muted);
+  }
+</style>
