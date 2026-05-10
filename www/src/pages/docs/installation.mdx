@@ -19,19 +19,23 @@ Before installing kprobe, verify your environment meets these requirements:
 
 ### Checking kernel version
 
-````bashuname -r
+```bash
+uname -r
+```
 
 The output should be `5.15.0` or higher. If you are running a managed Kubernetes service:
 
-| Provider | Default kernel | Notes |
-|----------|---------------|-------|
-| EKS | 5.10+ (AL2), 6.1+ (AL2023) | AL2023 nodes recommended |
-| GKE | 5.15+ (Container-Optimized OS) | Default node image is fine |
-| AKS | 5.15+ | Ubuntu node pools recommended |
+| Provider | Default kernel                 | Notes                         |
+| -------- | ------------------------------ | ----------------------------- |
+| EKS      | 5.10+ (AL2), 6.1+ (AL2023)     | AL2023 nodes recommended      |
+| GKE      | 5.15+ (Container-Optimized OS) | Default node image is fine    |
+| AKS      | 5.15+                          | Ubuntu node pools recommended |
 
 ### Checking BTF support
 
-```bashls /sys/kernel/btf/vmlinux
+```bash
+ls /sys/kernel/btf/vmlinux
+```
 
 If this file exists, BTF is enabled on the node.
 
@@ -39,31 +43,43 @@ If this file exists, BTF is enabled on the node.
 
 Add the kprobe Helm repository:
 
-```bashhelm repo add kprobe https://charts.kprobe.io
+```bash
+helm repo add kprobe https://charts.kprobe.io
 helm repo update
+```
 
 Install kprobe into its own namespace:
 
-```bashhelm install kprobe kprobe/kprobe
---namespace monitoring
---create-namespace
+```bash
+helm install kprobe kprobe/kprobe \
+  --namespace monitoring \
+  --create-namespace
+```
 
 Verify the installation:
 
-```bashkubectl get pods -n monitoring
+```bash
+kubectl get pods -n monitoring
+```
 
-You should see pods for each component:NAME                              READY   STATUS    RESTARTS
-kprobe-probe-xxxxx                1/1     Running   0         # DaemonSet — one per node
+You should see pods for each component:
+
+```
+NAME                              READY   STATUS    RESTARTS
+kprobe-probe-xxxxx                1/1     Running   0
 kprobe-engine-xxxxxxx-xxxxx       1/1     Running   0
 kprobe-api-xxxxxxx-xxxxx          1/1     Running   0
 kprobe-replay-xxxxxxx-xxxxx       1/1     Running   0
 kprobe-dashboard-xxxxxxx-xxxxx    1/1     Running   0
+```
 
 ## Accessing the dashboard
 
 Port-forward the dashboard service:
 
-```bashkubectl port-forward svc/kprobe-dashboard 3000:3000 -n monitoring
+```bash
+kubectl port-forward svc/kprobe-dashboard 3000:3000 -n monitoring
+```
 
 Open `http://localhost:3000` in your browser.
 
@@ -83,35 +99,42 @@ For local development, kprobe uses a split model — infrastructure runs in Dock
 
 Clone the repository:
 
-```bashgit clone https://github.com/YHQZ1/kprobe
+```bash
+git clone https://github.com/YHQZ1/kprobe
 cd kprobe
+```
 
 Start infrastructure (Kafka, ClickHouse, Neo4j, Vector):
 
-```bashmake infra
+```bash
+make infra
+```
 
 Run each service in a separate terminal:
 
-```bashmake engine   # causal engine
+```bash
+make engine   # causal engine
 make api      # gRPC API server on :8080
 make replay   # replay engine
 make web      # React dashboard on :5173
+```
 
 ### Local ports
 
-| Service | Port |
-|---------|------|
-| API (gRPC) | 8080 |
-| Dashboard | 5173 |
-| Kafka | 9092 |
-| ClickHouse | 8123 |
+| Service      | Port |
+| ------------ | ---- |
+| API (gRPC)   | 8080 |
+| Dashboard    | 5173 |
+| Kafka        | 9092 |
+| ClickHouse   | 8123 |
 | Neo4j (HTTP) | 7474 |
 | Neo4j (Bolt) | 7687 |
 
 ## Uninstalling
 
-```bashhelm uninstall kprobe -n monitoring
+```bash
+helm uninstall kprobe -n monitoring
 kubectl delete namespace monitoring
+```
 
 Note: this will delete all recorded event data stored in ClickHouse and Neo4j. Export any data you need before uninstalling.
-````

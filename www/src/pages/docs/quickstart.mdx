@@ -18,7 +18,9 @@ This guide walks you through your first causal trace — from deployment to inve
 
 Open the dashboard and navigate to the **Timeline** view. You should see a live stream of kernel events flowing in from all nodes. If the stream is empty, check the probe pods:
 
-```bashkubectl logs -l app=kprobe-probe -n monitoring --tail=50
+```bash
+kubectl logs -l app=kprobe-probe -n monitoring --tail=50
+```
 
 The probe logs should show events being published to Kafka topics: `kernel.tcp`, `kernel.sched`, `kernel.syscall`, `kernel.fault`.
 
@@ -71,4 +73,3 @@ When the replay succeeds with your proposed fix, you can ship with confidence.
 - [Causal Graph View](/docs/dashboard/causal-graph) — full guide to navigating the graph
 - [Timeline View](/docs/dashboard/timeline) — nanosecond precision event timeline
 - [Replay Panel](/docs/dashboard/replay) — full replay and fix verification workflow
-```
