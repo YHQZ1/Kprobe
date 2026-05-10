@@ -1,0 +1,109 @@
+---
+layout: ../../layouts/DocsLayout.astro
+title: How It Works
+description: A detailed walkthrough of kprobe's three core components.
+---
+
+# How It Works
+
+kprobe has three core components that work together continuously from the moment of deployment: the Recorder, the Causal Engine, and the Replay Engine.
+
+## The Recorder
+
+The Recorder is an eBPF probe that runs as a Kubernetes DaemonSet — one instance per node. It attaches silently to kernel-level tracepoints and captures every relevant event with nanosecond precision.
+
+### eBPF and Aya
+
+The probe is written entirely in Rust using the [Aya](https://aya-rs.dev) framework. Aya compiles Rust directly to eBPF bytecode, meaning the entire probe stack — kernel-side programs and userspace loader — is memory-safe with no C code anywhere.
+
+This is a deliberate architectural decision. Traditional eBPF tools are written in C with all the memory safety risks that entails. Aya eliminates that class of bugs entirely.
+
+### What it captures
+
+The probe attaches to these kernel tracepoints:
+
+| Hook            | What it captures                               |
+| --------------- | ---------------------------------------------- |
+| `tcp_sendmsg`   | TCP send — network packet timing, byte count   |
+| `tcp_recvmsg`   | TCP receive — network packet timing            |
+| `sys_write`     | Write syscall — database write latency, fd     |
+| `sys_read`      | Read syscall — database read latency           |
+| `sched_switch`  | CPU scheduling decisions — preemptions, delays |
+| `mm_page_fault` | Memory pressure events                         |
+
+Every event includes: nanosecond timestamp, process ID, thread ID, CPU core, event type, and duration.
+
+### Ring buffer management
+
+The userspace agent loads the eBPF programs into the kernel and manages perf ring buffers. Events are batched and streamed to Kafka topic-per-event-type: `kernel.tcp`, `kernel.sched`, `kernel.syscall`, `kernel.fault`.
+
+The probe is designed to have minimal overhead — typically under 1% CPU on active nodes.
+
+## The Causal Engine
+
+Raw kernel events alone are noise. The Causal Engine, written in Go, transforms them into a structured understanding of cause and effect.
+
+### Correlation with OpenTelemetry
+
+Before causal analysis, Vector correlates the raw eBPF event stream with your existing OpenTelemetry traces. It matches events by process ID and timestamp. This gives every kernel event full financial context:
+
+- Not `PID 2847 made a write syscall`
+- But `settlement #4821 ledger write, triggered by payment #98721`
+
+This correlation happens on the `kernel.enriched` Kafka topic, which the causal engine consumes.
+
+### Causal inference
+
+The engine performs causal inference across the enriched stream:
+
+1. Groups events into time windows
+2. Identifies shared resources between events (same PID, same fd, same CPU core)
+3. Draws causal edges where one event demonstrably triggered another
+4. Maps kernel primitives to financial domain concepts — settlement boundaries, clearing windows, order book operations
+
+### Graph storage
+
+The resulting causal graph is written to Neo4j. Each financial event becomes a node. Each causal relationship becomes a directed edge with a weight representing latency impact.
+
+Cypher queries can traverse from any financial event to its root kernel cause in milliseconds, even across graphs with hundreds of thousands of edges.
+
+## The Replay Engine
+
+The Replay Engine allows any recorded incident to be reproduced exactly, on a development machine, at any point after it happened.
+
+### How ptrace works here
+
+The replay engine uses Linux `ptrace` to intercept the system calls of a sandboxed process. Instead of letting system calls reach the real kernel, the engine intercepts them and serves responses from the ClickHouse event log.
+
+The application behaves exactly as it did in production — same inputs, same timing, same kernel responses — because it is receiving exactly the same syscall responses it received in production.
+
+### Timing injection
+
+The replay engine supports modifying the replay before running it:
+
+- **Timeout changes** — increase or decrease timeout thresholds to test fixes
+- **Artificial delay** — add latency to specific syscalls to surface race conditions
+- **Failure injection** — simulate a syscall returning an error to test error handling paths
+
+This makes it possible to verify a proposed fix works against the exact production incident before deploying it.
+
+## Data flowProduction cluster
+
+│
+├── eBPF probe (Rust/Aya)
+│ └── Kafka: kernel.tcp, kernel.sched, kernel.syscall, kernel.fault
+│
+└── OpenTelemetry (existing)
+│
+└── Vector (correlation on PID + timestamp)
+│
+├── ClickHouse (raw event store)
+└── Kafka: kernel.enriched
+│
+Go Causal Engine
+│
+Neo4j (causal graph)
+│
+Go gRPC API
+│
+React Dashboard

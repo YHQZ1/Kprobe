@@ -1,0 +1,1020 @@
+---
+import Layout from "../layouts/Layout.astro";
+---
+
+<Layout
+  title="Compare"
+  description="How kprobe compares to Datadog, Jaeger, OpenTelemetry, and other observability tools."
+>
+  <div class="page">
+    <section class="compare-hero">
+      <div class="hero-label">compare</div>
+      <h1 class="hero-title">The observability stack has a blind spot.</h1>
+      <p class="hero-sub">
+        Every tool in the modern observability stack — Datadog, Jaeger,
+        Honeycomb, OpenTelemetry — operates at the application layer. They see
+        what your code tells them. The failures that cost the most in financial
+        systems happen where none of them can see.
+      </p>
+    </section>
+
+    <section class="structural-gap">
+      <div class="section-label">the structural gap</div>
+      <h2 class="section-heading">
+        Why application-layer tools miss the hardest failures
+      </h2>
+      <div class="gap-body">
+        <p>
+          When you instrument a service with OpenTelemetry, you are telling the
+          system: record a span when this function is called, record its
+          duration, record its attributes. The trace shows you what your code
+          did. It does not show you what the operating system did while your
+          code was running.
+        </p>
+        <p>
+          This is not a limitation of any specific tool. It is a fundamental
+          constraint of where these tools sit in the stack. They operate in
+          userspace, above the kernel. They see only the events that cross the
+          userspace boundary — function calls, HTTP requests, database queries.
+          They are blind to everything below.
+        </p>
+        <p>
+          Below the application layer, the kernel is making decisions that
+          directly affect your financial system's behaviour:
+        </p>
+        <div class="gap-examples">
+          <div class="gap-example">
+            <div class="gap-example-title">CPU scheduler preemption</div>
+            <div class="gap-example-body">
+              The kernel can preempt your settlement write process mid-operation
+              and schedule a background batch job on the same CPU core. Your
+              application sees a slow write. OpenTelemetry records a slow span.
+              Neither tells you a batch job caused it.
+            </div>
+          </div>
+          <div class="gap-example">
+            <div class="gap-example-title">Memory pressure cascade</div>
+            <div class="gap-example-body">
+              A service on the same node consuming excess memory triggers kernel
+              memory pressure. The kernel begins reclaiming pages from other
+              processes. Your ledger write, which normally takes 10ms, takes
+              800ms. Datadog sees a latency spike. It cannot tell you why.
+            </div>
+          </div>
+          <div class="gap-example">
+            <div class="gap-example-title">TCP retransmission</div>
+            <div class="gap-example-body">
+              A network packet is dropped between your payment handler and
+              settlement service. The kernel retransmits it. The retransmit adds
+              200ms. That 200ms pushes your transaction past its clearing
+              window. Jaeger shows a slow span. It cannot distinguish a slow
+              service from a retransmit.
+            </div>
+          </div>
+          <div class="gap-example">
+            <div class="gap-example-title">File descriptor contention</div>
+            <div class="gap-example-body">
+              Two processes competing for writes to the same file descriptor
+              cause kernel-level lock contention. One process blocks. Your
+              application logs show nothing unusual — from its perspective, it
+              made a write call and got a response. It just took longer than
+              expected.
+            </div>
+          </div>
+        </div>
+        <p>
+          These are not edge cases. In distributed financial systems running on
+          shared Kubernetes infrastructure, kernel-level interference between
+          workloads is a routine cause of latency spikes, failed settlements,
+          and ambiguous transaction states.
+        </p>
+      </div>
+    </section>
+
+    <section class="tool-breakdown">
+      <div class="section-label">tool by tool</div>
+      <h2 class="section-heading">What each tool actually sees</h2>
+
+      <div class="tool-cards">
+        <div class="tool-card">
+          <div class="tool-card-header">
+            <div class="tool-name">Datadog</div>
+            <div class="tool-layer">Application layer · SaaS APM</div>
+          </div>
+          <div class="tool-strengths">
+            <div class="tool-section-label">Strengths</div>
+            <ul>
+              <li>Best-in-class APM dashboards and alerting</li>
+              <li>Broad integrations across languages and frameworks</li>
+              <li>Strong log aggregation and correlation</li>
+              <li>Excellent UI for operational visibility</li>
+            </ul>
+          </div>
+          <div class="tool-limits">
+            <div class="tool-section-label">Blind spots</div>
+            <ul>
+              <li>
+                Operates entirely above application code — sees only what you
+                instrument
+              </li>
+              <li>
+                No visibility into CPU scheduling, memory pressure, or network
+                retransmits
+              </li>
+              <li>Cannot construct causal chains across kernel boundaries</li>
+              <li>No incident replay capability</li>
+              <li>
+                Root cause analysis is manual and incomplete for OS-level
+                failures
+              </li>
+            </ul>
+          </div>
+          <div class="tool-verdict">
+            Datadog is excellent for operational monitoring and alerting. It
+            tells you something is wrong. For financial systems experiencing
+            kernel-level failures, it cannot tell you why.
+          </div>
+        </div>
+
+        <div class="tool-card">
+          <div class="tool-card-header">
+            <div class="tool-name">Jaeger</div>
+            <div class="tool-layer">
+              Application layer · Distributed tracing
+            </div>
+          </div>
+          <div class="tool-strengths">
+            <div class="tool-section-label">Strengths</div>
+            <ul>
+              <li>Industry standard for distributed tracing</li>
+              <li>Excellent cross-service span visualization</li>
+              <li>Open source, self-hosted option</li>
+              <li>Strong OpenTelemetry compatibility</li>
+            </ul>
+          </div>
+          <div class="tool-limits">
+            <div class="tool-section-label">Blind spots</div>
+            <ul>
+              <li>
+                Requires explicit instrumentation — only sees what you
+                instrument
+              </li>
+              <li>
+                Spans represent application-level timing, not OS-level timing
+              </li>
+              <li>
+                A slow span could be a slow service or a kernel preemption —
+                Jaeger cannot distinguish
+              </li>
+              <li>No kernel event visibility whatsoever</li>
+              <li>No causal inference — shows what happened, not why</li>
+            </ul>
+          </div>
+          <div class="tool-verdict">
+            Jaeger shows you the distributed call graph. kprobe extends that
+            graph downward into the kernel, where the actual cause of slow spans
+            often lives.
+          </div>
+        </div>
+
+        <div class="tool-card">
+          <div class="tool-card-header">
+            <div class="tool-name">OpenTelemetry</div>
+            <div class="tool-layer">
+              Application layer · Instrumentation standard
+            </div>
+          </div>
+          <div class="tool-strengths">
+            <div class="tool-section-label">Strengths</div>
+            <ul>
+              <li>Vendor-neutral instrumentation standard</li>
+              <li>Covers traces, metrics, and logs in a unified SDK</li>
+              <li>Growing auto-instrumentation support</li>
+              <li>Exports to any backend</li>
+            </ul>
+          </div>
+          <div class="tool-limits">
+            <div class="tool-section-label">Blind spots</div>
+            <ul>
+              <li>
+                Still requires code changes — auto-instrumentation covers common
+                libraries, not custom code
+              </li>
+              <li>Application-layer only by design</li>
+              <li>
+                Traces represent what the SDK recorded, not ground truth timing
+              </li>
+              <li>No kernel visibility, no causal inference, no replay</li>
+            </ul>
+          </div>
+          <div class="tool-verdict">
+            kprobe is complementary to OpenTelemetry, not a replacement. It uses
+            your OTel traces as context — correlating them with kernel events to
+            give both layers full meaning.
+          </div>
+        </div>
+
+        <div class="tool-card">
+          <div class="tool-card-header">
+            <div class="tool-name">Prometheus + Grafana</div>
+            <div class="tool-layer">
+              Application layer · Metrics and dashboards
+            </div>
+          </div>
+          <div class="tool-strengths">
+            <div class="tool-section-label">Strengths</div>
+            <ul>
+              <li>De facto standard for Kubernetes metrics</li>
+              <li>Powerful query language (PromQL)</li>
+              <li>Excellent for capacity planning and trend analysis</li>
+              <li>Strong alerting via Alertmanager</li>
+            </ul>
+          </div>
+          <div class="tool-limits">
+            <div class="tool-section-label">Blind spots</div>
+            <ul>
+              <li>
+                Metrics are aggregates — individual events and their causes are
+                invisible
+              </li>
+              <li>
+                A CPU spike metric tells you CPU was high, not which process
+                caused it or why
+              </li>
+              <li>No tracing, no causal analysis, no replay</li>
+              <li>
+                Not designed for incident investigation — designed for
+                operational visibility
+              </li>
+            </ul>
+          </div>
+          <div class="tool-verdict">
+            Prometheus tells you that latency increased at 3:47am. kprobe tells
+            you that a batch job caused a kernel scheduler preemption at
+            3:47:12.822 that delayed your settlement write by 800ms.
+          </div>
+        </div>
+
+        <div class="tool-card">
+          <div class="tool-card-header">
+            <div class="tool-name">Honeycomb</div>
+            <div class="tool-layer">
+              Application layer · Observability platform
+            </div>
+          </div>
+          <div class="tool-strengths">
+            <div class="tool-section-label">Strengths</div>
+            <ul>
+              <li>Excellent high-cardinality event exploration</li>
+              <li>Strong query capabilities for trace analysis</li>
+              <li>Good for understanding user-facing behaviour patterns</li>
+            </ul>
+          </div>
+          <div class="tool-limits">
+            <div class="tool-section-label">Blind spots</div>
+            <ul>
+              <li>
+                Application-layer only — same fundamental constraint as other
+                APM tools
+              </li>
+              <li>Requires instrumentation of every service</li>
+              <li>No kernel visibility, no causal inference, no replay</li>
+            </ul>
+          </div>
+          <div class="tool-verdict">
+            Honeycomb is strong for analysing patterns across many traces.
+            kprobe is focused on deep investigation of individual incidents —
+            specifically those caused by OS-level behaviour.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="scenario-section">
+      <div class="section-label">real scenario</div>
+      <h2 class="section-heading">The same incident through every tool</h2>
+      <p class="scenario-intro">
+        A payment of ₹50,000 fails to settle at 03:47am. Money is in limbo. Here
+        is what each tool shows the on-call engineer.
+      </p>
+
+      <div class="scenario-grid">
+        <div class="scenario-card">
+          <div class="scenario-tool">Datadog</div>
+          <div class="scenario-body">
+            <p>
+              Shows a latency spike in <code>settlement-svc</code> at 03:47. The p99
+              latency metric crossed the alert threshold. An alert fired. The APM
+              trace shows <code>settlement-svc</code> took 812ms on a request that
+              normally takes 200ms.
+            </p>
+            <p>No further information is available about why it was slow.</p>
+          </div>
+          <div class="scenario-outcome scenario-outcome-partial">
+            Tells you it was slow. Not why.
+          </div>
+        </div>
+
+        <div class="scenario-card">
+          <div class="scenario-tool">Jaeger</div>
+          <div class="scenario-body">
+            <p>
+              Shows the distributed trace for the payment. The span tree shows <code
+                >payment-handler</code
+              > called <code>settlement-svc</code>, which made a database write.
+              The write span took 802ms. The overall trace took 812ms and timed
+              out.
+            </p>
+            <p>
+              The write span is the slow span. No information on what made it
+              slow.
+            </p>
+          </div>
+          <div class="scenario-outcome scenario-outcome-partial">
+            Identifies the slow span. Not the cause.
+          </div>
+        </div>
+
+        <div class="scenario-card">
+          <div class="scenario-tool">Prometheus</div>
+          <div class="scenario-body">
+            <p>
+              Shows CPU utilisation on the node spiked to 94% at 03:47. Memory
+              usage was elevated. No connection between the node metrics and the
+              specific payment failure is possible from metrics alone.
+            </p>
+          </div>
+          <div class="scenario-outcome scenario-outcome-partial">
+            Shows system stress. No connection to the incident.
+          </div>
+        </div>
+
+        <div class="scenario-card scenario-card-kp">
+          <div class="scenario-tool scenario-tool-kp">kprobe</div>
+          <div class="scenario-body">
+            <p>
+              Shows the full causal graph for payment #98721. The root cause
+              node is a <code>sched_switch</code> event at 03:47:12.822 — the kernel
+              preempted PID 2841 (settlement-svc) and scheduled PID 4721 (a batch
+              job) on CPU 3.
+            </p>
+            <p>
+              PID 2841 was mid-write to the ledger when it was preempted. It
+              waited 388ms on the scheduler queue before resuming. The write
+              completed at 03:47:13.621 — 802ms total, 52ms past the payment
+              handler's 750ms timeout.
+            </p>
+            <p>
+              The fix: increase the payment handler timeout to 1500ms. The
+              engineer replays the incident with the modified timeout. The
+              payment succeeds. The fix ships.
+            </p>
+          </div>
+          <div class="scenario-outcome scenario-outcome-full">
+            Root cause identified. Fix verified. Total time: 5 minutes.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="matrix-section">
+      <div class="section-label">capability matrix</div>
+      <h2 class="section-heading">Full comparison</h2>
+      <div class="table-wrap">
+        <table class="compare-table">
+          <thead>
+            <tr>
+              <th>Capability</th>
+              <th>Datadog</th>
+              <th>Jaeger</th>
+              <th>OTel</th>
+              <th>Prometheus</th>
+              <th>Honeycomb</th>
+              <th class="th-kp">kprobe</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Application traces</td>
+              <td class="c-yes">Yes</td>
+              <td class="c-yes">Yes</td>
+              <td class="c-yes">Yes</td>
+              <td class="c-no">—</td>
+              <td class="c-yes">Yes</td>
+              <td class="c-kp">Yes</td>
+            </tr>
+            <tr>
+              <td>Zero instrumentation</td>
+              <td class="c-no">—</td>
+              <td class="c-no">—</td>
+              <td class="c-no">—</td>
+              <td class="c-no">—</td>
+              <td class="c-no">—</td>
+              <td class="c-kp">Yes</td>
+            </tr>
+            <tr>
+              <td>CPU scheduling visibility</td>
+              <td class="c-no">—</td>
+              <td class="c-no">—</td>
+              <td class="c-no">—</td>
+              <td class="c-no">—</td>
+              <td class="c-no">—</td>
+              <td class="c-kp">Yes</td>
+            </tr>
+            <tr>
+              <td>Memory pressure events</td>
+              <td class="c-no">—</td>
+              <td class="c-no">—</td>
+              <td class="c-no">—</td>
+              <td class="c-partial">Metrics only</td>
+              <td class="c-no">—</td>
+              <td class="c-kp">Yes</td>
+            </tr>
+            <tr>
+              <td>Network packet timing</td>
+              <td class="c-no">—</td>
+              <td class="c-no">—</td>
+              <td class="c-no">—</td>
+              <td class="c-no">—</td>
+              <td class="c-no">—</td>
+              <td class="c-kp">Yes</td>
+            </tr>
+            <tr>
+              <td>Syscall-level visibility</td>
+              <td class="c-no">—</td>
+              <td class="c-no">—</td>
+              <td class="c-no">—</td>
+              <td class="c-no">—</td>
+              <td class="c-no">—</td>
+              <td class="c-kp">Yes</td>
+            </tr>
+            <tr>
+              <td>Causal graph construction</td>
+              <td class="c-no">—</td>
+              <td class="c-no">—</td>
+              <td class="c-no">—</td>
+              <td class="c-no">—</td>
+              <td class="c-no">—</td>
+              <td class="c-kp">Yes</td>
+            </tr>
+            <tr>
+              <td>Root cause to kernel level</td>
+              <td class="c-no">—</td>
+              <td class="c-no">—</td>
+              <td class="c-no">—</td>
+              <td class="c-no">—</td>
+              <td class="c-no">—</td>
+              <td class="c-kp">Yes</td>
+            </tr>
+            <tr>
+              <td>Deterministic replay</td>
+              <td class="c-no">—</td>
+              <td class="c-no">—</td>
+              <td class="c-no">—</td>
+              <td class="c-no">—</td>
+              <td class="c-no">—</td>
+              <td class="c-kp">Yes</td>
+            </tr>
+            <tr>
+              <td>Fix verification before deploy</td>
+              <td class="c-no">—</td>
+              <td class="c-no">—</td>
+              <td class="c-no">—</td>
+              <td class="c-no">—</td>
+              <td class="c-no">—</td>
+              <td class="c-kp">Yes</td>
+            </tr>
+            <tr>
+              <td>Financial domain primitives</td>
+              <td class="c-no">—</td>
+              <td class="c-no">—</td>
+              <td class="c-no">—</td>
+              <td class="c-no">—</td>
+              <td class="c-no">—</td>
+              <td class="c-kp">Yes</td>
+            </tr>
+            <tr>
+              <td>Nanosecond event precision</td>
+              <td class="c-no">—</td>
+              <td class="c-partial">Millisecond</td>
+              <td class="c-partial">Millisecond</td>
+              <td class="c-partial">Millisecond</td>
+              <td class="c-partial">Millisecond</td>
+              <td class="c-kp">Yes</td>
+            </tr>
+            <tr>
+              <td>Self-hosted option</td>
+              <td class="c-no">—</td>
+              <td class="c-yes">Yes</td>
+              <td class="c-yes">Yes</td>
+              <td class="c-yes">Yes</td>
+              <td class="c-no">—</td>
+              <td class="c-kp">Yes</td>
+            </tr>
+            <tr>
+              <td>Open source</td>
+              <td class="c-no">—</td>
+              <td class="c-yes">Yes</td>
+              <td class="c-yes">Yes</td>
+              <td class="c-yes">Yes</td>
+              <td class="c-no">—</td>
+              <td class="c-kp">Yes</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="positioning-section">
+      <div class="section-label">positioning</div>
+      <h2 class="section-heading">
+        kprobe does not replace your existing stack.
+      </h2>
+      <div class="positioning-body">
+        <p>
+          Datadog, Jaeger, OpenTelemetry, and Prometheus are all doing their
+          jobs correctly. They are excellent tools for what they are designed to
+          do — monitor application behaviour, track distributed traces,
+          aggregate metrics, alert on thresholds.
+        </p>
+        <p>
+          kprobe fills the gap below them. It sees what they cannot see by
+          design. Used together, you get complete visibility:
+        </p>
+      </div>
+      <div class="stack-visual">
+        <div class="stack-layer stack-layer-top">
+          <div class="stack-layer-name">Alerting</div>
+          <div class="stack-layer-tools">
+            Prometheus · Alertmanager · Grafana
+          </div>
+          <div class="stack-layer-desc">Know when something is wrong</div>
+        </div>
+        <div class="stack-layer">
+          <div class="stack-layer-name">Application observability</div>
+          <div class="stack-layer-tools">
+            Datadog · Jaeger · Honeycomb · OpenTelemetry
+          </div>
+          <div class="stack-layer-desc">
+            Understand what your application did
+          </div>
+        </div>
+        <div class="stack-layer stack-layer-kp">
+          <div class="stack-layer-name">Kernel observability</div>
+          <div class="stack-layer-tools">kprobe</div>
+          <div class="stack-layer-desc">
+            Understand what the OS did while your application was running
+          </div>
+        </div>
+        <div class="stack-layer stack-layer-bottom">
+          <div class="stack-layer-name">Linux kernel</div>
+          <div class="stack-layer-tools">
+            Scheduler · Memory · Network · Filesystem
+          </div>
+          <div class="stack-layer-desc">
+            Where the hardest failures actually happen
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</Layout>
+
+<style>
+  .page {
+    width: 100%;
+  }
+
+  section {
+    width: 100%;
+    padding: 0.5rem 2rem 4.5rem;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  section:last-child {
+    border-bottom: none;
+  }
+
+  .section-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--accent);
+    padding-top: 3rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .section-heading {
+    font-size: clamp(1.4rem, 2.5vw, 2rem);
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    line-height: 1.2;
+    color: var(--text-primary);
+    margin-bottom: 2.5rem;
+    max-width: 640px;
+  }
+
+  .compare-hero {
+    padding-top: 4rem;
+    padding-bottom: 4rem;
+    background: var(--bg-subtle);
+  }
+
+  .hero-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 1.25rem;
+  }
+
+  .hero-title {
+    font-size: clamp(2rem, 4vw, 3rem);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    color: var(--text-primary);
+    margin-bottom: 1.25rem;
+    max-width: 700px;
+  }
+
+  .hero-sub {
+    font-size: 1rem;
+    color: var(--text-secondary);
+    max-width: 620px;
+    line-height: 1.8;
+  }
+
+  .gap-body {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    max-width: 720px;
+  }
+
+  .gap-body p {
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    line-height: 1.8;
+  }
+
+  .gap-examples {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--border-subtle);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    margin: 0.5rem 0;
+  }
+
+  .gap-example {
+    background: var(--bg-subtle);
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+  }
+
+  .gap-example:hover {
+    background: var(--bg-elevated);
+  }
+
+  .gap-example-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    letter-spacing: -0.01em;
+  }
+
+  .gap-example-body {
+    font-size: 0.825rem;
+    color: var(--text-muted);
+    line-height: 1.7;
+  }
+
+  .tool-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    background: var(--border-subtle);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+
+  .tool-card {
+    background: var(--bg);
+    padding: 2rem;
+    display: grid;
+    grid-template-columns: 220px 1fr 1fr;
+    gap: 2rem;
+    align-items: start;
+  }
+
+  .tool-card:hover {
+    background: var(--bg-subtle);
+  }
+
+  .tool-card-header {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+    padding-top: 0.125rem;
+  }
+
+  .tool-name {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -0.02em;
+  }
+
+  .tool-layer {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+  }
+
+  .tool-section-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 0.625rem;
+  }
+
+  .tool-strengths ul,
+  .tool-limits ul {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+  }
+
+  .tool-strengths li,
+  .tool-limits li {
+    font-size: 0.825rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    padding-left: 0.875rem;
+    position: relative;
+  }
+
+  .tool-strengths li::before {
+    content: "+";
+    position: absolute;
+    left: 0;
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+
+  .tool-limits li::before {
+    content: "·";
+    position: absolute;
+    left: 0;
+    color: var(--text-muted);
+    font-weight: 700;
+    font-size: 1rem;
+    top: -1px;
+  }
+
+  .tool-verdict {
+    grid-column: 1 / -1;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    line-height: 1.7;
+    border-top: 1px solid var(--border-subtle);
+    padding-top: 1.25rem;
+    font-style: italic;
+  }
+
+  .scenario-intro {
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    margin-bottom: 2rem;
+    line-height: 1.7;
+    max-width: 640px;
+    margin-top: -1.5rem;
+  }
+
+  .scenario-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--border-subtle);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+
+  .scenario-card {
+    background: var(--bg-subtle);
+    padding: 1.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.875rem;
+  }
+
+  .scenario-card-kp {
+    background: var(--bg);
+    border: 1px solid var(--accent);
+    margin: -1px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .scenario-tool {
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .scenario-tool-kp {
+    color: var(--accent);
+  }
+
+  .scenario-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    flex: 1;
+  }
+
+  .scenario-body p {
+    font-size: 0.845rem;
+    color: var(--text-secondary);
+    line-height: 1.75;
+  }
+
+  .scenario-body code {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.78rem;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 0.1em 0.4em;
+    color: var(--text-secondary);
+  }
+
+  .scenario-outcome {
+    font-size: 0.775rem;
+    font-weight: 600;
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--radius-sm);
+    margin-top: auto;
+  }
+
+  .scenario-outcome-partial {
+    background: var(--bg-elevated);
+    color: var(--text-muted);
+    border: 1px solid var(--border-subtle);
+  }
+
+  .scenario-outcome-full {
+    background: var(--accent-dim);
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    opacity: 0.9;
+  }
+
+  .table-wrap {
+    overflow-x: auto;
+  }
+
+  .compare-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.84rem;
+    table-layout: fixed;
+  }
+
+  .compare-table th {
+    text-align: center;
+    padding: 0.65rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-muted);
+    font-weight: 600;
+    font-size: 0.68rem;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .compare-table th:first-child {
+    text-align: left;
+  }
+  .th-kp {
+    color: var(--accent) !important;
+  }
+
+  .compare-table td {
+    padding: 0.65rem 0.75rem;
+    border-bottom: 1px solid var(--border-subtle);
+    color: var(--text-secondary);
+    text-align: center;
+  }
+
+  .compare-table td:first-child {
+    text-align: left;
+  }
+  .compare-table tr:last-child td {
+    border-bottom: none;
+  }
+  .compare-table tr:hover td {
+    background: var(--bg-subtle);
+  }
+
+  .c-yes {
+    color: var(--text-secondary);
+  }
+  .c-no {
+    color: var(--text-muted);
+  }
+  .c-partial {
+    color: var(--text-muted);
+    font-style: italic;
+    font-size: 0.78rem;
+  }
+  .c-kp {
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  .positioning-body {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    max-width: 640px;
+    margin-bottom: 2.5rem;
+    margin-top: -1.5rem;
+  }
+
+  .positioning-body p {
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    line-height: 1.8;
+  }
+
+  .stack-visual {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    background: var(--border-subtle);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    max-width: 720px;
+  }
+
+  .stack-layer {
+    display: grid;
+    grid-template-columns: 200px 1fr 1fr;
+    gap: 1.5rem;
+    padding: 1.25rem 1.5rem;
+    background: var(--bg-subtle);
+    align-items: center;
+  }
+
+  .stack-layer:hover {
+    background: var(--bg-elevated);
+  }
+
+  .stack-layer-kp {
+    background: var(--accent-dim);
+    border-left: 3px solid var(--accent);
+  }
+
+  .stack-layer-kp:hover {
+    background: var(--accent-dim-hover);
+  }
+
+  .stack-layer-name {
+    font-size: 0.825rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    letter-spacing: -0.01em;
+  }
+
+  .stack-layer-kp .stack-layer-name {
+    color: var(--accent);
+  }
+
+  .stack-layer-tools {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    font-family: "JetBrains Mono", monospace;
+  }
+
+  .stack-layer-desc {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+  }
+</style>

@@ -1,0 +1,117 @@
+---
+layout: ../../layouts/DocsLayout.astro
+title: Installation
+description: Install kprobe into a Kubernetes cluster using Helm.
+---
+
+# Installation
+
+kprobe deploys into any Kubernetes cluster with a single Helm command. No changes to existing services are required.
+
+## Prerequisites
+
+Before installing kprobe, verify your environment meets these requirements:
+
+- **Kubernetes 1.26+** — kprobe uses server-side apply and modern RBAC features
+- **Linux kernel 5.15+** on all nodes — required for eBPF BTF support. Check with `uname -r`
+- **Helm 3.x** — for chart installation
+- **Node resources** — minimum 4 CPU and 8GB RAM per node to accommodate probe overhead
+
+### Checking kernel version
+
+````bashuname -r
+
+The output should be `5.15.0` or higher. If you are running a managed Kubernetes service:
+
+| Provider | Default kernel | Notes |
+|----------|---------------|-------|
+| EKS | 5.10+ (AL2), 6.1+ (AL2023) | AL2023 nodes recommended |
+| GKE | 5.15+ (Container-Optimized OS) | Default node image is fine |
+| AKS | 5.15+ | Ubuntu node pools recommended |
+
+### Checking BTF support
+
+```bashls /sys/kernel/btf/vmlinux
+
+If this file exists, BTF is enabled on the node.
+
+## Installing with Helm
+
+Add the kprobe Helm repository:
+
+```bashhelm repo add kprobe https://charts.kprobe.io
+helm repo update
+
+Install kprobe into its own namespace:
+
+```bashhelm install kprobe kprobe/kprobe
+--namespace monitoring
+--create-namespace
+
+Verify the installation:
+
+```bashkubectl get pods -n monitoring
+
+You should see pods for each component:NAME                              READY   STATUS    RESTARTS
+kprobe-probe-xxxxx                1/1     Running   0         # DaemonSet — one per node
+kprobe-engine-xxxxxxx-xxxxx       1/1     Running   0
+kprobe-api-xxxxxxx-xxxxx          1/1     Running   0
+kprobe-replay-xxxxxxx-xxxxx       1/1     Running   0
+kprobe-dashboard-xxxxxxx-xxxxx    1/1     Running   0
+
+## Accessing the dashboard
+
+Port-forward the dashboard service:
+
+```bashkubectl port-forward svc/kprobe-dashboard 3000:3000 -n monitoring
+
+Open `http://localhost:3000` in your browser.
+
+## Local development
+
+For local development, kprobe uses a split model — infrastructure runs in Docker Compose, services run natively. This avoids Docker rebuilds on every code change.
+
+### Prerequisites
+
+- Go 1.22+
+- Rust 1.77+ with `cargo`
+- Node.js 20+
+- Docker + Docker Compose
+- Linux kernel 5.15+ (required on the target system for the eBPF probe — not your dev machine)
+
+### Setup
+
+Clone the repository:
+
+```bashgit clone https://github.com/YHQZ1/kprobe
+cd kprobe
+
+Start infrastructure (Kafka, ClickHouse, Neo4j, Vector):
+
+```bashmake infra
+
+Run each service in a separate terminal:
+
+```bashmake engine   # causal engine
+make api      # gRPC API server on :8080
+make replay   # replay engine
+make web      # React dashboard on :5173
+
+### Local ports
+
+| Service | Port |
+|---------|------|
+| API (gRPC) | 8080 |
+| Dashboard | 5173 |
+| Kafka | 9092 |
+| ClickHouse | 8123 |
+| Neo4j (HTTP) | 7474 |
+| Neo4j (Bolt) | 7687 |
+
+## Uninstalling
+
+```bashhelm uninstall kprobe -n monitoring
+kubectl delete namespace monitoring
+
+Note: this will delete all recorded event data stored in ClickHouse and Neo4j. Export any data you need before uninstalling.
+````

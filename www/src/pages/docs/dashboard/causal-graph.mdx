@@ -1,0 +1,75 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Causal Graph View
+description: How to read and navigate the kprobe causal graph.
+---
+
+# Causal Graph View
+
+The causal graph view is the primary investigation surface in kprobe. It renders a directed graph of cause and effect across your entire system, from the financial event at the top to the kernel decision at the bottom.
+
+## Reading the graph
+
+Each **node** represents an event. Nodes are grouped into two categories:
+
+- **Financial events** — payments, settlements, ledger writes, risk checks. These are derived from your OpenTelemetry traces and kprobe's financial domain primitives.
+- **Kernel events** — raw eBPF events: `tcp_sendmsg`, `sched_switch`, `mm_page_fault`, and so on. These are captured directly from the kernel with no instrumentation required.
+
+Each **edge** represents a causal relationship — the source event caused or triggered the destination event. Edges are weighted by latency impact: thicker, more prominent edges represent relationships with higher latency contribution.
+
+## Node colours
+
+| Colour           | Meaning                                                       |
+| ---------------- | ------------------------------------------------------------- |
+| Neutral          | Event within normal latency bounds                            |
+| Amber            | Event that contributed to total latency                       |
+| Amber with badge | Root cause — the kernel event identified as the primary cause |
+| Muted            | Downstream consequence of the root cause                      |
+
+## Navigating the graph
+
+**Click a node** to open the event detail panel. This shows:
+
+- Full timestamp (nanosecond precision)
+- Process ID and thread ID
+- CPU core
+- Event type and raw data
+- Financial context (transaction ID, service, operation)
+- Latency contribution
+
+**Scroll to zoom** — zoom in to see individual kernel events, zoom out to see the full transaction flow.
+
+**Drag to pan** — move around large graphs.
+
+**Click an edge** to see the causal relationship detail — what made the engine draw this edge, the time delta between the two events, and the shared resource they both touched.
+
+## The root cause badge
+
+The root cause node is the kernel event the causal engine has identified as the primary trigger of the failure. It is marked with a `root cause` badge and an amber glow.
+
+The root cause is determined by the causal engine using a combination of:
+
+- **Temporal ordering** — the root cause event precedes all downstream effects
+- **Shared resource contention** — it shares a resource (CPU core, memory page, file descriptor) with the affected process
+- **Latency threshold crossing** — its timing contribution explains the observed failure
+
+The root cause is a strong signal, not a definitive verdict. Always inspect the full causal chain context before drawing conclusions.
+
+## Searching and filtering
+
+Use the search bar at the top of the graph view to find a specific transaction by ID. The graph renders immediately from the Neo4j causal store — typical query time is under 100ms.
+
+You can filter the graph by:
+
+- **Event type** — show only kernel events, financial events, or both
+- **Latency threshold** — hide events below a latency contribution threshold
+- **Time range** — narrow the graph to a specific time window
+- **Service** — show only events from a specific service or PID
+
+## Exporting
+
+The graph can be exported as:
+
+- **PNG** — for sharing in incident reports
+- **JSON** — full graph structure for programmatic analysis
+- **Cypher** — the raw Neo4j query that produced this graph

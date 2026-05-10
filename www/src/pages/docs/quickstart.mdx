@@ -1,0 +1,74 @@
+---
+layout: ../../layouts/DocsLayout.astro
+title: Quickstart
+description: Run your first causal trace with kprobe in under 5 minutes.
+---
+
+# Quickstart
+
+This guide walks you through your first causal trace — from deployment to investigating a real incident.
+
+## Assumptions
+
+- kprobe is installed and all pods are running (see [Installation](/docs/installation))
+- The dashboard is accessible at `http://localhost:3000`
+- You have at least one application running in the cluster that handles financial transactions
+
+## Step 1 — Verify kprobe is recording
+
+Open the dashboard and navigate to the **Timeline** view. You should see a live stream of kernel events flowing in from all nodes. If the stream is empty, check the probe pods:
+
+```bashkubectl logs -l app=kprobe-probe -n monitoring --tail=50
+
+The probe logs should show events being published to Kafka topics: `kernel.tcp`, `kernel.sched`, `kernel.syscall`, `kernel.fault`.
+
+## Step 2 — Find a transaction
+
+kprobe indexes financial events by transaction ID, payment ID, and settlement ID. In the dashboard search bar, enter a transaction ID from your system. If your services emit OpenTelemetry traces, kprobe will have already correlated the kernel events with the trace context.
+
+If you don't have a specific transaction to search for, trigger a test payment through your system and note the transaction ID.
+
+## Step 3 — Open the causal graph
+
+Search for the transaction ID in the dashboard. kprobe returns the full causal graph for that transaction — a directed graph from the financial event at the top down to every kernel-level event that touched it.
+
+Each node in the graph represents an event. Each edge represents a causal relationship — event A caused event B. The graph is colour-coded by latency impact:
+
+- **Neutral** — events within normal latency bounds
+- **Amber** — events that contributed to latency
+- **Root cause node** — the kernel event identified as the primary cause, marked with a badge
+
+Click any node to see the full event details: timestamp, PID, CPU core, duration, and the financial context (which transaction, which service, which operation).
+
+## Step 4 — Inspect the kernel event
+
+If your transaction shows unexpected latency, the root cause node will identify the kernel-level trigger. Common patterns:
+
+**`sched_switch` with high delay** — the process was preempted by the kernel scheduler. Look at what PID it was preempted for — a background batch job is a common culprit.
+
+**`mm_page_fault` spike** — memory pressure at the time of a critical write. Correlate with pod memory metrics to identify the source.
+
+**`tcp_retransmit`** — a network retransmit added latency. Check if this was a transient event or recurring on a specific node.
+
+## Step 5 — Replay the incident
+
+Once you have identified the root cause, open the **Replay Panel**. Select the transaction and click **Replay**. kprobe will:
+
+1. Load the full event log for that transaction from ClickHouse
+2. Start a sandboxed process via `ptrace`
+3. Serve all system calls from the recorded event log instead of the real kernel
+
+The application behaves exactly as it did in production. You can now:
+
+- Modify the timeout threshold and replay to verify the fix
+- Add artificial delay to specific syscalls to surface race conditions
+- Test the same incident with a different kernel scheduler configuration
+
+When the replay succeeds with your proposed fix, you can ship with confidence.
+
+## Next steps
+
+- [Causal Graph View](/docs/dashboard/causal-graph) — full guide to navigating the graph
+- [Timeline View](/docs/dashboard/timeline) — nanosecond precision event timeline
+- [Replay Panel](/docs/dashboard/replay) — full replay and fix verification workflow
+```

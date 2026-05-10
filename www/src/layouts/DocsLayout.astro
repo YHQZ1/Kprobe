@@ -1,0 +1,106 @@
+---
+import "../styles/global.css";
+import Navbar from "../components/Navbar.astro";
+import DocsSidebar from "../components/DocsSidebar.astro";
+
+interface Props {
+  title: string;
+  description?: string;
+}
+
+const { title, description = "kprobe documentation" } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content={description} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>{title} — kprobe docs</title>
+    <script is:inline>
+      (function () {
+        const saved = localStorage.getItem("kprobe-theme") || "dark";
+        document.documentElement.setAttribute("data-theme", saved);
+      })();
+    </script>
+  </head>
+  <body>
+    <Navbar />
+    <div class="docs-shell">
+      <DocsSidebar />
+      <main class="docs-main">
+        <div class="docs-content">
+          <slot />
+        </div>
+      </main>
+    </div>
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+  </body>
+</html>
+
+<style>
+  body {
+    min-height: 100vh;
+    background-color: var(--bg);
+    color: var(--text-primary);
+    font-family: var(--font);
+  }
+
+  .docs-shell {
+    display: flex;
+    padding-top: 56px;
+    min-height: 100vh;
+  }
+
+  .docs-main {
+    flex: 1;
+    min-width: 0;
+    border-left: 1px solid var(--border-subtle);
+  }
+
+  .docs-content {
+    max-width: 780px;
+    padding: 3rem 3rem 5rem;
+    margin: 0 auto;
+  }
+
+  .sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 49;
+    backdrop-filter: blur(2px);
+  }
+
+  .sidebar-overlay.active {
+    display: block;
+  }
+
+  @media (max-width: 768px) {
+    .docs-main {
+      border-left: none;
+    }
+
+    .docs-content {
+      padding: 2rem 1.25rem 4rem;
+    }
+  }
+</style>
+
+<script>
+  const overlay = document.getElementById("sidebar-overlay");
+  const sidebar = document.getElementById("docs-sidebar");
+
+  overlay?.addEventListener("click", () => {
+    sidebar?.classList.remove("sidebar-open");
+    overlay?.classList.remove("active");
+  });
+
+  window.addEventListener("open-sidebar", () => {
+    sidebar?.classList.add("sidebar-open");
+    overlay?.classList.add("active");
+  });
+</script>

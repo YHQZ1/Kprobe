@@ -1,0 +1,629 @@
+---
+import Layout from "../layouts/Layout.astro";
+---
+
+<Layout
+  title="About"
+  description="What kprobe is, why it was built, and the design decisions behind it."
+>
+  <div class="page">
+    <section class="about-hero">
+      <div class="hero-label">about</div>
+      <h1 class="hero-title">
+        Built for the failures nobody else can explain.
+      </h1>
+      <p class="hero-sub">
+        kprobe exists because there is a class of failure in distributed
+        financial systems that the entire observability industry cannot see. Not
+        because the tools are bad — they are excellent at what they do. But
+        because they sit in the wrong place in the stack.
+      </p>
+    </section>
+
+    <section class="origin-section">
+      <div class="section-label">origin</div>
+      <h2 class="section-heading">Where this comes from</h2>
+      <div class="prose">
+        <p>
+          The pattern is familiar to anyone who has operated a financial system
+          at scale. A payment fails at 3am. The on-call engineer wakes up, opens
+          Datadog, sees a latency spike. Opens Jaeger, finds a slow span. Spends
+          four hours correlating logs across six microservices, working
+          backwards from an error to something that might have caused it.
+        </p>
+        <p>
+          At the end of the investigation, nobody can fully confirm the root
+          cause. A hypothesis is formed. A fix is shipped. The fix might work.
+          It might not. If it does not, the incident repeats.
+        </p>
+        <p>
+          This is not a failure of the tools. Datadog recorded exactly what it
+          saw. Jaeger traced exactly what it was told to trace. The problem is
+          structural — the relevant events happened below where any of these
+          tools can see. In the kernel. In the scheduler. In the memory
+          subsystem.
+        </p>
+        <p>
+          kprobe was built to close that gap. Not to replace the existing stack,
+          but to extend it downward into the layer where the hardest financial
+          system failures actually originate.
+        </p>
+      </div>
+    </section>
+
+    <section class="positioning-section">
+      <div class="section-label">what kprobe is</div>
+      <h2 class="section-heading">
+        A flight recorder and a debugger. Nothing else.
+      </h2>
+      <div class="positioning-grid">
+        <div class="pos-card pos-card-is">
+          <div class="pos-card-label">kprobe is</div>
+          <ul>
+            <li>
+              A kernel-level event recorder deployed passively alongside your
+              services
+            </li>
+            <li>
+              A causal inference engine that constructs cause-and-effect graphs
+              from raw kernel events
+            </li>
+            <li>
+              A deterministic replay engine for reproducing production incidents
+              on development machines
+            </li>
+            <li>
+              A tool for financial systems engineering teams investigating
+              complex, low-level failures
+            </li>
+            <li>Complementary to your existing observability stack</li>
+          </ul>
+        </div>
+        <div class="pos-card pos-card-isnot">
+          <div class="pos-card-label">kprobe is not</div>
+          <ul>
+            <li>
+              A monitoring tool — it does not alert on thresholds or track SLOs
+            </li>
+            <li>A replacement for Datadog, Jaeger, or OpenTelemetry</li>
+            <li>
+              An APM platform — it does not aggregate application performance
+              metrics
+            </li>
+            <li>
+              A general-purpose observability tool — it is purpose-built for
+              kernel-level incident investigation
+            </li>
+            <li>Appropriate for systems not running on Linux kernel 5.15+</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="design-section">
+      <div class="section-label">design philosophy</div>
+      <h2 class="section-heading">Every decision has a reason.</h2>
+      <div class="design-decisions">
+        <div class="decision">
+          <div class="decision-header">
+            <div class="decision-title">Passive by default</div>
+          </div>
+          <div class="decision-body">
+            kprobe attaches to the kernel and records. It does not require
+            application code changes, library imports, framework integrations,
+            or redeployment. The cost of adoption is a single Helm install. This
+            is not a convenience feature — it is a correctness feature. Any
+            instrumentation you add to your application changes its behaviour,
+            however slightly. kprobe's kernel-level approach sees the system as
+            it actually runs, not as it runs under instrumentation.
+          </div>
+        </div>
+        <div class="decision">
+          <div class="decision-header">
+            <div class="decision-title">Causal graphs over logs</div>
+          </div>
+          <div class="decision-body">
+            Logs tell you what happened. Causal graphs tell you why. The
+            difference matters enormously in incident investigation. A log entry
+            saying "write took 800ms" is not actionable. A causal graph showing
+            that a kernel scheduler preemption caused the delay, triggered by a
+            batch job on the same CPU core, with an edge connecting the
+            preemption event to the write delay, is actionable in seconds.
+            kprobe does not store more data — it structures data differently.
+          </div>
+        </div>
+        <div class="decision">
+          <div class="decision-header">
+            <div class="decision-title">Replay as first-class feature</div>
+          </div>
+          <div class="decision-body">
+            Most observability tools treat incidents as read-only artifacts. You
+            can look at what happened, but you cannot interact with it. kprobe's
+            replay engine changes that. An incident becomes a test case. You can
+            verify a fix works against the exact production conditions that
+            caused the failure before deploying it. This changes the confidence
+            level of fixes from "this should work" to "this did work, against
+            the actual incident."
+          </div>
+        </div>
+        <div class="decision">
+          <div class="decision-header">
+            <div class="decision-title">
+              Financial domain as first-class concept
+            </div>
+          </div>
+          <div class="decision-body">
+            Generic observability tools produce generic outputs. kprobe is built
+            for financial systems. Settlement boundaries, clearing windows,
+            ledger writes, order book operations — these are native concepts in
+            kprobe's domain model. A kernel event is not just "PID 2841 made a
+            write syscall." It is "settlement #4821 ledger write, triggered by
+            payment #98721, delayed by kernel memory pressure." The financial
+            context is preserved end-to-end.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="stack-section">
+      <div class="section-label">technical foundations</div>
+      <h2 class="section-heading">The choices that make kprobe possible.</h2>
+      <div class="tech-grid">
+        <div class="tech-item">
+          <div class="tech-header">
+            <img
+              src="https://cdn.simpleicons.org/rust/f0eeeb"
+              width="18"
+              height="18"
+              alt="Rust"
+              class="tech-icon"
+            />
+            <div class="tech-name">Rust + Aya for eBPF</div>
+          </div>
+          <div class="tech-body">
+            The eBPF verifier rejects programs that could crash the kernel.
+            Writing verified eBPF in C is difficult and unsafe by nature. The
+            Aya framework compiles Rust directly to eBPF bytecode, giving us the
+            verifier's safety guarantees plus Rust's memory safety at the
+            language level. The entire probe stack — kernel-side programs and
+            userspace loader — is memory-safe. There is no C anywhere in the
+            codebase.
+          </div>
+        </div>
+        <div class="tech-item">
+          <div class="tech-header">
+            <img
+              src="https://cdn.simpleicons.org/apachekafka/f0eeeb"
+              width="18"
+              height="18"
+              alt="Kafka"
+              class="tech-icon"
+            />
+            <div class="tech-name">Kafka for event transport</div>
+          </div>
+          <div class="tech-body">
+            Kernel events arrive at millions per second. Kafka provides
+            back-pressure handling, durability, and replayability. If the causal
+            engine falls behind during a complex incident, events are not lost —
+            they queue in Kafka and are processed when the engine catches up.
+            Kafka's log structure also makes the raw event stream inherently
+            replayable, which is foundational to the replay engine.
+          </div>
+        </div>
+        <div class="tech-item">
+          <div class="tech-header">
+            <img
+              src="https://cdn.simpleicons.org/neo4j/008CC1"
+              width="18"
+              height="18"
+              alt="Neo4j"
+              class="tech-icon"
+            />
+            <div class="tech-name">Neo4j for causal graphs</div>
+          </div>
+          <div class="tech-body">
+            Causal relationships are inherently graph-shaped. Traversing from a
+            failed payment to its root kernel cause in a relational database
+            requires recursive CTEs across multiple joins — slow and complex. In
+            Neo4j, the same traversal is a short Cypher query that runs in
+            milliseconds on graphs with millions of edges. The choice of storage
+            model is not incidental — it is what makes sub-second root cause
+            queries possible.
+          </div>
+        </div>
+        <div class="tech-item">
+          <div class="tech-header">
+            <img
+              src="https://cdn.simpleicons.org/clickhouse/FFCC01"
+              width="18"
+              height="18"
+              alt="ClickHouse"
+              class="tech-icon"
+            />
+            <div class="tech-name">ClickHouse for raw events</div>
+          </div>
+          <div class="tech-body">
+            The replay engine needs to retrieve all events for a specific
+            transaction in time order, from a table containing billions of rows.
+            ClickHouse is purpose-built for this — columnar storage, vectorized
+            execution, bloom filter indexes on transaction ID and PID. The same
+            query that would take minutes in Postgres takes under a second in
+            ClickHouse at this data volume.
+          </div>
+        </div>
+        <div class="tech-item">
+          <div class="tech-header">
+            <img
+              src="https://cdn.simpleicons.org/go/00ADD8"
+              width="18"
+              height="18"
+              alt="Go"
+              class="tech-icon"
+            />
+            <div class="tech-name">Go for the engine layer</div>
+          </div>
+          <div class="tech-body">
+            The causal engine, replay engine, and API server are all Go. Go's
+            goroutine model handles the concurrent event processing required for
+            real-time causal inference without the complexity of async Rust or
+            the overhead of a JVM. The standard library's `syscall` and `ptrace`
+            bindings are stable and well-understood, which is critical for the
+            replay engine's correctness.
+          </div>
+        </div>
+        <div class="tech-item">
+          <div class="tech-header">
+            <img
+              src="https://cdn.simpleicons.org/kubernetes/326CE5"
+              width="18"
+              height="18"
+              alt="Kubernetes"
+              class="tech-icon"
+            />
+            <div class="tech-name">DaemonSet deployment model</div>
+          </div>
+          <div class="tech-body">
+            The probe runs as a Kubernetes DaemonSet — one instance per node.
+            This is the only deployment model that guarantees every kernel event
+            on every node is captured. A deployment or sidecar model would miss
+            events on nodes where no instrumented pod happened to be running.
+            The DaemonSet is the architectural foundation of zero-gap coverage.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="contribute-section">
+      <div class="section-label">open source</div>
+      <h2 class="section-heading">kprobe is open source.</h2>
+      <div class="contribute-body">
+        <p>
+          kprobe is in active early development. The core pipeline — eBPF probe,
+          Kafka transport, causal engine, Neo4j graph model, gRPC API — is
+          complete. The dashboard and replay panel are in progress.
+        </p>
+        <p>
+          If you work on financial infrastructure, observability tooling, or
+          low-level systems and want to contribute or share feedback, the
+          repository is open.
+        </p>
+      </div>
+      <div class="contribute-links">
+        <a
+          href="https://github.com/YHQZ1/kprobe"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="contribute-link-primary"
+        >
+          <img
+            src="https://cdn.simpleicons.org/github/f0eeeb"
+            width="16"
+            height="16"
+            alt="GitHub"
+          />
+          View on GitHub
+        </a>
+        <a href="/docs" class="contribute-link-secondary">Read the docs →</a>
+      </div>
+      <div class="contribute-stack-note">
+        Built with Rust · Go · TypeScript · React · Kafka · ClickHouse · Neo4j ·
+        Kubernetes
+      </div>
+    </section>
+  </div>
+</Layout>
+
+<style>
+  .page {
+    width: 100%;
+  }
+
+  section {
+    width: 100%;
+    padding: 0.5rem 2rem 4.5rem;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  section:last-child {
+    border-bottom: none;
+  }
+
+  .section-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--accent);
+    padding-top: 3rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .section-heading {
+    font-size: clamp(1.4rem, 2.5vw, 2rem);
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    line-height: 1.2;
+    color: var(--text-primary);
+    margin-bottom: 2.5rem;
+    max-width: 640px;
+  }
+
+  .about-hero {
+    padding-top: 4rem;
+    padding-bottom: 4rem;
+    background: var(--bg-subtle);
+  }
+
+  .hero-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 1.25rem;
+  }
+
+  .hero-title {
+    font-size: clamp(2rem, 4vw, 3rem);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    color: var(--text-primary);
+    margin-bottom: 1.25rem;
+    max-width: 700px;
+  }
+
+  .hero-sub {
+    font-size: 1rem;
+    color: var(--text-secondary);
+    max-width: 620px;
+    line-height: 1.8;
+  }
+
+  .prose {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    max-width: 680px;
+  }
+
+  .prose p {
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    line-height: 1.85;
+  }
+
+  .positioning-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--border-subtle);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+
+  .pos-card {
+    padding: 2rem;
+    background: var(--bg-subtle);
+  }
+
+  .pos-card-is {
+    background: var(--bg);
+  }
+  .pos-card-isnot {
+    background: var(--bg-subtle);
+  }
+
+  .pos-card-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+  }
+
+  .pos-card-is .pos-card-label {
+    color: var(--accent);
+  }
+
+  .pos-card ul {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+  }
+
+  .pos-card li {
+    font-size: 0.855rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    padding-left: 1rem;
+    position: relative;
+  }
+
+  .pos-card-is li::before {
+    content: "✓";
+    position: absolute;
+    left: 0;
+    color: var(--accent);
+    font-size: 0.75rem;
+    top: 1px;
+  }
+
+  .pos-card-isnot li::before {
+    content: "·";
+    position: absolute;
+    left: 0;
+    color: var(--text-muted);
+    font-weight: 700;
+    font-size: 1.1rem;
+    top: -2px;
+  }
+
+  .design-decisions {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    background: var(--border-subtle);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+
+  .decision {
+    background: var(--bg);
+    padding: 1.75rem 2rem;
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    gap: 2rem;
+    align-items: start;
+  }
+
+  .decision:hover {
+    background: var(--bg-subtle);
+  }
+
+  .decision-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    letter-spacing: -0.01em;
+    padding-top: 0.1rem;
+  }
+
+  .decision-body {
+    font-size: 0.855rem;
+    color: var(--text-secondary);
+    line-height: 1.8;
+  }
+
+  .tech-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--border-subtle);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+
+  .tech-item {
+    background: var(--bg);
+    padding: 1.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.875rem;
+  }
+
+  .tech-item:hover {
+    background: var(--bg-subtle);
+  }
+
+  .tech-header {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+  }
+
+  .tech-icon {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    opacity: 0.8;
+  }
+
+  .tech-name {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    letter-spacing: -0.01em;
+  }
+
+  .tech-body {
+    font-size: 0.825rem;
+    color: var(--text-muted);
+    line-height: 1.8;
+  }
+
+  .contribute-body {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    max-width: 620px;
+    margin-bottom: 2rem;
+    margin-top: -1.5rem;
+  }
+
+  .contribute-body p {
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    line-height: 1.8;
+  }
+
+  .contribute-links {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    margin-bottom: 2rem;
+  }
+
+  .contribute-link-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem 1.35rem;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    text-decoration: none;
+    font-family: var(--font);
+  }
+
+  .contribute-link-primary:hover {
+    border-color: var(--text-muted);
+    background: var(--bg-subtle);
+  }
+
+  .contribute-link-secondary {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    text-decoration: none;
+  }
+
+  .contribute-link-secondary:hover {
+    color: var(--text-primary);
+  }
+
+  .contribute-stack-note {
+    font-size: 0.775rem;
+    color: var(--text-muted);
+    font-family: "JetBrains Mono", monospace;
+    letter-spacing: 0.02em;
+  }
+</style>

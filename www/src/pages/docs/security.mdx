@@ -1,0 +1,102 @@
+---
+layout: ../../layouts/DocsLayout.astro
+title: Security
+description: kprobe's privilege model, data storage, and network exposure.
+---
+
+# Security
+
+## Privilege model
+
+The eBPF probe requires elevated privileges to load programs into the kernel. The probe pod runs with the following capabilities:
+
+```yaml
+securityContext:
+  capabilities:
+    add:
+      - CAP_BPF
+      - CAP_PERFMON
+      - CAP_SYS_RESOURCE
+```
+
+`CAP_BPF` and `CAP_PERFMON` are the minimal capabilities required for eBPF programs since Linux 5.8. Earlier approaches required `CAP_SYS_ADMIN` — kprobe explicitly avoids this.
+
+All other kprobe components (causal engine, API server, replay engine, dashboard) run as non-privileged pods with no special capabilities.
+
+## What data kprobe stores
+
+kprobe stores the following data in ClickHouse:
+
+- Kernel event metadata: timestamp, PID, TID, CPU core, event type, duration
+- Network events: byte counts, connection direction (no packet payloads)
+- Syscall events: file descriptor numbers, byte counts (no file contents)
+- Financial context: transaction IDs and service names correlated from OTel traces
+
+**kprobe does not store:**
+
+- Packet payloads or TCP stream contents
+- File contents read or written via syscalls
+- Environment variables or process arguments
+- Credentials or secrets
+
+The causal graph in Neo4j stores only node and edge metadata derived from the above.
+
+## Data retention
+
+Default retention is 30 days in ClickHouse. Configure via:
+
+```yaml
+clickhouse:
+  retentionDays: 30
+```
+
+Neo4j causal graphs are retained indefinitely by default. Configure a TTL policy:
+
+```yaml
+neo4j:
+  graphRetentionDays: 90
+```
+
+## Network exposure
+
+By default, no kprobe service is exposed outside the cluster. The API server, dashboard, Neo4j, and ClickHouse are all ClusterIP services accessible only within the cluster.
+
+Access the dashboard via port-forward:
+
+```bash
+kubectl port-forward svc/kprobe-dashboard 3000:3000 -n monitoring
+```
+
+If you need to expose the API externally, use an ingress with TLS and enable API authentication:
+
+```yaml
+api:
+  auth:
+    enabled: true
+    type: bearer
+    secret: your-secret-here
+
+ingress:
+  enabled: true
+  host: kprobe.internal.yourdomain.com
+  tls: true
+```
+
+## Neo4j credentials
+
+The default Neo4j password is `kprobe_secret`. **Change this before any production deployment:**
+
+```yaml
+neo4j:
+  password: your-strong-password-here
+```
+
+## RBAC
+
+kprobe creates the following Kubernetes RBAC resources:
+
+- A `ServiceAccount` for the probe DaemonSet with permissions to read node metadata
+- A `ClusterRole` allowing the probe to access BPF filesystem paths
+- Standard `Role` objects for each service to access their own ConfigMaps and Secrets
+
+No kprobe component has cluster-admin or broad namespace-level permissions.

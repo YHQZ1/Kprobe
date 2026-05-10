@@ -1,0 +1,195 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: gRPC Reference
+description: Full gRPC method reference for the kprobe API.
+---
+
+# gRPC Reference
+
+## CausalGraphService
+
+### GetCausalGraph
+
+Returns the full causal graph for a transaction.
+
+```protobuf
+rpc GetCausalGraph(GetCausalGraphRequest) returns (CausalGraph);
+
+message GetCausalGraphRequest {
+  string transaction_id = 1;
+  int64  from_timestamp_ns = 2;
+  int64  to_timestamp_ns   = 3;
+}
+
+message CausalGraph {
+  string           transaction_id = 1;
+  repeated Node    nodes          = 2;
+  repeated Edge    edges          = 3;
+  string           root_cause_id  = 4;
+  int64            total_latency_ns = 5;
+}
+```
+
+### GetRootCause
+
+Returns only the root cause node for a transaction without the full graph.
+
+```protobuf
+rpc GetRootCause(GetRootCauseRequest) returns (Node);
+
+message GetRootCauseRequest {
+  string transaction_id = 1;
+}
+```
+
+### StreamCausalUpdates
+
+Streams causal graph updates in real time as new events arrive.
+
+```protobuf
+rpc StreamCausalUpdates(StreamRequest) returns (stream CausalUpdate);
+
+message StreamRequest {
+  repeated string services = 1;
+}
+
+message CausalUpdate {
+  string update_type = 1;
+  Node   node        = 2;
+  Edge   edge        = 3;
+}
+```
+
+## TimelineService
+
+### GetTimeline
+
+Returns all events for a transaction in time order.
+
+```protobuf
+rpc GetTimeline(GetTimelineRequest) returns (Timeline);
+
+message GetTimelineRequest {
+  string transaction_id    = 1;
+  int64  from_timestamp_ns = 2;
+  int64  to_timestamp_ns   = 3;
+  repeated string event_types = 4;
+}
+
+message Timeline {
+  string           transaction_id = 1;
+  repeated Event   events         = 2;
+  int64            span_ns        = 3;
+}
+```
+
+### StreamEvents
+
+Streams live kernel events matching a filter.
+
+```protobuf
+rpc StreamEvents(StreamEventsRequest) returns (stream Event);
+
+message StreamEventsRequest {
+  repeated string event_types = 1;
+  repeated string services    = 2;
+  repeated int32  pids        = 3;
+}
+```
+
+## ReplayService
+
+### CreateSession
+
+Creates a new replay session for a transaction.
+
+```protobuf
+rpc CreateSession(CreateSessionRequest) returns (ReplaySession);
+
+message CreateSessionRequest {
+  string transaction_id         = 1;
+  repeated Injection injections = 2;
+}
+
+message Injection {
+  string injection_type = 1;
+  string target         = 2;
+  int64  value_ns       = 3;
+  string syscall        = 4;
+  int32  error_code     = 5;
+}
+
+message ReplaySession {
+  string session_id    = 1;
+  string status        = 2;
+  int64  created_at_ns = 3;
+}
+```
+
+### StartReplay
+
+Starts a created replay session.
+
+```protobuf
+rpc StartReplay(StartReplayRequest) returns (stream ReplayEvent);
+
+message StartReplayRequest {
+  string session_id = 1;
+  float  speed      = 2;
+}
+
+message ReplayEvent {
+  string event_type = 1;
+  Event  event      = 2;
+  string status     = 3;
+}
+```
+
+### StopReplay
+
+Stops a running replay session.
+
+```protobuf
+rpc StopReplay(StopReplayRequest) returns (ReplaySession);
+
+message StopReplayRequest {
+  string session_id = 1;
+}
+```
+
+## Common types
+
+```protobuf
+message Node {
+  string node_id            = 1;
+  string event_type         = 2;
+  int64  timestamp_ns       = 3;
+  int32  pid                = 4;
+  int32  cpu                = 5;
+  int64  duration_ns        = 6;
+  string service            = 7;
+  string transaction_id     = 8;
+  bool   is_root_cause      = 9;
+  int64  latency_contribution_ns = 10;
+}
+
+message Edge {
+  string source_id              = 1;
+  string destination_id         = 2;
+  string relationship           = 3;
+  int64  latency_contribution_ns = 4;
+}
+
+message Event {
+  string event_id       = 1;
+  string event_type     = 2;
+  int64  timestamp_ns   = 3;
+  int32  pid            = 4;
+  int32  tid            = 5;
+  int32  cpu            = 6;
+  int64  duration_ns    = 7;
+  string service        = 8;
+  string transaction_id = 9;
+  map<string, string> metadata = 10;
+}
+```

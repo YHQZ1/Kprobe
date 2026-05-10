@@ -1,0 +1,83 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Replay Panel
+description: Replaying production incidents deterministically with kprobe.
+---
+
+# Replay Panel
+
+The replay panel lets you reproduce any recorded production incident exactly on a development machine and test proposed fixes against it before deploying.
+
+## How replay works
+
+kprobe uses Linux `ptrace` to intercept the system calls of a sandboxed process. Instead of system calls reaching the real kernel, the replay engine intercepts them and serves responses from the ClickHouse event log.
+
+The application sees exactly the same syscall responses it saw in production — same data, same timing, same sequence. The replay is deterministic: running the same replay twice produces the same result.
+
+## Starting a replay
+
+1. Find the transaction you want to replay in the causal graph view or timeline view
+2. Click **Open in Replay** on any node or in the transaction detail panel
+3. The replay panel opens with the full event log loaded
+4. Click **Start Replay** to begin
+
+The replay engine starts a sandboxed process and begins serving syscalls from the event log. Progress is shown on a timeline at the bottom of the panel.
+
+## Replay controls
+
+**Play / Pause** — start or pause the replay at any point. When paused, you can inspect the current state of all variables and syscall responses.
+
+**Step** — advance the replay by one syscall at a time. Useful for inspecting exactly what happens at a specific point in the incident.
+
+**Speed** — adjust replay speed from 0.1x to 10x. At 1x, the replay runs at the original production timing. At 10x, it runs 10 times faster. At 0.1x, you can watch each syscall in slow motion.
+
+**Jump to event** — click any event in the timeline to jump the replay to that point.
+
+## Injecting changes
+
+The replay engine supports modifying the event log before replay. This is how you test fixes.
+
+### Changing timeouts
+
+To test whether increasing a timeout would have prevented the failure:
+
+1. In the **Injections** panel, click **Add injection**
+2. Select **Timeout modification**
+3. Enter the service, the timeout parameter, and the new value
+4. Click **Apply** and then **Start Replay**
+
+The replay runs with the modified timeout. If the payment succeeds, your fix is validated.
+
+### Adding artificial delay
+
+To surface race conditions or test resilience to latency:
+
+1. Add a **Delay injection** on a specific syscall type or PID
+2. Set the delay in microseconds
+3. Run the replay
+
+### Injecting syscall failures
+
+To test error handling paths:
+
+1. Add a **Failure injection** on a specific syscall
+2. Choose the error code to return (e.g. `ETIMEDOUT`, `ENOMEM`)
+3. Run the replay
+
+The application will handle the injected failure as if it happened in production.
+
+## Verifying a fix
+
+The standard fix verification workflow:
+
+1. Replay the original incident — confirm the failure reproduces
+2. Apply your proposed fix as an injection or by modifying the service code
+3. Replay again with the fix — confirm the failure no longer occurs
+4. Run the replay 10+ times with timing variations to confirm no race conditions
+5. Ship the fix with confidence
+
+## Limitations
+
+- Replay requires the same binary that was running in production. If the service has been redeployed with different code, replay may diverge from the original behaviour.
+- Syscalls that interact with external systems (network calls to third parties, external databases) are replayed from the event log. The external system is not contacted during replay.
+- The replay engine is currently Linux-only. Development machines must run Linux or use a Linux VM.

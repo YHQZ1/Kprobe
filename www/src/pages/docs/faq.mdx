@@ -1,0 +1,60 @@
+---
+layout: ../../layouts/DocsLayout.astro
+title: FAQ
+description: Frequently asked questions about kprobe.
+---
+
+# FAQ
+
+## Does kprobe work on macOS?
+
+The eBPF probe requires Linux kernel 5.15+ and will not run on macOS. For development, use a Linux VM, GitHub Codespaces, or any Linux cloud instance.
+
+The rest of kprobe — causal engine, API server, replay engine, dashboard — can run natively on macOS for local development. Only the probe itself requires Linux.
+
+## What is the performance overhead?
+
+Typical overhead is under 1% CPU per node and approximately 200MB of additional memory. Latency added to instrumented syscalls is under 1 microsecond.
+
+The probe can be tuned to reduce overhead by disabling specific hooks. See [Configuration](/docs/configuration) for details.
+
+## Does kprobe require changes to my application?
+
+No. kprobe attaches to the kernel and captures events without any application code changes, library imports, or redeployment. It works with any language, any framework, and any existing observability setup.
+
+If you have OpenTelemetry traces set up, kprobe will automatically correlate kernel events with your trace context. If you do not, kprobe still works — it just has less financial context to attach to kernel events.
+
+## Does it work with any Kubernetes distribution?
+
+kprobe works with any Kubernetes distribution running on Linux kernel 5.15+ with BTF support. Tested distributions include:
+
+- EKS (AL2023 nodes)
+- GKE (Container-Optimized OS)
+- AKS (Ubuntu node pools)
+- Self-managed clusters on Ubuntu 22.04+
+
+## How does kprobe know which kernel event belongs to which payment?
+
+kprobe correlates kernel events with financial events using process ID and timestamp. The Vector correlation layer joins the raw eBPF event stream with your OpenTelemetry traces — every trace has a PID associated with it, which kprobe uses to link the kernel event to the financial transaction.
+
+If you do not use OpenTelemetry, kprobe can still group events by PID and timestamp but will not have named financial context.
+
+## What happens if the causal engine falls behind?
+
+Events queue in Kafka. Kafka is configured with durable retention (default 24 hours). If the causal engine falls behind under load, it will catch up when load drops. No events are lost.
+
+## Can I query the data directly?
+
+Yes. ClickHouse is accessible at port 8123 and Neo4j at port 7474. Use ClickHouse's HTTP interface for SQL queries over raw events. Use the Neo4j Browser for Cypher queries over the causal graph.
+
+## Is the replay engine safe to run in production?
+
+The replay engine uses `ptrace` to sandbox a process. It is designed for development machines, not production. Running replay in production would intercept the syscalls of a real process and serve recorded responses — this would break the process. Always run replay locally or in a dedicated staging environment.
+
+## How long does it take to get the first causal graph?
+
+After deployment, the probe starts capturing events immediately. The first causal graph for a transaction will appear in the dashboard within a few seconds of the transaction completing — the time it takes for events to flow through Kafka, be correlated by Vector, and be processed by the causal engine.
+
+## Does kprobe support Windows or other operating systems?
+
+No. eBPF is a Linux kernel technology. kprobe is Linux-only.

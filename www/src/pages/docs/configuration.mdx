@@ -1,0 +1,148 @@
+---
+layout: ../../layouts/DocsLayout.astro
+title: Configuration
+description: Configuring kprobe — Kafka topics, ClickHouse schema, probe tuning, and Helm values.
+---
+
+# Configuration
+
+## Helm values
+
+The full kprobe stack is configured via Helm values. The most important options:
+
+```yaml
+probe:
+  ebpf:
+    hooks:
+      tcp: true
+      syscall: true
+      sched: true
+      fault: true
+    ringBufferSizeKb: 4096
+
+kafka:
+  retentionMs: 86400000
+  replicationFactor: 3
+
+clickhouse:
+  retentionDays: 30
+  partitionByDay: true
+
+neo4j:
+  password: change-me-in-production
+  memoryHeapMaxSize: 4G
+
+engine:
+  windowMs: 100
+  causalThresholdNs: 50000
+
+api:
+  port: 8080
+  auth:
+    enabled: false
+```
+
+Override any value at install time:
+
+```bash
+helm install kprobe kprobe/kprobe \
+  --namespace monitoring \
+  --set clickhouse.retentionDays=90 \
+  --set engine.windowMs=50
+```
+
+Or use a values file:
+
+```bash
+helm install kprobe kprobe/kprobe \
+  --namespace monitoring \
+  -f my-values.yaml
+```
+
+## Kafka topics
+
+kprobe uses five Kafka topics:
+
+| Topic             | Content                             | Produced by | Consumed by   |
+| ----------------- | ----------------------------------- | ----------- | ------------- |
+| `kernel.tcp`      | TCP send/receive events             | eBPF probe  | Vector        |
+| `kernel.sched`    | CPU scheduling events               | eBPF probe  | Vector        |
+| `kernel.syscall`  | Read/write syscall events           | eBPF probe  | Vector        |
+| `kernel.fault`    | Memory page fault events            | eBPF probe  | Vector        |
+| `kernel.enriched` | Correlated events with OTel context | Vector      | Causal engine |
+
+All topics are configured with `acks=all` and `min.insync.replicas=2` by default for durability.
+
+## ClickHouse schema
+
+The main event table:
+
+```sql
+CREATE TABLE kprobe.kernel_events (
+    timestamp_ns    UInt64,
+    pid             UInt32,
+    tid             UInt32,
+    cpu             UInt16,
+    event_type      LowCardinality(String),
+    duration_ns     UInt64,
+    service         LowCardinality(String),
+    transaction_id  String,
+    metadata        Map(String, String)
+)
+ENGINE = MergeTree()
+PARTITION BY toDate(fromUnixTimestamp64Nano(timestamp_ns))
+ORDER BY (timestamp_ns, pid)
+SETTINGS index_granularity = 8192;
+```
+
+Bloom filter indexes for fast lookups:
+
+```sql
+ALTER TABLE kprobe.kernel_events
+  ADD INDEX idx_pid pid TYPE bloom_filter GRANULARITY 4,
+  ADD INDEX idx_transaction transaction_id TYPE bloom_filter GRANULARITY 4,
+  ADD INDEX idx_event_type event_type TYPE bloom_filter GRANULARITY 4;
+```
+
+## Causal engine tuning
+
+### Window size
+
+The causal engine groups events into time windows for inference. The default window is 100ms.
+
+- **Smaller windows** (50ms) — faster causal inference, may miss slow cross-service causality
+- **Larger windows** (200ms) — captures slower causal relationships, higher memory usage
+
+```yaml
+engine:
+  windowMs: 100
+```
+
+### Causal threshold
+
+The minimum latency contribution for an edge to be drawn. Events below this threshold are still captured but not included in the causal graph.
+
+```yaml
+engine:
+  causalThresholdNs: 50000 # 50 microseconds
+```
+
+## Probe overhead
+
+kprobe is designed to have minimal impact on production workloads:
+
+| Metric                    | Typical value                  |
+| ------------------------- | ------------------------------ |
+| CPU overhead per node     | < 1%                           |
+| Memory overhead per node  | ~200MB                         |
+| Network overhead (Kafka)  | ~10MB/s at high event volume   |
+| Latency added to syscalls | < 1µs per instrumented syscall |
+
+The probe can be configured to reduce overhead further by disabling specific hooks:
+
+```yaml
+probe:
+  ebpf:
+    hooks:
+      fault: false # disable mm_page_fault if not needed
+```

@@ -1,0 +1,123 @@
+---
+layout: ../../layouts/DocsLayout.astro
+title: Architecture
+description: Full system architecture and technical design decisions behind kprobe.
+---
+
+# Architecture
+
+## System overview
+
+kprobe is a multi-component system deployed into a Kubernetes cluster alongside your existing services. It operates entirely passively — nothing in your existing stack needs to change.┌──────────────────────────────────────────────┐
+│ Production Cluster │
+│ │
+│ Service A ──► Service B ──► Service C │
+│ │ │ │
+│ kernel events OTel traces │
+└────────┼──────────────────────────┼──────────┘
+│ │
+▼ ▼
+eBPF Probes OpenTelemetry
+(pure Rust/Aya) (existing setup)
+│ │
+▼ │
+Kafka ◄──────────────────────┘
+(raw_kernel_events)
+│
+▼
+Vector
+(PID + timestamp correlation)
+│
+─────┴─────
+│ │
+▼ ▼
+ClickHouse Go Causal Engine
+(raw store) │
+▼
+Neo4j
+(causal graph)
+│
+Go gRPC API
+│
+─────────┴─────────
+│ │
+D3.js Graph ECharts Timeline
+(causality) (nanosecond view)
+
+## Component responsibilities
+
+### eBPF probe (Rust + Aya)
+
+- Runs as a DaemonSet — one pod per cluster node
+- Kernel-side programs attach to tracepoints and write events to perf ring buffers
+- Userspace agent reads ring buffers and publishes to Kafka
+- Requires `CAP_BPF` and `CAP_PERFMON` — runs as a privileged pod
+
+### Kafka (KRaft)
+
+- Four topics: `kernel.tcp`, `kernel.sched`, `kernel.syscall`, `kernel.fault`
+- One enriched topic: `kernel.enriched` (Vector output)
+- KRaft mode — no Zookeeper dependency
+- Configured for durability: `acks=all`, replication factor 3 in production
+
+### Vector
+
+- Deployed as a sidecar or standalone deployment
+- Subscribes to all four raw Kafka topics
+- Joins eBPF events with OpenTelemetry traces on PID and timestamp
+- Routes enriched events to both ClickHouse and `kernel.enriched`
+
+### ClickHouse
+
+- Schema: `kprobe.kernel_events` — columnar time series table
+- Bloom filter indexes on `pid`, `event_type`, `transaction_id`
+- Partition by day, order by `(timestamp_ns, pid)`
+- Used by the replay engine to retrieve event logs and by the API for timeline queries
+
+### Go Causal Engine
+
+- Consumes `kernel.enriched` topic
+- Sliding window causal inference — 100ms default window
+- Writes nodes and edges to Neo4j via Bolt protocol
+- Streams live causal updates to the API layer via gRPC
+
+### Neo4j
+
+- Node types: `FinancialEvent`, `KernelEvent`, `Process`, `Service`
+- Edge types: `CAUSED`, `TRIGGERED_BY`, `PART_OF`
+- Cypher query library for root cause traversal
+- Browser accessible at port 7474 for manual graph exploration
+
+### Go gRPC API
+
+- Protobuf-defined service contracts
+- Serves causal graph queries, timeline queries, replay session management
+- WebSocket endpoint for live event streaming to the dashboard
+
+### React Dashboard
+
+- D3.js for interactive causal graph rendering
+- ECharts for nanosecond timeline view
+- WebSocket hook for live event streaming
+
+## Design decisions
+
+### Why Rust for eBPF?
+
+The eBPF verifier is strict — programs that could crash the kernel are rejected. Writing verified eBPF in C is difficult and the code is unsafe by nature. Aya compiles Rust to eBPF bytecode, giving us the verifier's safety guarantees plus Rust's memory safety at the language level. There is no C anywhere in the codebase.
+
+### Why Kafka over direct streaming?
+
+Kernel events arrive at millions per second. Kafka provides back-pressure handling, durability, and replayability. If the causal engine falls behind, events are not lost — they queue in Kafka and are processed when the engine catches up. This is critical during incident investigation when you may need to replay hours of historical data.
+
+### Why Neo4j over a relational database?
+
+Causal relationships are inherently graph-shaped. Traversing from a failed payment to its root kernel cause in a relational database requires recursive CTEs across multiple joins. In Neo4j, the same traversal is a 2-line Cypher query that runs in milliseconds on graphs with millions of edges.
+
+### Why ClickHouse for raw events?
+
+ClickHouse is purpose-built for analytical queries over large volumes of timestamped data. The replay engine needs to retrieve all events for a specific transaction in time order. ClickHouse can scan billions of rows and return the relevant subset in under a second.
+
+### Why separate Go modules?
+
+Each service (`engine`, `api`, `replay`) has its own `go.mod`. They share types through the `shared` module only. This keeps services independently deployable — you can upgrade the API server without redeploying the causal engine.

@@ -1,0 +1,65 @@
+---
+layout: ../../layouts/DocsLayout.astro
+title: Introduction
+description: What kprobe is, what it does, and when to use it.
+---
+
+# Introduction
+
+kprobe is a kernel-level observability tool for distributed financial systems. It uses eBPF to attach directly to the Linux kernel and capture everything that happens in your system — network packet timing, CPU scheduling decisions, memory pressure events, database write latency — without touching a single line of your application code.
+
+When something breaks in a financial system, kprobe constructs a full causal graph of exactly what caused what, down to the kernel-level event that triggered the failure. It then lets you replay the entire incident deterministically on a development machine, hours after it happened.
+
+## What kprobe is not
+
+kprobe is not a monitoring tool. It does not alert on thresholds or aggregate metrics into dashboards for ongoing operational visibility. Tools like Prometheus and Grafana do that well.
+
+kprobe is not a tracing tool. It does not replace Jaeger or OpenTelemetry. It augments them — correlating their traces with kernel-level events to give you the full picture.
+
+kprobe is a **flight recorder and a debugger** for your entire distributed financial system.
+
+## The problem it solves
+
+Every popular observability tool operates above your application code. They see only what you explicitly instrument. The most dangerous failures in financial systems happen below your code, at the operating system level:
+
+- A kernel scheduler delays a critical ledger write by 50ms
+- Memory pressure from a background job causes a GC pause at exactly the wrong moment
+- A TCP retransmit pushes a settlement past its clearing window
+
+None of this is visible to Datadog, Jaeger, or OpenTelemetry. kprobe sees all of it.
+
+## Core components
+
+kprobe has three components that work together continuously from the moment of deployment.
+
+**The Recorder** — An eBPF probe deployed as a Kubernetes DaemonSet on every node. It attaches to kernel tracepoints and captures every relevant event with nanosecond precision. No application code changes required.
+
+**The Causal Engine** — Consumes the raw kernel event stream, correlates it with your existing OpenTelemetry traces, and builds a directed causal graph that answers not just what happened but why. Stored in Neo4j and traversable in milliseconds.
+
+**The Replay Engine** — Uses Linux `ptrace` to intercept system calls of a sandboxed process and serve them from the recorded event log. Any production incident can be reproduced exactly on a development machine.
+
+## When to use kprobe
+
+kprobe is designed for teams running distributed financial systems on Kubernetes where:
+
+- Incidents involve ambiguous intermediate states (money in limbo, failed settlements, stuck transactions)
+- Root cause analysis takes hours and never fully confirms the cause
+- Failures happen at the OS level — GC pauses, network retransmits, scheduler delays — not in application code
+- You need to verify a fix works against the exact production incident before deploying
+
+## Requirements
+
+| Component      | Requirement                      |
+| -------------- | -------------------------------- |
+| Kubernetes     | 1.26+                            |
+| Linux kernel   | 5.15+ with BTF support           |
+| Helm           | 3.x                              |
+| Node resources | 4 CPU / 8GB RAM minimum per node |
+
+Linux kernel 5.15+ with BTF (BPF Type Format) support is a hard requirement — eBPF CO-RE (Compile Once, Run Everywhere) depends on it. Most modern cloud provider managed Kubernetes offerings (EKS, GKE, AKS) meet this requirement by default.
+
+## Next steps
+
+- [Installation](/docs/installation) — deploy kprobe into your cluster
+- [Quickstart](/docs/quickstart) — run your first causal trace
+- [How it works](/docs/how-it-works) — deep dive into the architecture
