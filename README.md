@@ -1,6 +1,6 @@
 <div align="center">
 
-# Kprobe
+# kprobe
 
 <p align="center">
   Deep kernel observability for financial systems.<br/>
@@ -23,6 +23,7 @@
   <img src="https://img.shields.io/badge/Kubernetes-326CE5?style=flat-square&logo=kubernetes&logoColor=white" />
   <img src="https://img.shields.io/badge/Helm-Charts-0F1689?style=flat-square&logo=helm&logoColor=white" />
   <img src="https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white" />
+  <img src="https://img.shields.io/badge/Astro-FF5D01?style=flat-square&logo=astro&logoColor=white" />
 </p>
 
 </div>
@@ -116,35 +117,35 @@ This enables:
 └────────┼──────────────────────────┼──────────┘
          │                          │
          ▼                          ▼
-   eBPF Probes               OpenTelemetry
-   (pure Rust/Aya)           (existing setup)
+    eBPF Probes               OpenTelemetry
+   (pure Rust/Aya)            (existing setup)
          │                          │
          ▼                          │
        Kafka ◄──────────────────────┘
-   (raw_kernel_events)
+  (raw_kernel_events)
          │
          ▼
        Vector
-  (PID + timestamp correlation)
+(PID + timestamp correlation)
          │
     ─────┴─────
     │         │
     ▼         ▼
 ClickHouse   Go Causal Engine
-(raw store)       │
-                  ▼
-                Neo4j
-            (causal graph)
-                  │
+ (raw store)       │
+                   ▼
+                 Neo4j
+             (causal graph)
+                   │
             Go gRPC API
-                  │
-         ─────────┴─────────
+                   │
+         ──────────┴────────
          │                 │
-    D3.js Graph       ECharts Timeline
-    (causality)       (nanosecond view)
-         │
-    Replay Engine
-    (Go + ptrace)
+   D3.js Graph       ECharts Timeline
+   (causality)       (nanosecond view)
+                           │
+                      Replay Engine
+                      (Go + ptrace)
 ```
 
 ---
@@ -180,10 +181,18 @@ kprobe/
 │   ├── types/                # Common event types (KernelEvent, EventType)
 │   └── domain/               # Financial domain types (Settlement, Order, LedgerEntry)
 │
-├── web/                      # React + TypeScript dashboard
+├── www/                      # Public website — Astro + MDX
+│   └── src/
+│       ├── components/       # Navbar, Footer, DocsSidebar, SearchModal
+│       ├── layouts/          # Layout.astro, DocsLayout.astro
+│       ├── pages/            # Landing page, compare, about, 404
+│       │   └── docs/         # Full documentation — 14 pages across 5 sections
+│       └── styles/           # Global CSS, design tokens
+│
+├── console/                  # Local dashboard — React + TypeScript (in progress)
 │   └── src/
 │       ├── components/       # Reusable UI components
-│       ├── views/            # Causal graph view, timeline view, replay panel
+│       ├── views/            # Causal graph, timeline, replay panel, live stream
 │       ├── hooks/            # WebSocket hook, data fetching
 │       └── lib/              # D3, ECharts setup, gRPC client
 │
@@ -203,7 +212,7 @@ kprobe/
 | Component                 | Technology      | Details                                                                                                                                                                                     |
 | ------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Kernel-side eBPF programs | Rust + Aya      | Attached to tracepoints — `tcp_sendmsg`, `tcp_recvmsg`, `sys_read`, `sys_write`, `sched_switch`, `mm_page_fault`. Compiled to eBPF bytecode via Aya — no C, memory-safe from the kernel up. |
-| Userspace probe agent     | Rust 1.77 + Aya | Loads eBPF programs, manages perf ring buffers, batches and streams events to Kafka                                                                                                         |
+| Userspace probe agent     | Rust 1.77 + Aya | Loads eBPF programs, manages perf ring buffers, batches and streams events to Kafka.                                                                                                        |
 
 ### Event Pipeline
 
@@ -223,34 +232,35 @@ kprobe/
 
 | Component           | Technology                        | Details                                                                                                                                             |
 | ------------------- | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Causal graph engine | Go 1.22                           | Consumes enriched Kafka stream, performs causal inference, writes graph edges to Neo4j, streams live causal updates to the API layer                |
+| Causal graph engine | Go 1.22                           | Consumes enriched Kafka stream, performs causal inference, writes graph edges to Neo4j, streams live causal updates to the API layer.               |
 | Replay engine       | Go 1.22 + ptrace                  | Intercepts syscalls of sandboxed processes via ptrace and replays them from ClickHouse event log. Supports timing injection and failure simulation. |
-| API server          | Go 1.22 + gRPC + Protocol Buffers | Serves the frontend, manages replay sessions, streams live kernel events, queries ClickHouse and Neo4j                                              |
+| API server          | Go 1.22 + gRPC + Protocol Buffers | Serves the frontend, manages replay sessions, streams live kernel events, queries ClickHouse and Neo4j.                                             |
 
 ### Frontend
 
-| Component         | Technology                | Details                                                                                                                                                                   |
-| ----------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Dashboard shell   | React 18 + TypeScript 5.0 | Main application shell, routing, state management                                                                                                                         |
-| Causal graph view | D3.js                     | Fully custom interactive graph rendering. Nodes are events, edges are causal relationships, colour-coded by latency impact. Click any node to drill down to kernel level. |
-| Timeline view     | Apache ECharts            | Nanosecond precision horizontal timeline across all services and kernel events simultaneously. Zoomable to microsecond level.                                             |
-| Live event stream | WebSockets                | Streams kernel events from the Go API to the dashboard in real time                                                                                                       |
+| Component         | Technology                  | Details                                                                                                                                                                   |
+| ----------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Public website    | Astro 6 + MDX + Tailwind v4 | Marketing site, full documentation (14 pages), compare page, about page. Deployed statically.                                                                             |
+| Dashboard shell   | React 18 + TypeScript 5.0   | Local console — main application shell, routing, state management.                                                                                                        |
+| Causal graph view | D3.js                       | Fully custom interactive graph rendering. Nodes are events, edges are causal relationships, colour-coded by latency impact. Click any node to drill down to kernel level. |
+| Timeline view     | Apache ECharts              | Nanosecond-precision horizontal timeline across all services and kernel events simultaneously. Zoomable to microsecond level.                                             |
+| Live event stream | WebSockets                  | Streams kernel events from the Go API to the dashboard in real time.                                                                                                      |
 
 ### Internal Observability
 
-| Component           | Technology              | Details                                                                                           |
-| ------------------- | ----------------------- | ------------------------------------------------------------------------------------------------- |
-| Instrumentation     | OpenTelemetry Collector | Standard SDK across all Go services for traces, metrics, and logs                                 |
-| Distributed tracing | Jaeger                  | Traces calls across causal engine, replay engine, and API server                                  |
-| Metrics             | Prometheus              | Events/sec through Kafka, causal engine throughput, ClickHouse query latency, eBPF probe overhead |
-| Dashboards and logs | Grafana + Loki          | Single pane for all internal metrics and structured logs                                          |
+| Component           | Technology              | Details                                                                                            |
+| ------------------- | ----------------------- | -------------------------------------------------------------------------------------------------- |
+| Instrumentation     | OpenTelemetry Collector | Standard SDK across all Go services for traces, metrics, and logs.                                 |
+| Distributed tracing | Jaeger                  | Traces calls across causal engine, replay engine, and API server.                                  |
+| Metrics             | Prometheus              | Events/sec through Kafka, causal engine throughput, ClickHouse query latency, eBPF probe overhead. |
+| Dashboards and logs | Grafana + Loki          | Single pane for all internal metrics and structured logs.                                          |
 
 ### Infrastructure
 
 | Component         | Technology     | Details                                                                                        |
 | ----------------- | -------------- | ---------------------------------------------------------------------------------------------- |
 | Orchestration     | Kubernetes     | eBPF probe deployed as DaemonSet across all nodes. All other services as standard Deployments. |
-| Packaging         | Helm           | Single `helm install` deploys the full stack into any existing cluster                         |
+| Packaging         | Helm           | Single `helm install` deploys the full stack into any existing cluster.                        |
 | Local development | Docker Compose | Infrastructure only (Kafka, ClickHouse, Neo4j). Services run natively for fast iteration.      |
 
 ---
@@ -282,17 +292,17 @@ A payment of ₹50,000 fails to settle at 2:47am. The user receives an error. Mo
 
 ```
 [Payment #98721 Received]
-        |  0.4ms
-[Risk Check passed]
-        |  1.2ms
+         |  0.4ms
+[Risk Check Passed]
+         |  1.2ms
 [Settlement Write Initiated]
-        |
+         |
 [KERNEL: Memory Pressure Event]  <── batch job PID 4721 competing for RAM
-        |  800ms delay
+         |  800ms delay
 [Settlement Write Completed]
-        |
+         |
 [TIMEOUT: payment-handler exceeded 750ms threshold]  <── root cause
-        |
+         |
 [Payment Failed]
 ```
 
@@ -313,10 +323,13 @@ kprobe uses a split dev model — infrastructure runs in Docker, services run na
 - Go 1.22+
 - Rust 1.77+ with `cargo`
 - Node.js 20+
+- pnpm 9+
 - Docker + Docker Compose
 - Linux kernel 5.15+ (for eBPF — required on the target system, not your dev machine)
 
 ### Getting Started
+
+Clone the repository:
 
 ```bash
 git clone https://github.com/YHQZ1/kprobe
@@ -332,10 +345,16 @@ make infra
 Run services natively in separate terminals:
 
 ```bash
-make engine    # terminal 1 — causal engine on Kafka consumer
+make engine    # terminal 1 — causal engine
 make api       # terminal 2 — gRPC API server on :8080
 make replay    # terminal 3 — replay engine
-make web       # terminal 4 — React dashboard on :5173
+make web       # terminal 4 — React console on :5173
+```
+
+Run the public website:
+
+```bash
+cd www && pnpm dev   # Astro dev server on :4321
 ```
 
 Tear down infrastructure when done:
@@ -344,23 +363,21 @@ Tear down infrastructure when done:
 make infra-down
 ```
 
-See all available commands:
-
-```bash
-make help
-```
-
 ### Local Service Ports
 
-| Service    | Port |
-| ---------- | ---- |
-| API (gRPC) | 8080 |
-| Web        | 5173 |
-| Kafka      | 9092 |
-| ClickHouse | 8123 |
-| Neo4j      | 7474 |
+| Service      | Port |
+| ------------ | ---- |
+| API (gRPC)   | 8080 |
+| Console      | 5173 |
+| www (Astro)  | 4321 |
+| Kafka        | 9092 |
+| ClickHouse   | 8123 |
+| Neo4j (HTTP) | 7474 |
+| Neo4j (Bolt) | 7687 |
 
-### Production Deployment
+---
+
+## Production Deployment
 
 kprobe deploys into any Kubernetes cluster with a single Helm command. No changes to existing services are required.
 
@@ -388,33 +405,45 @@ kubectl port-forward svc/kprobe-dashboard 3000:3000 -n monitoring
 
 ### Phase 1 — Core Pipeline
 
-- [X] eBPF probe: TCP, database write, CPU scheduling, and memory pressure hooks
-- [X] Rust/Aya userspace loader with ring buffer management
-- [X] Kafka pipeline with topic-per-event-type schema
-- [X] Vector correlation layer joining eBPF events with OpenTelemetry traces
-- [X] ClickHouse ingestion pipeline and time series schema
+- [x] eBPF probe: TCP, database write, CPU scheduling, and memory pressure hooks
+- [x] Rust/Aya userspace loader with ring buffer management
+- [x] Kafka pipeline with topic-per-event-type schema
+- [x] Vector correlation layer joining eBPF events with OpenTelemetry traces
+- [x] ClickHouse ingestion pipeline and time series schema
 
 ### Phase 2 — Causal Intelligence
 
-- [X] Causal graph engine v1 — event windowing and causal inference
-- [X] Neo4j graph model and Cypher query library
-- [X] Financial domain primitives — settlement boundaries, clearing windows, ledger writes
-- [X] gRPC API server with streaming support
+- [x] Causal graph engine v1 — event windowing and causal inference
+- [x] Neo4j graph model and Cypher query library
+- [x] Financial domain primitives — settlement boundaries, clearing windows, ledger writes
+- [x] gRPC API server with streaming support
 
-### Phase 3 — Frontend
+### Phase 3 — Public Website
 
-- [ ] React dashboard shell with routing and state management
-- [ ] D3.js interactive causal graph view
-- [ ] ECharts nanosecond timeline view
-- [ ] Live event streaming via WebSockets
+- [x] Astro + MDX + Tailwind v4 — full public site
+- [x] Landing page — hero, causal trace visual, capabilities, comparison table, stack, install
+- [x] Full documentation — 14 pages: introduction, installation, quickstart, how it works, architecture, dashboard guides, API reference, configuration, security, FAQ
+- [x] Compare page — structural gap analysis, tool-by-tool breakdown, capability matrix
+- [x] About page — origin, design philosophy, technical foundations
+- [x] Navbar with search modal (⌘K), theme toggle, GitHub link
+- [x] Docs layout with sticky sidebar and mobile drawer
+- [x] 404 page
 
-### Phase 4 — Replay
+### Phase 4 — Console Dashboard
+
+- [ ] React dashboard shell — routing, state management
+- [ ] D3.js causal graph view — interactive, colour-coded by latency
+- [ ] ECharts timeline view — nanosecond precision, zoomable
+- [ ] WebSocket hook — live event streaming from API
+- [ ] Replay panel UI
+
+### Phase 5 — Replay Engine
 
 - [ ] Deterministic replay engine with ptrace syscall interposition
 - [ ] Timing injection and failure simulation in replay panel
 - [ ] Fix verification workflow — replay with proposed changes before production deploy
 
-### Phase 5 — Production Readiness
+### Phase 6 — Production Readiness
 
 - [ ] Helm chart for single-command Kubernetes deployment
 - [ ] OpenTelemetry export for compatibility with existing Jaeger and Tempo setups
