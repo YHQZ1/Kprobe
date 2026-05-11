@@ -4,11 +4,17 @@ import Navbar from "../components/Navbar.astro";
 import DocsSidebar from "../components/DocsSidebar.astro";
 
 interface Props {
-  title: string;
+  title?: string;
   description?: string;
+  frontmatter?: {
+    title?: string;
+    description?: string;
+  };
 }
 
-const { title, description = "kprobe documentation" } = Astro.props;
+const frontmatter = Astro.props.frontmatter ?? Astro.props;
+const title = frontmatter.title ?? "Docs";
+const description = frontmatter.description ?? "kprobe documentation";
 ---
 
 <!doctype html>
@@ -17,8 +23,8 @@ const { title, description = "kprobe documentation" } = Astro.props;
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content={description} />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <title>{title} — kprobe docs</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.ico" />
+    <title>Kprobe Documentation: {title}</title>
     <script is:inline>
       (function () {
         const saved = localStorage.getItem("kprobe-theme") || "dark";

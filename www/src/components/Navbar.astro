@@ -11,24 +11,22 @@ const currentPath = Astro.url.pathname;
 <header id="navbar">
   <div class="navbar-inner">
     <a href="/" class="brand">
-      <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
-        <circle cx="11" cy="11" r="3" fill="var(--accent)"></circle>
-        <circle
-          cx="11"
-          cy="11"
-          r="6.5"
-          stroke="var(--accent)"
-          stroke-width="1"
-          stroke-dasharray="2 2"></circle>
-        <circle
-          cx="11"
-          cy="11"
-          r="10"
-          stroke="var(--accent)"
-          stroke-width="0.5"
-          opacity="0.4"></circle>
-      </svg>
-      <span class="brand-name">kprobe</span>
+      <img
+        src="/logos/dark.png"
+        width="22"
+        height="22"
+        alt="kprobe"
+        class="icon-dark"
+      />
+      <img
+        src="/logos/light.png"
+        width="22"
+        height="22"
+        alt=""
+        class="icon-light"
+        aria-hidden="true"
+      />
+      <span class="brand-name">Kprobe</span>
     </a>
 
     <nav class="nav-links">
