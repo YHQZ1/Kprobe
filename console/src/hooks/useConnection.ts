@@ -12,6 +12,14 @@ interface UseConnectionReturn {
 }
 
 export function useConnection(): UseConnectionReturn {
+  if (import.meta.env.DEV) {
+    return { status: "mock", lastMessage: null };
+  }
+
+  return useLiveConnection();
+}
+
+function useLiveConnection(): UseConnectionReturn {
   const [status, setStatus] = useState<ConnectionStatus>("connecting");
   const [lastMessage, setLastMessage] = useState<MessageEvent | null>(null);
 
@@ -27,7 +35,6 @@ export function useConnection(): UseConnectionReturn {
       backoffRef.current * BACKOFF_FACTOR,
       MAX_BACKOFF,
     );
-
     timerRef.current = setTimeout(() => {
       if (mountedRef.current) connect();
     }, delay);
@@ -83,8 +90,5 @@ export function useConnection(): UseConnectionReturn {
     };
   }, [connect]);
 
-  return {
-    status,
-    lastMessage,
-  };
+  return { status, lastMessage };
 }

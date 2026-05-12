@@ -1,4 +1,5 @@
-import { useLocation } from "react-router-dom";
+import { useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
 import { useConnection } from "../hooks/useConnection";
@@ -27,6 +28,18 @@ const VIEW_META: Record<string, { title: string; description: string }> = {
   "/settings": { title: "Settings", description: "configuration" },
 };
 
+// Keys that should never trigger navigation shortcuts
+function isTypingTarget(el: EventTarget | null): boolean {
+  if (!el || !(el instanceof HTMLElement)) return false;
+  const tag = el.tagName;
+  return (
+    tag === "INPUT" ||
+    tag === "TEXTAREA" ||
+    tag === "SELECT" ||
+    (el as HTMLElement).isContentEditable
+  );
+}
+
 export default function Shell({
   children,
   onLogout,
@@ -34,12 +47,62 @@ export default function Shell({
   onThemeToggle,
 }: ShellProps) {
   const location = useLocation();
+  const navigate = useNavigate();
   const { status } = useConnection();
 
   const meta = VIEW_META[location.pathname] ?? {
     title: "kprobe",
     description: "",
   };
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      // Never fire when the user is typing in an input
+      if (isTypingTarget(e.target)) return;
+
+      const key = e.key.toUpperCase();
+      const meta = e.metaKey || e.ctrlKey;
+
+      // ⌘K — search (placeholder: focus a future search input)
+      if (meta && key === "K") {
+        e.preventDefault();
+        // TODO: open search modal when built
+        return;
+      }
+
+      // ⌘Shift C — clear current view
+      if (meta && e.shiftKey && key === "C") {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent("kprobe:clear-view"));
+        return;
+      }
+
+      // Single-key navigation — only fire when no modifier held
+      if (meta || e.altKey || e.shiftKey) return;
+
+      switch (key) {
+        case "G":
+          navigate("/graph");
+          break;
+        case "S":
+          navigate("/stream");
+          break;
+        case "T":
+          navigate("/timeline");
+          break;
+        case "R":
+          navigate("/replay");
+          break;
+        case "ESCAPE":
+          // Dispatch a custom event so individual pages can handle deselection
+          window.dispatchEvent(new CustomEvent("kprobe:escape"));
+          break;
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [navigate]);
 
   return (
     <div style={s.root}>

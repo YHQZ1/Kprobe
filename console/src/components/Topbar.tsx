@@ -1,4 +1,4 @@
-import type { ConnectionStatus } from "../hooks/useConnection";
+import type { ConnectionStatus } from "../types/events";
 import { SunIcon, MoonIcon, LogoutIcon } from "./ui/icons";
 
 interface TopbarProps {
@@ -12,12 +12,23 @@ interface TopbarProps {
 
 function statusColor(status: ConnectionStatus): string {
   if (status === "connected") return "var(--accent)";
+  if (status === "mock") return "var(--text-muted)";
   if (status === "connecting") return "var(--text-muted)";
   return "var(--border)";
 }
 
 function statusAnimation(status: ConnectionStatus): string {
   return status === "connecting" ? "pulse 1.4s ease-in-out infinite" : "none";
+}
+
+function statusLabel(status: ConnectionStatus): string {
+  if (status === "mock") return "mock";
+  return status;
+}
+
+function endpointLabel(status: ConnectionStatus): string {
+  if (status === "mock") return "no backend · mock data";
+  return "ws://localhost:8080";
 }
 
 export default function Topbar({
@@ -53,8 +64,10 @@ export default function Topbar({
               animation: statusAnimation(status),
             }}
           />
-          <span style={{ ...s.statusText, color: textColor }}>{status}</span>
-          <span style={s.statusEndpoint}>ws://localhost:8080</span>
+          <span style={{ ...s.statusText, color: textColor }}>
+            {statusLabel(status)}
+          </span>
+          <span style={s.statusEndpoint}>{endpointLabel(status)}</span>
         </div>
 
         <div style={s.divider} />

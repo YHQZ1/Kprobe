@@ -28,6 +28,27 @@ const DEFAULTS: Settings = {
   probeOverhead: "standard",
 };
 
+const STORAGE_KEY = "kprobe_settings";
+const IS_DEV = import.meta.env.DEV;
+
+function loadFromStorage(): Settings {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return DEFAULTS;
+    return { ...DEFAULTS, ...JSON.parse(raw) };
+  } catch {
+    return DEFAULTS;
+  }
+}
+
+function saveToStorage(s: Settings) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
+  } catch {
+    // storage quota exceeded — silently ignore
+  }
+}
+
 const SHORTCUTS = [
   { keys: ["⌘", "K"], label: "Search" },
   { keys: ["G"], label: "Go to Graph" },
@@ -43,14 +64,17 @@ const SHORTCUTS = [
 ];
 
 export default function SettingsPage() {
-  const [settings, setSettings] = useState<Settings>(DEFAULTS);
+  const [settings, setSettings] = useState<Settings>(
+    IS_DEV ? loadFromStorage() : DEFAULTS,
+  );
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
+    if (IS_DEV) return; // localStorage already loaded in useState initialiser
     fetch("/api/settings")
       .then((res) => res.json())
       .then((data) => setSettings(data))
-      .catch(() => {});
+      .catch(() => {}); // backend not running — stay on defaults
   }, []);
 
   function set<K extends keyof Settings>(key: K, value: Settings[K]) {
@@ -59,6 +83,12 @@ export default function SettingsPage() {
   }
 
   async function handleSave() {
+    if (IS_DEV) {
+      saveToStorage(settings);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+      return;
+    }
     try {
       await fetch("/api/settings", {
         method: "PUT",
@@ -67,18 +97,24 @@ export default function SettingsPage() {
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
-    } catch (err) {
-      console.error(err);
+    } catch {
+      // backend not available
     }
   }
 
   async function handleReset() {
+    if (IS_DEV) {
+      localStorage.removeItem(STORAGE_KEY);
+      setSettings(DEFAULTS);
+      setSaved(false);
+      return;
+    }
     try {
       await fetch("/api/settings/reset", { method: "POST" });
       setSettings(DEFAULTS);
       setSaved(false);
-    } catch (err) {
-      console.error(err);
+    } catch {
+      // backend not available
     }
   }
 
@@ -102,7 +138,6 @@ export default function SettingsPage() {
           font-family: var(--font-mono);
           outline: none;
           box-shadow: none;
-          transition: border-color 0ms ease, background-color 0ms ease, color 0ms ease;
         }
         .settings-input:focus {
           border-color: var(--accent);
@@ -116,7 +151,6 @@ export default function SettingsPage() {
           cursor: pointer;
           position: relative;
           padding: 0;
-          transition: all 0ms ease;
           flex-shrink: 0;
         }
         .settings-toggle.on {
@@ -131,7 +165,6 @@ export default function SettingsPage() {
           height: 14px;
           border-radius: 0px;
           background-color: var(--text-muted);
-          transition: all 0ms ease;
         }
         .settings-toggle-thumb.on {
           transform: translateX(16px);
@@ -151,7 +184,6 @@ export default function SettingsPage() {
           font-weight: 600;
           cursor: pointer;
           letter-spacing: 0.04em;
-          transition: all 0ms ease;
         }
         .settings-btn:hover {
           background-color: var(--bg-elevated);
@@ -180,7 +212,6 @@ export default function SettingsPage() {
           background-color: transparent;
           color: var(--text-muted);
           letter-spacing: 0.03em;
-          transition: all 0ms ease;
         }
         .settings-seg-btn:hover {
           background-color: var(--bg-elevated);
@@ -195,7 +226,9 @@ export default function SettingsPage() {
         <div>
           <div style={s.headerTitle}>settings</div>
           <div style={s.headerSub}>
-            console configuration — changes apply immediately
+            {IS_DEV
+              ? "mock mode · changes saved to localStorage"
+              : "console configuration — changes apply immediately"}
           </div>
         </div>
         <div style={s.headerActions}>
@@ -474,6 +507,8 @@ export default function SettingsPage() {
   );
 }
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
 function getActiveHooks(mode: Settings["probeOverhead"]): string[] {
   const minimal = ["tcp_sendmsg", "tcp_recvmsg", "sys_write"];
   const standard = [...minimal, "sys_read", "sched_switch", "mm_page_fault"];
@@ -507,6 +542,8 @@ function overheadColor(mode: Settings["probeOverhead"]): string {
       ? "var(--accent)"
       : "var(--text-primary)";
 }
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
 
 function Section({
   title,
@@ -626,6 +663,8 @@ function CheckIcon() {
     </svg>
   );
 }
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
 
 const s: Record<string, React.CSSProperties> = {
   root: {

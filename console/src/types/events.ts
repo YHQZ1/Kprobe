@@ -6,6 +6,8 @@ export type EventType =
   | "sched_switch"
   | "mm_page_fault";
 
+export type ConnectionStatus = "connected" | "connecting" | "disconnected" | "mock";
+
 export interface KernelEvent {
   id: string;
   timestamp: string;
@@ -19,24 +21,3 @@ export interface KernelEvent {
   durationUs: number | null;
   meta: Record<string, string>;
 }
-
-export interface ReplayEvent {
-  id: string;
-  offsetMs: number;
-  type: EventType;
-  pid: number;
-  service: string;
-  detail: string;
-  duration: number | null;
-  isKeyEvent: boolean;
-  keyLabel?: string;
-}
-
-export interface Injections {
-  timeoutMs: number;
-  networkLatencyMs: number;
-  memoryPressure: boolean;
-  cpuThrottle: number;
-}
-
-export type ConnectionStatus = "connecting" | "connected" | "disconnected";

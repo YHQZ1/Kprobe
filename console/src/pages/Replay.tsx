@@ -42,6 +42,13 @@ interface Injections {
   cpuThrottle: number;
 }
 
+const DEFAULT_INJECTIONS: Injections = {
+  timeoutMs: 750,
+  networkLatencyMs: 0,
+  memoryPressure: false,
+  cpuThrottle: 0,
+};
+
 function mkEvt(
   id: string,
   offsetMs: number,
@@ -429,15 +436,21 @@ function outcomeFlips(incident: Incident, inj: Injections): boolean {
   );
 }
 
+function injIsModified(inj: Injections): boolean {
+  return (
+    inj.timeoutMs !== DEFAULT_INJECTIONS.timeoutMs ||
+    inj.networkLatencyMs !== DEFAULT_INJECTIONS.networkLatencyMs ||
+    inj.memoryPressure !== DEFAULT_INJECTIONS.memoryPressure ||
+    inj.cpuThrottle !== DEFAULT_INJECTIONS.cpuThrottle
+  );
+}
+
 export default function ReplayPage() {
   const [selectedIncident, setSelectedIncident] = useState<Incident>(
     INCIDENTS[0],
   );
   const [injections, setInjections] = useState<Injections>({
-    timeoutMs: 750,
-    networkLatencyMs: 0,
-    memoryPressure: false,
-    cpuThrottle: 0,
+    ...DEFAULT_INJECTIONS,
   });
 
   const [playing, setPlaying] = useState(false);
@@ -461,11 +474,7 @@ export default function ReplayPage() {
     ? "PASSED"
     : selectedIncident.originalOutcome;
 
-  const isModified =
-    injections.timeoutMs !== 750 ||
-    injections.networkLatencyMs !== 0 ||
-    injections.memoryPressure !== false ||
-    injections.cpuThrottle !== 0;
+  const isModified = injIsModified(injections);
 
   const visibleEvents = selectedIncident.events.filter(
     (e) => e.offsetMs <= playheadMs,
@@ -513,17 +522,53 @@ export default function ReplayPage() {
     };
   }, [playing, tick]);
 
+  // ── Keyboard shortcuts (Space, ←, →, Esc) ────────────────────────────────
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+
+      if (e.key === " ") {
+        e.preventDefault();
+        if (playingRef.current) {
+          setPlaying(false);
+        } else {
+          if (playheadRef.current >= incidentRef.current.durationMs) {
+            setPlayheadMs(0);
+            setVisibleCount(0);
+          }
+          setPlaying(true);
+        }
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        handleStep(-1);
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        handleStep(1);
+      }
+    }
+
+    function onEscape() {
+      setPlaying(false);
+      setPlayheadMs(0);
+      setVisibleCount(0);
+    }
+
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("kprobe:escape", onEscape);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("kprobe:escape", onEscape);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function handleSelectIncident(inc: Incident) {
     setSelectedIncident(inc);
     setPlaying(false);
     setPlayheadMs(0);
     setVisibleCount(0);
-    setInjections({
-      timeoutMs: 750,
-      networkLatencyMs: 0,
-      memoryPressure: false,
-      cpuThrottle: 0,
-    });
+    setInjections({ ...DEFAULT_INJECTIONS });
   }
 
   function handlePlay() {
@@ -567,7 +612,29 @@ export default function ReplayPage() {
     setVisibleCount(0);
   }
 
+  function handleMarkerClick(offsetMs: number) {
+    setPlaying(false);
+    setPlayheadMs(offsetMs);
+    setVisibleCount(
+      selectedIncident.events.filter((e) => e.offsetMs <= offsetMs).length,
+    );
+  }
+
   const progressPct = (playheadMs / selectedIncident.durationMs) * 100;
+
+  // Outcome styling
+  const outcomePassed = outcome === "PASSED";
+  const outcomeStyle: React.CSSProperties = outcomePassed
+    ? {
+        backgroundColor: "rgba(34,197,94,0.08)",
+        borderColor: "rgba(34,197,94,0.35)",
+        color: "rgb(134,239,172)",
+      }
+    : {
+        backgroundColor: "rgba(239,68,68,0.08)",
+        borderColor: "rgba(239,68,68,0.3)",
+        color: "rgb(252,165,165)",
+      };
 
   return (
     <div style={s.root}>
@@ -660,6 +727,20 @@ export default function ReplayPage() {
         .log-row {
           transition: background-color 0ms ease, border-color 0ms ease;
         }
+        .scrub-marker {
+          position: absolute;
+          width: 8px;
+          height: 12px;
+          transform: translateX(-50%);
+          z-index: 2;
+          cursor: pointer;
+          background-color: var(--border-subtle);
+          transition: background-color 80ms ease, height 80ms ease;
+        }
+        .scrub-marker:hover {
+          background-color: var(--text-muted);
+          height: 16px;
+        }
       `}</style>
 
       <div style={s.incidentBar}>
@@ -679,7 +760,7 @@ export default function ReplayPage() {
                 ...s.outcomeDot,
                 backgroundColor:
                   inc.originalOutcome === "FAILED"
-                    ? "var(--text-muted)"
+                    ? "rgba(239,68,68,0.5)"
                     : "var(--border)",
               }}
             />
@@ -694,14 +775,7 @@ export default function ReplayPage() {
             {isModified && (
               <button
                 style={s.resetInjBtn}
-                onClick={() =>
-                  setInjections({
-                    timeoutMs: 750,
-                    networkLatencyMs: 0,
-                    memoryPressure: false,
-                    cpuThrottle: 0,
-                  })
-                }
+                onClick={() => setInjections({ ...DEFAULT_INJECTIONS })}
               >
                 reset
               </button>
@@ -826,6 +900,7 @@ export default function ReplayPage() {
         </div>
 
         <div style={s.playPanel}>
+          {/* Outcome bar */}
           <div style={s.outcomeRow}>
             <div style={s.incidentMeta}>
               <span style={s.metaId}>{selectedIncident.transactionId}</span>
@@ -836,17 +911,13 @@ export default function ReplayPage() {
                 {selectedIncident.durationMs}ms window
               </span>
             </div>
-            <div
-              style={{
-                ...s.outcomeBadge,
-                ...(outcome === "PASSED" ? s.outcomePassed : s.outcomeFailed),
-              }}
-            >
-              {outcome === "PASSED" ? <PassIcon /> : <FailIcon />}
+            <div style={{ ...s.outcomeBadge, ...outcomeStyle }}>
+              {outcomePassed ? <PassIcon /> : <FailIcon />}
               {outcome}
             </div>
           </div>
 
+          {/* Scrubber */}
           <div style={s.scrubberWrap}>
             <div style={s.scrubberTrack}>
               <div style={s.scrubRail} />
@@ -855,11 +926,12 @@ export default function ReplayPage() {
                 .map((e) => (
                   <div
                     key={e.id}
+                    className="scrub-marker"
                     title={e.keyLabel}
                     style={{
-                      ...s.scrubMarker,
                       left: `${(e.offsetMs / selectedIncident.durationMs) * 100}%`,
                     }}
+                    onClick={() => handleMarkerClick(e.offsetMs)}
                   />
                 ))}
               <div style={{ ...s.scrubFill, width: `${progressPct}%` }} />
@@ -881,15 +953,20 @@ export default function ReplayPage() {
             </div>
           </div>
 
+          {/* Transport controls */}
           <div style={s.controls}>
             <div style={s.ctrlLeft}>
-              <button className="ctrl-btn" onClick={handleReset} title="reset">
+              <button
+                className="ctrl-btn"
+                onClick={handleReset}
+                title="reset (Esc)"
+              >
                 <ResetIcon />
               </button>
               <button
                 className="ctrl-btn"
                 onClick={() => handleStep(-1)}
-                title="step back"
+                title="step back (←)"
               >
                 <StepBackIcon />
               </button>
@@ -908,7 +985,7 @@ export default function ReplayPage() {
               <button
                 className="ctrl-btn"
                 onClick={() => handleStep(1)}
-                title="step forward"
+                title="step forward (→)"
               >
                 <StepFwdIcon />
               </button>
@@ -929,6 +1006,7 @@ export default function ReplayPage() {
             </div>
           </div>
 
+          {/* Key event timeline */}
           <div style={s.keyEventList}>
             {selectedIncident.events
               .filter((e) => e.isKeyEvent)
@@ -963,6 +1041,7 @@ export default function ReplayPage() {
               })}
           </div>
 
+          {/* Event log */}
           <div style={s.logHeader}>
             <span style={s.logTitle}>event log</span>
             <span style={s.logCount}>
@@ -970,28 +1049,26 @@ export default function ReplayPage() {
             </span>
           </div>
           <div ref={logRef} style={s.logBody}>
-            {visibleEvents.map((evt, idx) => {
-              return (
-                <div
-                  key={evt.id}
-                  className="log-row"
-                  style={{
-                    ...s.logRow,
-                    backgroundColor:
-                      idx % 2 === 0 ? "var(--bg)" : "var(--bg-subtle)",
-                    borderLeft: evt.isKeyEvent
-                      ? "2px solid var(--border-subtle)"
-                      : "2px solid transparent",
-                  }}
-                >
-                  <span style={s.logOffset}>{evt.offsetMs}ms</span>
-                  <span style={s.logBadge}>{TYPE_LABELS[evt.type]}</span>
-                  <span style={s.logSvc}>{evt.service}</span>
-                  <span style={s.logDetail}>{evt.detail}</span>
-                  <span style={s.logDur}>{fmtDur(evt.duration)}</span>
-                </div>
-              );
-            })}
+            {visibleEvents.map((evt, idx) => (
+              <div
+                key={evt.id}
+                className="log-row"
+                style={{
+                  ...s.logRow,
+                  backgroundColor:
+                    idx % 2 === 0 ? "var(--bg)" : "var(--bg-subtle)",
+                  borderLeft: evt.isKeyEvent
+                    ? "2px solid var(--border-subtle)"
+                    : "2px solid transparent",
+                }}
+              >
+                <span style={s.logOffset}>{evt.offsetMs}ms</span>
+                <span style={s.logBadge}>{TYPE_LABELS[evt.type]}</span>
+                <span style={s.logSvc}>{evt.service}</span>
+                <span style={s.logDetail}>{evt.detail}</span>
+                <span style={s.logDur}>{fmtDur(evt.duration)}</span>
+              </div>
+            ))}
             {visibleEvents.length === 0 && (
               <div style={s.logEmpty}>press play to begin replay</div>
             )}
@@ -1114,7 +1191,6 @@ const s: Record<string, React.CSSProperties> = {
     padding: "0.15rem 0.4rem",
     cursor: "pointer",
     letterSpacing: "0.04em",
-    transition: "all 0ms ease",
   },
   injSection: { paddingBottom: "0.875rem" },
   injDivider: {
@@ -1216,16 +1292,7 @@ const s: Record<string, React.CSSProperties> = {
     fontWeight: 700,
     letterSpacing: "0.08em",
     border: "1px solid",
-  },
-  outcomeFailed: {
-    backgroundColor: "var(--bg)",
-    borderColor: "var(--border-subtle)",
-    color: "var(--text-primary)",
-  },
-  outcomePassed: {
-    backgroundColor: "var(--bg-elevated)",
-    borderColor: "var(--border)",
-    color: "var(--text-primary)",
+    transition: "all 150ms ease",
   },
   scrubberWrap: {
     padding: "0.75rem 1.25rem 0.5rem",
@@ -1254,17 +1321,6 @@ const s: Record<string, React.CSSProperties> = {
     backgroundColor: "var(--text-muted)",
     borderRadius: "0px",
     pointerEvents: "none",
-    transition: "background-color 0ms ease",
-  },
-  scrubMarker: {
-    position: "absolute",
-    width: "2px",
-    height: "10px",
-    borderRadius: "0px",
-    transform: "translateX(-50%)",
-    pointerEvents: "none",
-    zIndex: 2,
-    backgroundColor: "var(--border-subtle)",
   },
   scrubInput: {
     position: "absolute",

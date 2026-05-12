@@ -18,7 +18,6 @@ export default function Login({ onAuth }: LoginProps) {
     setError("");
     setLoading(true);
 
-    // Simulate a brief auth delay — feels real
     setTimeout(() => {
       if (username === CORRECT_USER && password === CORRECT_PASS) {
         onAuth();
@@ -30,78 +29,78 @@ export default function Login({ onAuth }: LoginProps) {
   }
 
   return (
-    <div style={styles.root}>
+    <div style={s.root}>
       {/* Left panel — branding */}
-      <div style={styles.left}>
-        <div style={styles.leftInner}>
-          <div style={styles.wordmark}>
-            <span style={styles.wordmarkK}>k</span>
-            <span style={styles.wordmarkProbe}>probe</span>
+      <div style={s.left}>
+        <div style={s.leftInner}>
+          <div style={s.wordmark}>
+            <span style={s.wordmarkK}>k</span>
+            <span style={s.wordmarkProbe}>probe</span>
           </div>
-          <p style={styles.leftTagline}>
+          <p style={s.leftTagline}>
             Kernel-level observability
             <br />
             for financial systems.
           </p>
-          <div style={styles.leftMeta}>
-            <div style={styles.metaRow}>
-              <span style={styles.metaDot} />
-              <span style={styles.metaText}>eBPF · zero instrumentation</span>
+          <div style={s.leftMeta}>
+            <div style={s.metaRow}>
+              <span style={s.metaDot} />
+              <span style={s.metaText}>eBPF · zero instrumentation</span>
             </div>
-            <div style={styles.metaRow}>
-              <span style={styles.metaDot} />
-              <span style={styles.metaText}>
+            <div style={s.metaRow}>
+              <span style={s.metaDot} />
+              <span style={s.metaText}>
                 causal graphs · nanosecond precision
               </span>
             </div>
-            <div style={styles.metaRow}>
-              <span style={styles.metaDot} />
-              <span style={styles.metaText}>deterministic incident replay</span>
+            <div style={s.metaRow}>
+              <span style={s.metaDot} />
+              <span style={s.metaText}>deterministic incident replay</span>
             </div>
           </div>
         </div>
 
         {/* Decorative kernel event stream */}
-        <div style={styles.streamDecor}>
-          <div style={styles.streamLabel}>
-            <span style={styles.streamPulse} />
+        <div style={s.streamDecor}>
+          <div style={s.streamLabel}>
+            <span style={s.streamPulse} />
             live · kernel event stream
           </div>
           {MOCK_EVENTS.map((ev, i) => (
             <div
               key={i}
               style={{
-                ...styles.streamRow,
-                ...(ev.highlight ? styles.streamRowHighlight : {}),
-                ...(ev.muted ? styles.streamRowMuted : {}),
+                ...s.streamRow,
+                ...(ev.highlight ? s.streamRowHighlight : {}),
+                ...(ev.muted ? s.streamRowMuted : {}),
               }}
             >
-              <span style={styles.streamTs}>{ev.ts}</span>
+              <span style={s.streamTs}>{ev.ts}</span>
               <span
                 style={{
-                  ...styles.streamType,
-                  ...(ev.highlight ? styles.streamTypeAccent : {}),
+                  ...s.streamType,
+                  ...(ev.highlight ? s.streamTypeAccent : {}),
                 }}
               >
                 {ev.type}
               </span>
-              <span style={styles.streamDetail}>{ev.detail}</span>
+              <span style={s.streamDetail}>{ev.detail}</span>
             </div>
           ))}
         </div>
       </div>
 
       {/* Right panel — login form */}
-      <div style={styles.right}>
-        <div style={styles.card}>
-          <div style={styles.cardHeader}>
-            <div style={styles.cardTitle}>Sign in</div>
-            <div style={styles.cardSub}>Access the kprobe console</div>
+      <div style={s.right}>
+        <div style={s.card}>
+          <div style={s.cardHeader}>
+            <div style={s.cardTitle}>Sign in</div>
+            <div style={s.cardSub}>Access the kprobe console</div>
           </div>
 
-          <form onSubmit={handleSubmit} style={styles.form}>
-            <div style={styles.field}>
-              <label style={styles.label} htmlFor="username">
+          <form onSubmit={handleSubmit} style={s.form}>
+            <div style={s.field}>
+              <label style={s.label} htmlFor="username">
                 Username
               </label>
               <input
@@ -112,16 +111,16 @@ export default function Login({ onAuth }: LoginProps) {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 style={{
-                  ...styles.input,
-                  ...(error ? styles.inputError : {}),
+                  ...s.input,
+                  ...(error ? s.inputError : {}),
                 }}
                 placeholder="admin"
                 spellCheck={false}
               />
             </div>
 
-            <div style={styles.field}>
-              <label style={styles.label} htmlFor="password">
+            <div style={s.field}>
+              <label style={s.label} htmlFor="password">
                 Password
               </label>
               <input
@@ -131,15 +130,15 @@ export default function Login({ onAuth }: LoginProps) {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 style={{
-                  ...styles.input,
-                  ...(error ? styles.inputError : {}),
+                  ...s.input,
+                  ...(error ? s.inputError : {}),
                 }}
                 placeholder="••••••"
               />
             </div>
 
             {error && (
-              <div style={styles.errorRow}>
+              <div style={s.errorRow}>
                 <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
                   <circle
                     cx="6.5"
@@ -155,7 +154,7 @@ export default function Login({ onAuth }: LoginProps) {
                     strokeLinecap="round"
                   />
                 </svg>
-                <span style={styles.errorText}>{error}</span>
+                <span style={s.errorText}>{error}</span>
               </div>
             )}
 
@@ -163,15 +162,15 @@ export default function Login({ onAuth }: LoginProps) {
               type="submit"
               disabled={loading || !username || !password}
               style={{
-                ...styles.submitBtn,
+                ...s.submitBtn,
                 ...(loading || !username || !password
-                  ? styles.submitBtnDisabled
+                  ? s.submitBtnDisabled
                   : {}),
               }}
             >
               {loading ? (
-                <span style={styles.loadingRow}>
-                  <span style={styles.spinner} />
+                <span style={s.loadingRow}>
+                  <span style={s.spinner} />
                   Authenticating…
                 </span>
               ) : (
@@ -180,103 +179,42 @@ export default function Login({ onAuth }: LoginProps) {
             </button>
           </form>
 
-          <div style={styles.cardFooter}>
-            <span style={styles.footerText}>Default credentials:&nbsp;</span>
-            <code style={styles.footerCode}>admin</code>
-            <span style={styles.footerText}>&nbsp;/&nbsp;</span>
-            <code style={styles.footerCode}>admin</code>
+          <div style={s.cardFooter}>
+            <span style={s.footerText}>Default credentials:&nbsp;</span>
+            <code style={s.footerCode}>admin</code>
+            <span style={s.footerText}>&nbsp;/&nbsp;</span>
+            <code style={s.footerCode}>admin</code>
           </div>
         </div>
 
-        <div style={styles.rightFooter}>
-          <span style={styles.rightFooterText}>
-            kprobe · infrastructure console
-          </span>
-          <span style={styles.rightFooterText}>Rust · Go · eBPF</span>
+        <div style={s.rightFooter}>
+          <span style={s.rightFooterText}>kprobe · infrastructure console</span>
+          <span style={s.rightFooterText}>Rust · Go · eBPF</span>
         </div>
       </div>
-
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;600;700&display=swap');
-
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-
-        :root {
-          --bg: #0e0e0f;
-          --bg-subtle: #141415;
-          --bg-elevated: #1a1a1b;
-          --border: #242426;
-          --border-subtle: #1e1e20;
-          --text-primary: #f0eeeb;
-          --text-secondary: #a09e9b;
-          --text-muted: #5c5a57;
-          --accent: #f59e0b;
-          --accent-dim: rgba(245,158,11,0.12);
-          --accent-dim-hover: rgba(245,158,11,0.2);
-          --font: 'Raleway', system-ui, sans-serif;
-          --radius-sm: 4px;
-          --radius-md: 8px;
-          --radius-lg: 12px;
-        }
-
-        body {
-          font-family: var(--font);
-          background: var(--bg);
-          color: var(--text-primary);
-          -webkit-font-smoothing: antialiased;
-        }
-
-        input:-webkit-autofill,
-        input:-webkit-autofill:focus {
-          -webkit-box-shadow: 0 0 0 1000px #1a1a1b inset !important;
-          -webkit-text-fill-color: #f0eeeb !important;
-          caret-color: #f0eeeb;
-        }
-
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.3; }
-        }
-
-        #username:focus, #password:focus {
-          outline: none;
-          border-color: var(--accent) !important;
-          background: var(--bg-elevated) !important;
-        }
-
-        button[type="submit"]:not(:disabled):hover {
-          opacity: 0.88;
-        }
-      `}</style>
     </div>
   );
 }
 
-// ─── Styles ──────────────────────────────────────────────────────────────────
-
-const styles: Record<string, React.CSSProperties> = {
+const s: Record<string, React.CSSProperties> = {
   root: {
     display: "flex",
     minHeight: "100vh",
     width: "100%",
-    fontFamily: "'Raleway', system-ui, sans-serif",
-    backgroundColor: "#0e0e0f",
-    color: "#f0eeeb",
+    fontFamily: "var(--font)",
+    backgroundColor: "var(--bg)",
+    color: "var(--text-primary)",
   },
 
   // Left panel
   left: {
     flex: 1,
-    borderRight: "1px solid #1e1e20",
+    borderRight: "1px solid var(--border-subtle)",
     display: "flex",
     flexDirection: "column",
     justifyContent: "space-between",
     padding: "3rem",
-    backgroundColor: "#141415",
+    backgroundColor: "var(--bg-subtle)",
     minWidth: 0,
   },
   leftInner: {
@@ -287,21 +225,20 @@ const styles: Record<string, React.CSSProperties> = {
   wordmark: {
     display: "flex",
     alignItems: "baseline",
-    gap: "0",
     lineHeight: 1,
   },
   wordmarkK: {
-    fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+    fontFamily: "var(--font-mono)",
     fontSize: "1.5rem",
     fontWeight: 700,
-    color: "#f59e0b",
+    color: "var(--accent)",
     letterSpacing: "-0.04em",
   },
   wordmarkProbe: {
-    fontFamily: "'Raleway', system-ui, sans-serif",
+    fontFamily: "var(--font)",
     fontSize: "1.5rem",
     fontWeight: 700,
-    color: "#f0eeeb",
+    color: "var(--text-primary)",
     letterSpacing: "-0.04em",
   },
   leftTagline: {
@@ -309,7 +246,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 700,
     letterSpacing: "-0.03em",
     lineHeight: 1.15,
-    color: "#f0eeeb",
+    color: "var(--text-primary)",
     maxWidth: "420px",
   },
   leftMeta: {
@@ -326,22 +263,21 @@ const styles: Record<string, React.CSSProperties> = {
     width: "5px",
     height: "5px",
     borderRadius: "50%",
-    backgroundColor: "#f59e0b",
+    backgroundColor: "var(--accent)",
     opacity: 0.7,
     flexShrink: 0,
   },
   metaText: {
     fontSize: "0.8rem",
-    color: "#5c5a57",
+    color: "var(--text-muted)",
     fontWeight: 500,
   },
 
   // Decorative stream
   streamDecor: {
-    border: "1px solid #1e1e20",
-    borderRadius: "8px",
+    border: "1px solid var(--border-subtle)",
     overflow: "hidden",
-    backgroundColor: "#0e0e0f",
+    backgroundColor: "var(--bg)",
   },
   streamLabel: {
     display: "flex",
@@ -351,16 +287,16 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 700,
     letterSpacing: "0.14em",
     textTransform: "uppercase" as const,
-    color: "#5c5a57",
+    color: "var(--text-muted)",
     padding: "0.625rem 0.875rem",
-    borderBottom: "1px solid #1e1e20",
-    fontFamily: "'JetBrains Mono', monospace",
+    borderBottom: "1px solid var(--border-subtle)",
+    fontFamily: "var(--font-mono)",
   },
   streamPulse: {
     width: "6px",
     height: "6px",
     borderRadius: "50%",
-    backgroundColor: "#f59e0b",
+    backgroundColor: "var(--accent)",
     flexShrink: 0,
     animation: "pulse 2s ease-in-out infinite",
   },
@@ -369,42 +305,41 @@ const styles: Record<string, React.CSSProperties> = {
     gridTemplateColumns: "88px 100px 1fr",
     gap: "0.625rem",
     padding: "0.3rem 0.875rem",
-    fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+    fontFamily: "var(--font-mono)",
     fontSize: "0.68rem",
     alignItems: "center",
   },
   streamRowHighlight: {
-    backgroundColor: "rgba(245,158,11,0.08)",
-    borderLeft: "2px solid #f59e0b",
+    backgroundColor: "var(--accent-dim)",
+    borderLeft: "2px solid var(--accent)",
     paddingLeft: "calc(0.875rem - 2px)",
   },
   streamRowMuted: {
     opacity: 0.35,
   },
   streamTs: {
-    color: "#5c5a57",
+    color: "var(--text-muted)",
     flexShrink: 0,
   },
   streamType: {
     fontWeight: 600,
     fontSize: "0.65rem",
     padding: "0.12em 0.4em",
-    borderRadius: "3px",
-    color: "#a09e9b",
-    backgroundColor: "#1a1a1b",
-    border: "1px solid #1e1e20",
+    color: "var(--text-secondary)",
+    backgroundColor: "var(--bg-elevated)",
+    border: "1px solid var(--border-subtle)",
     letterSpacing: "0.02em",
     whiteSpace: "nowrap" as const,
     overflow: "hidden",
     textOverflow: "ellipsis",
   },
   streamTypeAccent: {
-    color: "#f59e0b",
-    backgroundColor: "rgba(245,158,11,0.12)",
+    color: "var(--accent)",
+    backgroundColor: "var(--accent-dim)",
     border: "1px solid transparent",
   },
   streamDetail: {
-    color: "#5c5a57",
+    color: "var(--text-muted)",
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap" as const,
@@ -419,7 +354,6 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: "center",
     alignItems: "center",
     padding: "3rem",
-    gap: "auto",
     position: "relative" as const,
   },
   card: {
@@ -438,11 +372,11 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: "1.25rem",
     fontWeight: 700,
     letterSpacing: "-0.025em",
-    color: "#f0eeeb",
+    color: "var(--text-primary)",
   },
   cardSub: {
     fontSize: "0.8rem",
-    color: "#5c5a57",
+    color: "var(--text-muted)",
   },
 
   // Form
@@ -461,52 +395,49 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 600,
     letterSpacing: "0.06em",
     textTransform: "uppercase" as const,
-    color: "#5c5a57",
+    color: "var(--text-muted)",
   },
   input: {
     width: "100%",
     padding: "0.6rem 0.75rem",
-    backgroundColor: "#141415",
-    border: "1px solid #242426",
-    borderRadius: "4px",
-    color: "#f0eeeb",
+    backgroundColor: "var(--bg-subtle)",
+    border: "1px solid var(--border)",
+    color: "var(--text-primary)",
     fontSize: "0.875rem",
-    fontFamily: "'Raleway', system-ui, sans-serif",
+    fontFamily: "var(--font)",
     fontWeight: 500,
     outline: "none",
-    transition: "border-color 120ms ease, background-color 120ms ease",
+    // radius intentionally omitted — inherits var(--radius-sm) = 0px
+    // consistent with the rest of the app's sharp aesthetic
   },
   inputError: {
-    borderColor: "#f59e0b",
+    borderColor: "var(--accent)",
   },
   errorRow: {
     display: "flex",
     alignItems: "center",
     gap: "0.5rem",
     padding: "0.5rem 0.75rem",
-    backgroundColor: "rgba(245,158,11,0.08)",
+    backgroundColor: "var(--accent-dim)",
     border: "1px solid rgba(245,158,11,0.2)",
-    borderRadius: "4px",
   },
   errorText: {
     fontSize: "0.78rem",
-    color: "#f59e0b",
+    color: "var(--accent)",
     fontWeight: 500,
   },
   submitBtn: {
     width: "100%",
     padding: "0.625rem",
-    backgroundColor: "#f59e0b",
-    color: "#0e0e0f",
+    backgroundColor: "var(--accent)",
+    color: "var(--bg)",
     border: "none",
-    borderRadius: "4px",
     fontSize: "0.875rem",
     fontWeight: 700,
-    fontFamily: "'Raleway', system-ui, sans-serif",
+    fontFamily: "var(--font)",
     letterSpacing: "0.02em",
     cursor: "pointer",
     marginTop: "0.25rem",
-    transition: "opacity 120ms ease",
   },
   submitBtnDisabled: {
     opacity: 0.4,
@@ -522,7 +453,7 @@ const styles: Record<string, React.CSSProperties> = {
     width: "13px",
     height: "13px",
     border: "1.5px solid rgba(14,14,15,0.3)",
-    borderTopColor: "#0e0e0f",
+    borderTopColor: "var(--bg)",
     borderRadius: "50%",
     display: "inline-block",
     animation: "spin 0.7s linear infinite",
@@ -533,21 +464,19 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     alignItems: "center",
     padding: "0.75rem",
-    backgroundColor: "#141415",
-    border: "1px solid #1e1e20",
-    borderRadius: "4px",
+    backgroundColor: "var(--bg-subtle)",
+    border: "1px solid var(--border-subtle)",
   },
   footerText: {
     fontSize: "0.72rem",
-    color: "#5c5a57",
+    color: "var(--text-muted)",
   },
   footerCode: {
-    fontFamily: "'JetBrains Mono', monospace",
+    fontFamily: "var(--font-mono)",
     fontSize: "0.7rem",
-    color: "#f59e0b",
-    backgroundColor: "rgba(245,158,11,0.1)",
+    color: "var(--accent)",
+    backgroundColor: "var(--accent-dim)",
     padding: "0.1em 0.4em",
-    borderRadius: "3px",
   },
   rightFooter: {
     position: "absolute" as const,
@@ -558,7 +487,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   rightFooterText: {
     fontSize: "0.68rem",
-    color: "#2a2a2c",
+    color: "var(--border)",
     fontWeight: 500,
   },
 };
