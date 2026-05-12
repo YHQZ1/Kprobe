@@ -8,9 +8,9 @@
 
 ## Current Status
 
-**Stage:** Phase 4 — Console Dashboard  
-**Last updated:** May 2026  
-**Next immediate task:** Scaffold `console/` — React + TypeScript dashboard shell with routing
+**Stage:** Phase 5 — Replay Engine (Go)
+**Last updated:** May 2026
+**Next immediate task:** Implement `replay/ptrace/` — syscall interception to sandbox a process
 
 ---
 
@@ -91,34 +91,36 @@
 - [x] `docs/security.mdx` — privilege model, what data is stored, retention, network exposure, RBAC
 - [x] `docs/faq.mdx` — 12 common questions answered
 
+### Phase 4 — Console Dashboard ✅ COMPLETE
+
+- [x] Scaffold `console/` — Vite + React + TypeScript
+- [x] Same design system as `www/` — CSS variables, Raleway, amber accent
+- [x] React Router — routing between views
+- [x] Shell layout — sidebar, top bar, view area
+- [x] Mock data layer — realistic fake kernel events, causal graphs, replay sessions (`lib/mockData.ts`)
+- [x] D3.js causal graph view — interactive directed graph with dagre layout, causal path highlighting, click to drill down (`pages/Graph.tsx`)
+- [x] ECharts timeline view — nanosecond precision, zoomable, swimlanes per service (`pages/Timeline.tsx`)
+- [x] WebSocket hook — mock mode in dev, real connection logic for production (`hooks/useConnection.ts`)
+- [x] Live stream view — real-time kernel event feed with filter pills, stats bar, row expand, auto-scroll (`pages/Stream.tsx`)
+- [x] Replay panel — RAF-based playhead, injection panel, scrubber with clickable markers, outcome badge (`pages/Replay.tsx`)
+- [x] Bug fixes: mock connection status in topbar, Login CSS conflicts resolved, Settings fetch noise suppressed, keyboard shortcuts wired (G/S/T/R/Esc/⌘K) in Shell.tsx, events.ts types complete
+
 ---
 
 ## In Progress
 
-### Phase 4 — Console Dashboard
+### Phase 5 — Replay Engine (Go)
 
-- [ ] Scaffold `console/` — Vite + React + TypeScript
-- [ ] Same design system as `www/` — CSS variables, Raleway, amber accent
-- [ ] React Router — routing between views
-- [ ] Shell layout — sidebar, top bar, view area
-- [ ] Mock data layer — realistic fake kernel events, causal graphs, replay sessions
-- [ ] D3.js causal graph view — interactive directed graph, click to drill down
-- [ ] ECharts timeline view — nanosecond precision, zoomable, swimlanes per service
-- [ ] WebSocket hook — live event streaming from Go API
-- [ ] Live stream view — real-time kernel event feed
-- [ ] Replay panel — session controls, injection panel, playback timeline
+- [ ] `replay/ptrace/` — syscall interception, attach to and sandbox a target process
+- [ ] `replay/session/` — session lifecycle: load events from ClickHouse, manage playback state
+- [ ] `replay/store/` — ClickHouse client for event retrieval by transaction ID and time range
+- [ ] `replay/injector/` — timing injection: modify syscall return timing, add latency, simulate failures
+- [ ] `replay/config/` — session configuration: timeout overrides, latency multipliers, failure injection flags
+- [ ] `replay/main.go` — wire up all packages, expose gRPC endpoints for the API server
 
 ---
 
 ## Not Started
-
-### Phase 5 — Replay Engine (Go)
-
-- [ ] ptrace syscall interception — sandbox a process
-- [ ] Replay session manager — load events from ClickHouse
-- [ ] Serve syscalls from event log instead of real kernel
-- [ ] Timing injector — modify timeouts, add latency
-- [ ] Fix verification workflow — replay with proposed changes
 
 ### Phase 6 — Production Readiness
 
@@ -152,13 +154,15 @@
 | CSS framework             | Tailwind v4                           | Utility-first, pairs well with CSS custom properties for theming     |
 | Monorepo structure        | `www/` + `console/` in same repo      | Docs stay in sync with backend changes, single deploy pipeline       |
 | Font                      | Raleway variable font                 | Professional, technical aesthetic, single file covers all weights    |
+| Replay mechanism          | Go + ptrace                           | ptrace intercepts syscalls at OS level, no app code changes needed   |
 
 ---
 
 ## Known Issues / Blockers
 
 - Algolia DocSearch not yet wired — requires live public URL to crawl. Wire up after `www/` is deployed.
-- `console/` not yet scaffolded — next immediate task.
+- `replay/` subdirectories are empty stubs — Phase 5 fills these.
+- ptrace-based replay requires Linux — cannot run on macOS. Use Codespaces or Linux VM for Phase 5 development and testing, same as the eBPF probe.
 
 ---
 
@@ -172,4 +176,5 @@
 - `kernel.enriched` — Vector output topic consumed by the Go causal engine.
 - Codespaces used for Rust/eBPF development — all other work done locally on Mac.
 - `www/` runs on port 4321 in dev (Astro default). Deploy target: Vercel, root directory `www/`.
-- `console/` will run on port 5173 in dev (Vite default).
+- `console/` runs on port 5173 in dev (Vite default).
+- ptrace replay requires Linux — develop in Codespaces, same constraint as the eBPF probe.
