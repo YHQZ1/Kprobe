@@ -1,0 +1,7 @@
+www/* linguist-vendored
+console/* linguist-vendored
+
+probe/**/*.rs linguist-detectable=true
+engine/**/*.go linguist-detectable=true
+api/**/*.go linguist-detectable=true
+replay/**/*.go linguist-detectable=true
