@@ -1,32 +1,49 @@
-import { Outlet, useLocation } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
 import { useConnection } from "../hooks/useConnection";
 
 interface ShellProps {
+  children: React.ReactNode;
   onLogout: () => void;
   theme: "dark" | "light";
   onThemeToggle: () => void;
 }
 
 const VIEW_META: Record<string, { title: string; description: string }> = {
-  "/stream":   { title: "Live Stream",   description: "real-time kernel event feed" },
-  "/graph":    { title: "Causal Graph",  description: "cause-effect chain explorer" },
-  "/timeline": { title: "Timeline",      description: "nanosecond-precision event timeline" },
-  "/replay":   { title: "Replay",        description: "deterministic incident replay" },
-  "/settings": { title: "Settings",      description: "configuration" },
+  "/stream": {
+    title: "Live Stream",
+    description: "real-time kernel event feed",
+  },
+  "/graph": {
+    title: "Causal Graph",
+    description: "cause-effect chain explorer",
+  },
+  "/timeline": {
+    title: "Timeline",
+    description: "nanosecond-precision event timeline",
+  },
+  "/replay": { title: "Replay", description: "deterministic incident replay" },
+  "/settings": { title: "Settings", description: "configuration" },
 };
 
-export default function Shell({ onLogout, theme, onThemeToggle }: ShellProps) {
+export default function Shell({
+  children,
+  onLogout,
+  theme,
+  onThemeToggle,
+}: ShellProps) {
   const location = useLocation();
   const { status } = useConnection();
 
-  const meta = VIEW_META[location.pathname] ?? { title: "kprobe", description: "" };
+  const meta = VIEW_META[location.pathname] ?? {
+    title: "kprobe",
+    description: "",
+  };
 
   return (
     <div style={s.root}>
       <Sidebar />
-
       <div style={s.main}>
         <Topbar
           title={meta.title}
@@ -36,9 +53,8 @@ export default function Shell({ onLogout, theme, onThemeToggle }: ShellProps) {
           theme={theme}
           onThemeToggle={onThemeToggle}
         />
-
         <main style={s.content} className="animate-fade-in">
-          <Outlet />
+          {children}
         </main>
       </div>
     </div>

@@ -169,95 +169,73 @@ const BOTTOM_ITEMS: NavItem[] = [
   },
 ];
 
-export default function Sidebar() {
+function NavItemLink({ item }: { item: NavItem }) {
   const location = useLocation();
+  const active = location.pathname === item.path;
 
   return (
+    <NavLink
+      to={item.path}
+      title={item.label}
+      style={{
+        ...s.navItem,
+        ...(active ? s.navItemActive : {}),
+      }}
+      onMouseEnter={(e) => {
+        if (!active) {
+          e.currentTarget.style.backgroundColor = "var(--bg-elevated)";
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (!active) {
+          e.currentTarget.style.backgroundColor = "transparent";
+        }
+      }}
+    >
+      <span
+        style={{
+          ...s.navIcon,
+          color: active ? "var(--accent)" : "var(--text-muted)",
+        }}
+      >
+        {item.icon}
+      </span>
+      <span
+        style={{
+          ...s.navLabel,
+          color: active ? "var(--text-primary)" : "var(--text-secondary)",
+          fontWeight: active ? 600 : 500,
+        }}
+      >
+        {item.label}
+      </span>
+      {active && <span style={s.activeBar} />}
+    </NavLink>
+  );
+}
+
+export default function Sidebar() {
+  return (
     <aside style={s.root}>
-      {/* Logo */}
       <div style={s.logo}>
         <span style={s.logoK}>k</span>
         <span style={s.logoProbe}>probe</span>
       </div>
 
-      {/* Main nav */}
       <nav style={s.nav}>
         <div style={s.navGroup}>
           <div style={s.navGroupLabel}>views</div>
-          {NAV_ITEMS.map((item) => {
-            const active = location.pathname === item.path;
-            return (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                style={{
-                  ...s.navItem,
-                  ...(active ? s.navItemActive : {}),
-                }}
-              >
-                <span
-                  style={{
-                    ...s.navIcon,
-                    color: active ? "var(--accent)" : "var(--text-muted)",
-                  }}
-                >
-                  {item.icon}
-                </span>
-                <span
-                  style={{
-                    ...s.navLabel,
-                    color: active
-                      ? "var(--text-primary)"
-                      : "var(--text-secondary)",
-                    fontWeight: active ? 600 : 500,
-                  }}
-                >
-                  {item.label}
-                </span>
-                {active && <span style={s.activeBar} />}
-              </NavLink>
-            );
-          })}
+          {NAV_ITEMS.map((item) => (
+            <NavItemLink key={item.path} item={item} />
+          ))}
         </div>
       </nav>
 
-      {/* Bottom nav */}
       <div style={s.bottom}>
         <div style={s.bottomDivider} />
-        {BOTTOM_ITEMS.map((item) => {
-          const active = location.pathname === item.path;
-          return (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              style={{
-                ...s.navItem,
-                ...(active ? s.navItemActive : {}),
-              }}
-            >
-              <span
-                style={{
-                  ...s.navIcon,
-                  color: active ? "var(--accent)" : "var(--text-muted)",
-                }}
-              >
-                {item.icon}
-              </span>
-              <span
-                style={{
-                  ...s.navLabel,
-                  color: active
-                    ? "var(--text-primary)"
-                    : "var(--text-secondary)",
-                  fontWeight: active ? 600 : 500,
-                }}
-              >
-                {item.label}
-              </span>
-              {active && <span style={s.activeBar} />}
-            </NavLink>
-          );
-        })}
+        {BOTTOM_ITEMS.map((item) => (
+          <NavItemLink key={item.path} item={item} />
+        ))}
       </div>
     </aside>
   );
@@ -333,6 +311,7 @@ const s: Record<string, React.CSSProperties> = {
     cursor: "pointer",
     textDecoration: "none",
     userSelect: "none" as const,
+    transition: "background-color 100ms ease",
   },
   navItemActive: {
     backgroundColor: "var(--accent-dim)",

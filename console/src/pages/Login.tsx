@@ -21,7 +21,6 @@ export default function Login({ onAuth }: LoginProps) {
     // Simulate a brief auth delay — feels real
     setTimeout(() => {
       if (username === CORRECT_USER && password === CORRECT_PASS) {
-        sessionStorage.setItem("kprobe_authed", "1");
         onAuth();
       } else {
         setError("Invalid credentials.");

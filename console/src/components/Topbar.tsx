@@ -1,4 +1,5 @@
 import type { ConnectionStatus } from "../hooks/useConnection";
+import { SunIcon, MoonIcon, LogoutIcon } from "./ui/icons";
 
 interface TopbarProps {
   title: string;
@@ -9,6 +10,16 @@ interface TopbarProps {
   onThemeToggle: () => void;
 }
 
+function statusColor(status: ConnectionStatus): string {
+  if (status === "connected") return "var(--accent)";
+  if (status === "connecting") return "var(--text-muted)";
+  return "var(--border)";
+}
+
+function statusAnimation(status: ConnectionStatus): string {
+  return status === "connecting" ? "pulse 1.4s ease-in-out infinite" : "none";
+}
+
 export default function Topbar({
   title,
   description,
@@ -17,9 +28,12 @@ export default function Topbar({
   theme,
   onThemeToggle,
 }: TopbarProps) {
+  const dotColor = statusColor(status);
+  const textColor =
+    status === "connected" ? "var(--accent)" : "var(--text-muted)";
+
   return (
     <header style={s.root}>
-      {/* Left — view title */}
       <div style={s.left}>
         <span style={s.title}>{title}</span>
         {description && (
@@ -30,84 +44,32 @@ export default function Topbar({
         )}
       </div>
 
-      {/* Right — status + controls */}
       <div style={s.right}>
-        {/* Connection status */}
         <div style={s.statusPill}>
           <span
             style={{
               ...s.statusDot,
-              backgroundColor:
-                status === "connected"
-                  ? "var(--accent)"
-                  : status === "connecting"
-                    ? "var(--text-muted)"
-                    : "var(--border)",
-              animation:
-                status === "connecting"
-                  ? "pulse 1.4s ease-in-out infinite"
-                  : "none",
+              backgroundColor: dotColor,
+              animation: statusAnimation(status),
             }}
           />
-          <span
-            style={{
-              ...s.statusText,
-              color:
-                status === "connected"
-                  ? "var(--accent)"
-                  : status === "connecting"
-                    ? "var(--text-muted)"
-                    : "var(--text-muted)",
-            }}
-          >
-            {status}
-          </span>
+          <span style={{ ...s.statusText, color: textColor }}>{status}</span>
           <span style={s.statusEndpoint}>ws://localhost:8080</span>
         </div>
 
         <div style={s.divider} />
 
-        {/* Theme toggle */}
         <button
           onClick={onThemeToggle}
           style={s.iconBtn}
           aria-label="Toggle theme"
-          title="Toggle theme"
+          title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
         >
-          {theme === "dark" ? (
-            /* Sun icon */
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <circle
-                cx="7"
-                cy="7"
-                r="2.8"
-                stroke="currentColor"
-                strokeWidth="1.2"
-              />
-              <path
-                d="M7 1v1.5M7 11.5V13M1 7h1.5M11.5 7H13M2.93 2.93l1.06 1.06M10.01 10.01l1.06 1.06M2.93 11.07l1.06-1.06M10.01 3.99l1.06-1.06"
-                stroke="currentColor"
-                strokeWidth="1.2"
-                strokeLinecap="round"
-              />
-            </svg>
-          ) : (
-            /* Moon icon */
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path
-                d="M12 9A6 6 0 015 2a6 6 0 100 10 6 6 0 007-3z"
-                stroke="currentColor"
-                strokeWidth="1.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          )}
+          {theme === "dark" ? <SunIcon /> : <MoonIcon />}
         </button>
 
         <div style={s.divider} />
 
-        {/* User + logout */}
         <div style={s.userRow}>
           <span style={s.userLabel}>admin</span>
           <button
@@ -116,22 +78,7 @@ export default function Topbar({
             aria-label="Sign out"
             title="Sign out"
           >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path
-                d="M5.5 2H3a1 1 0 00-1 1v8a1 1 0 001 1h2.5"
-                stroke="currentColor"
-                strokeWidth="1.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M9.5 9.5L12 7l-2.5-2.5M12 7H5.5"
-                stroke="currentColor"
-                strokeWidth="1.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
+            <LogoutIcon />
           </button>
         </div>
       </div>
@@ -228,6 +175,7 @@ const s: Record<string, React.CSSProperties> = {
     color: "var(--text-muted)",
     cursor: "pointer",
     flexShrink: 0,
+    transition: "background-color 120ms ease, color 120ms ease",
   },
   userRow: {
     display: "flex",

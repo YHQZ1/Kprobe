@@ -1,15 +1,13 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-
-export type ConnectionStatus = "connecting" | "connected" | "disconnected";
+import type { ConnectionStatus } from "../types/events";
 
 const WS_URL = "ws://localhost:8080/ws";
-const INITIAL_BACKOFF = 1000; // 1s
-const MAX_BACKOFF = 30000; // 30s
+const INITIAL_BACKOFF = 1000;
+const MAX_BACKOFF = 30000;
 const BACKOFF_FACTOR = 2;
 
 interface UseConnectionReturn {
   status: ConnectionStatus;
-  ws: WebSocket | null;
   lastMessage: MessageEvent | null;
 }
 
@@ -22,9 +20,21 @@ export function useConnection(): UseConnectionReturn {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
 
+  const scheduleReconnect = useCallback(() => {
+    if (!mountedRef.current) return;
+    const delay = backoffRef.current;
+    backoffRef.current = Math.min(
+      backoffRef.current * BACKOFF_FACTOR,
+      MAX_BACKOFF,
+    );
+
+    timerRef.current = setTimeout(() => {
+      if (mountedRef.current) connect();
+    }, delay);
+  }, []);
+
   const connect = useCallback(() => {
     if (!mountedRef.current) return;
-
     setStatus("connecting");
 
     try {
@@ -34,7 +44,7 @@ export function useConnection(): UseConnectionReturn {
       ws.onopen = () => {
         if (!mountedRef.current) return;
         setStatus("connected");
-        backoffRef.current = INITIAL_BACKOFF; // reset on success
+        backoffRef.current = INITIAL_BACKOFF;
       };
 
       ws.onmessage = (evt) => {
@@ -50,7 +60,6 @@ export function useConnection(): UseConnectionReturn {
       };
 
       ws.onerror = () => {
-        // onclose fires after onerror — let that handle reconnect
         if (!mountedRef.current) return;
         setStatus("disconnected");
       };
@@ -58,20 +67,7 @@ export function useConnection(): UseConnectionReturn {
       setStatus("disconnected");
       scheduleReconnect();
     }
-  }, []);
-
-  const scheduleReconnect = useCallback(() => {
-    if (!mountedRef.current) return;
-    const delay = backoffRef.current;
-    backoffRef.current = Math.min(
-      backoffRef.current * BACKOFF_FACTOR,
-      MAX_BACKOFF,
-    );
-
-    timerRef.current = setTimeout(() => {
-      if (mountedRef.current) connect();
-    }, delay);
-  }, [connect]);
+  }, [scheduleReconnect]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -81,7 +77,7 @@ export function useConnection(): UseConnectionReturn {
       mountedRef.current = false;
       if (timerRef.current) clearTimeout(timerRef.current);
       if (wsRef.current) {
-        wsRef.current.onclose = null; // prevent reconnect loop on unmount
+        wsRef.current.onclose = null;
         wsRef.current.close();
       }
     };
@@ -89,7 +85,6 @@ export function useConnection(): UseConnectionReturn {
 
   return {
     status,
-    ws: wsRef.current,
     lastMessage,
   };
 }
