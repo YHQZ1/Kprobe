@@ -1,12 +1,9 @@
 services:
-
-  # ─── Kafka (KRaft mode, no Zookeeper) ──────────────────────────────────────
   kafka:
     image: confluentinc/cp-kafka:7.6.0
     container_name: kprobe-kafka
     ports:
       - "9092:9092"
-      - "9093:9093"
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
@@ -14,7 +11,7 @@ services:
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
-      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
@@ -23,18 +20,23 @@ services:
     volumes:
       - kafka-data:/var/lib/kafka/data
     healthcheck:
-      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      test:
+        [
+          "CMD",
+          "kafka-broker-api-versions",
+          "--bootstrap-server",
+          "localhost:9092",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  # ─── ClickHouse ────────────────────────────────────────────────────────────
   clickhouse:
     image: clickhouse/clickhouse-server:24.3
     container_name: kprobe-clickhouse
     ports:
-      - "8123:8123"   # HTTP interface
-      - "9000:9000"   # Native interface
+      - "8123:8123"
+      - "9000:9000"
     environment:
       CLICKHOUSE_DB: kprobe
       CLICKHOUSE_USER: kprobe
@@ -42,19 +44,19 @@ services:
       CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
     volumes:
       - clickhouse-data:/var/lib/clickhouse
+      - ../clickhouse/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:8123/ping"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  # ─── Neo4j ─────────────────────────────────────────────────────────────────
   neo4j:
     image: neo4j:5.19
     container_name: kprobe-neo4j
     ports:
-      - "7474:7474"   # Browser UI
-      - "7687:7687"   # Bolt protocol
+      - "7474:7474"
+      - "7687:7687"
     environment:
       NEO4J_AUTH: neo4j/kprobe_secret
       NEO4J_PLUGINS: '["apoc"]'
@@ -67,16 +69,15 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-  
-  # ─── Vector ────────────────────────────────────────────────────────────────
+
   vector:
     image: timberio/vector:0.38.0-debian
     container_name: kprobe-vector
     ports:
-      - "4317:4317"   # OTel gRPC receiver
-      - "8686:8686"   # Vector API
+      - "4317:4317"
+      - "8686:8686"
     volumes:
-      - ../../infrastructure/vector/vector.toml:/etc/vector/vector.toml:ro
+      - ../vector/vector.toml:/etc/vector/vector.toml:ro
     command: ["--config", "/etc/vector/vector.toml"]
     depends_on:
       kafka:
@@ -88,6 +89,33 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.57
+    container_name: kprobe-jaeger
+    ports:
+      - "16686:16686"
+      - "4318:4318"
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: kprobe-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ../observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: kprobe-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
 
 volumes:
   kafka-data:
