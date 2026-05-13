@@ -5,8 +5,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/YHQZ1/kprobe/engine/consumer"
 	"github.com/YHQZ1/kprobe/engine/graph"
+	"github.com/YHQZ1/kprobe/shared/types"
 	"github.com/google/uuid"
 )
 
@@ -15,39 +15,40 @@ const (
 	causalThresholdNs = 50_000_000
 )
 
-type CausalEngine struct {
-	graph  *graph.Neo4jStore
-	window []consumer.EnrichedEvent
+type Engine struct {
+	store  *graph.Neo4jStore
+	window []types.KernelEvent
 	ticker *time.Ticker
-	input  chan consumer.EnrichedEvent
+	input  chan types.KernelEvent
 	done   chan struct{}
 }
 
-func NewCausalEngine(g *graph.Neo4jStore) *CausalEngine {
-	return &CausalEngine{
-		graph:  g,
-		window: make([]consumer.EnrichedEvent, 0, 1000),
+func NewEngine(store *graph.Neo4jStore) *Engine {
+	return &Engine{
+		store:  store,
+		window: make([]types.KernelEvent, 0, 1000),
 		ticker: time.NewTicker(windowDuration),
-		input:  make(chan consumer.EnrichedEvent, 10000),
+		input:  make(chan types.KernelEvent, 10000),
 		done:   make(chan struct{}),
 	}
 }
 
-func (e *CausalEngine) Ingest(event consumer.EnrichedEvent) {
-	e.input <- event
+func (e *Engine) Ingest(event types.KernelEvent) {
+	select {
+	case e.input <- event:
+	default:
+	}
 }
 
-func (e *CausalEngine) Run(ctx context.Context) {
+func (e *Engine) Run(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
 			e.flush(ctx)
 			close(e.done)
 			return
-
 		case event := <-e.input:
 			e.window = append(e.window, event)
-
 		case <-e.ticker.C:
 			if len(e.window) > 0 {
 				e.flush(ctx)
@@ -56,8 +57,12 @@ func (e *CausalEngine) Run(ctx context.Context) {
 	}
 }
 
-func (e *CausalEngine) flush(ctx context.Context) {
-	events := make([]consumer.EnrichedEvent, len(e.window))
+func (e *Engine) Wait() {
+	<-e.done
+}
+
+func (e *Engine) flush(ctx context.Context) {
+	events := make([]types.KernelEvent, len(e.window))
 	copy(events, e.window)
 	e.window = e.window[:0]
 
@@ -66,26 +71,16 @@ func (e *CausalEngine) flush(ctx context.Context) {
 	}
 }
 
-func (e *CausalEngine) processWindow(ctx context.Context, events []consumer.EnrichedEvent) error {
-	nodeIDs := make(map[int]string)
-	nodes := make([]graph.CausalNode, 0, len(events))
+func (e *Engine) processWindow(ctx context.Context, events []types.KernelEvent) error {
+	nodeIDs := make([]string, len(events))
 
 	for i, event := range events {
-		id := uuid.New().String()
-		nodeIDs[i] = id
-
-		nodes = append(nodes, graph.CausalNode{
-			EventID:       id,
-			TimestampNs:   event.TimestampNs,
-			PID:           event.PID,
-			EventType:     event.SourceTopic,
-			TransactionID: event.TransactionID,
-			ServiceName:   event.ServiceName,
-			TraceID:       event.TraceID,
-		})
+		nodeIDs[i] = uuid.New().String()
+		event.EventID = nodeIDs[i]
+		if err := e.store.WriteNode(ctx, event); err != nil {
+			log.Printf("write node failed: %v", err)
+		}
 	}
-
-	edges := make([]graph.CausalEdge, 0)
 
 	for i := 0; i < len(events); i++ {
 		for j := i + 1; j < len(events); j++ {
@@ -97,23 +92,21 @@ func (e *CausalEngine) processWindow(ctx context.Context, events []consumer.Enri
 				continue
 			}
 
-			edges = append(edges, graph.CausalEdge{
-				FromEventID:   nodeIDs[i],
-				ToEventID:     nodeIDs[j],
-				FromTimestamp: a.TimestampNs,
-				ToTimestamp:   b.TimestampNs,
-				CauseType:     causeType,
-				LatencyNs:     b.TimestampNs - a.TimestampNs,
-				TransactionID: a.TransactionID,
-				ServiceName:   a.ServiceName,
-			})
+			latencyNs := uint64(0)
+			if b.TimestampNs > a.TimestampNs {
+				latencyNs = b.TimestampNs - a.TimestampNs
+			}
+
+			if err := e.store.WriteEdge(ctx, nodeIDs[i], nodeIDs[j], causeType, latencyNs, a.TransactionID, a.ServiceName); err != nil {
+				log.Printf("write edge failed: %v", err)
+			}
 		}
 	}
 
-	return e.graph.WriteBatch(ctx, nodes, edges)
+	return nil
 }
 
-func inferCause(a, b consumer.EnrichedEvent) string {
+func inferCause(a, b types.KernelEvent) string {
 	if b.TimestampNs <= a.TimestampNs {
 		return ""
 	}
@@ -121,46 +114,56 @@ func inferCause(a, b consumer.EnrichedEvent) string {
 		return ""
 	}
 
-	if a.TransactionID != "unknown" && a.TransactionID == b.TransactionID {
-		return causalTypeFromTopics(a.SourceTopic, b.SourceTopic)
+	if a.TID == b.TID {
+		return eventPairToCause(a.EventType, b.EventType)
 	}
 
 	if a.PID == b.PID {
-		return causalTypeFromTopics(a.SourceTopic, b.SourceTopic)
+		return eventPairToCause(a.EventType, b.EventType)
 	}
 
-	if a.SourceTopic == "kernel.sched" && isSyscall(b.SourceTopic) {
+	if a.EventType == types.EventTypeSchedSwitch && isBlocking(b.EventType) {
 		return "SCHED_DELAY"
 	}
 
-	if a.SourceTopic == "kernel.fault" && isSyscall(b.SourceTopic) {
+	if a.EventType == types.EventTypePageFault && isBlocking(b.EventType) {
 		return "MEMORY_PRESSURE"
 	}
 
 	return ""
 }
 
-func causalTypeFromTopics(from, to string) string {
+func eventPairToCause(from, to types.EventType) string {
 	switch {
-	case from == "kernel.tcp" && to == "kernel.syscall":
-		return "NETWORK_TO_SYSCALL"
-	case from == "kernel.syscall" && to == "kernel.tcp":
-		return "SYSCALL_TO_NETWORK"
-	case from == "kernel.sched" && to == "kernel.syscall":
-		return "SCHED_DELAY"
-	case from == "kernel.fault" && to == "kernel.syscall":
+	case from == types.EventTypeTCPSend && to == types.EventTypeTCPRecv:
+		return "TCP_RTT"
+	case from == types.EventTypeTCPSend && to == types.EventTypeTCPRetransmit:
+		return "TCP_RETRANSMIT"
+	case from == types.EventTypeTCPRetransmit && to == types.EventTypeSysWrite:
+		return "NETWORK_DELAY_TO_SYSCALL"
+	case from == types.EventTypeSysRead && to == types.EventTypeSysWrite:
+		return "READ_TO_WRITE"
+	case from == types.EventTypeSysWrite && to == types.EventTypeSysRead:
+		return "WRITE_TO_READ"
+	case from == types.EventTypeBlockIO && to == types.EventTypeSysRead:
+		return "DISK_TO_SYSCALL"
+	case from == types.EventTypeBlockIO && to == types.EventTypeSysWrite:
+		return "DISK_TO_SYSCALL"
+	case from == types.EventTypePageFault && to == types.EventTypeSysRead:
 		return "MEMORY_PRESSURE"
-	case from == "kernel.tcp" && to == "kernel.tcp":
-		return "TCP_CHAIN"
+	case from == types.EventTypePageFault && to == types.EventTypeSysWrite:
+		return "MEMORY_PRESSURE"
+	case from == types.EventTypeSchedSwitch && to == types.EventTypeSysRead:
+		return "CPU_CONTENTION"
+	case from == types.EventTypeSchedSwitch && to == types.EventTypeSysWrite:
+		return "CPU_CONTENTION"
+	case from == to:
+		return "SEQUENTIAL"
 	default:
 		return "SEQUENTIAL"
 	}
 }
 
-func isSyscall(topic string) bool {
-	return topic == "kernel.syscall"
-}
-
-func (e *CausalEngine) Wait() {
-	<-e.done
+func isBlocking(t types.EventType) bool {
+	return t == types.EventTypeSysRead || t == types.EventTypeSysWrite
 }
