@@ -3,7 +3,9 @@ package store
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
+	"log"
 
 	"github.com/YHQZ1/kprobe/shared/types"
 )
@@ -30,7 +32,7 @@ func (c *Client) EventsByTransaction(ctx context.Context, transactionID string) 
 		SELECT
 			event_id, event_type, timestamp_ns, pid, tid, cpu,
 			trace_id, span_id, service_name, transaction_id,
-			duration_ns, return_value
+			duration_ns, return_value, payload
 		FROM kprobe.kernel_events
 		WHERE transaction_id = ?
 		ORDER BY timestamp_ns ASC
@@ -50,7 +52,7 @@ func (c *Client) EventsByTimeRange(ctx context.Context, fromNs, toNs uint64) ([]
 		SELECT
 			event_id, event_type, timestamp_ns, pid, tid, cpu,
 			trace_id, span_id, service_name, transaction_id,
-			duration_ns, return_value
+			duration_ns, return_value, payload
 		FROM kprobe.kernel_events
 		WHERE timestamp_ns >= ? AND timestamp_ns <= ?
 		ORDER BY timestamp_ns ASC
@@ -67,11 +69,12 @@ func (c *Client) EventsByTimeRange(ctx context.Context, fromNs, toNs uint64) ([]
 
 func scanEvents(rows *sql.Rows) ([]Event, error) {
 	var events []Event
+	index := 0
 
 	for rows.Next() {
 		var e Event
 		var eventTypeStr string
-		var spanID, serviceName, transactionID string
+		var payloadStr string
 
 		err := rows.Scan(
 			&e.EventID,
@@ -81,26 +84,32 @@ func scanEvents(rows *sql.Rows) ([]Event, error) {
 			&e.TID,
 			&e.CPU,
 			&e.TraceID,
-			&spanID,
-			&serviceName,
-			&transactionID,
+			&e.SpanID,
+			&e.ServiceName,
+			&e.TransactionID,
 			&e.DurationNs,
 			&e.ReturnValue,
+			&payloadStr,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("scan: %w", err)
+			return nil, fmt.Errorf("scan row %d: %w", index, err)
 		}
 
 		e.EventType = types.EventType(eventTypeStr)
-		e.SpanID = spanID
-		e.ServiceName = serviceName
-		e.TransactionID = transactionID
+		e.Index = index
+
+		if payloadStr != "" && payloadStr != "{}" {
+			if err := json.Unmarshal([]byte(payloadStr), &e.KernelEvent.Payload); err != nil {
+				log.Printf("unmarshal payload for event %s (row %d): %v — skipping payload", e.EventID, index, err)
+			}
+		}
 
 		events = append(events, e)
+		index++
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("rows: %w", err)
+		return nil, fmt.Errorf("rows iteration: %w", err)
 	}
 
 	return events, nil
