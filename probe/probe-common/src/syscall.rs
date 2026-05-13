@@ -2,7 +2,7 @@
 use serde::{Deserialize, Serialize};
 
 #[repr(u32)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "user", derive(Serialize, Deserialize))]
 pub enum SyscallOp {
     Read = 0,
@@ -10,7 +10,7 @@ pub enum SyscallOp {
 }
 
 #[repr(u32)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "user", derive(Serialize, Deserialize))]
 pub enum SyscallDir {
     Enter = 0,

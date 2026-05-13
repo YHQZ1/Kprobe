@@ -1,7 +1,7 @@
 use aya::maps::RingBuf;
 use log::{info, warn};
 use probe_common::{
-    BlockDir, PageFaultEvent, SchedEvent, SyscallDir, SyscallOp, TcpEventType, BlockEvent,
+    PageFaultEvent, SchedEvent, SyscallDir, SyscallOp, TcpEventType, BlockEvent,
     SyscallEvent, TcpEvent,
 };
 use rdkafka::producer::{FutureProducer, FutureRecord};
@@ -33,7 +33,8 @@ pub async fn drain_tcp(buf: &mut RingBuf<aya::maps::MapData>, producer: &FutureP
             }
         });
         let key = event.pid.to_string();
-        let record = FutureRecord::to("kernel.raw").payload(&payload.to_string()).key(&key);
+        let payload_str = payload.to_string();
+        let record = FutureRecord::to("kernel.raw").payload(&payload_str).key(&key);
         match producer.send(record, Duration::from_secs(0)).await {
             Ok(_) => info!("tcp event pid={} type={}", event.pid, event_type),
             Err((e, _)) => warn!("kafka publish failed: {e}"),
@@ -64,7 +65,8 @@ pub async fn drain_sched(buf: &mut RingBuf<aya::maps::MapData>, producer: &Futur
             }
         });
         let key = event.prev_pid.to_string();
-        let record = FutureRecord::to("kernel.raw").payload(&payload.to_string()).key(&key);
+        let payload_str = payload.to_string();
+        let record = FutureRecord::to("kernel.raw").payload(&payload_str).key(&key);
         match producer.send(record, Duration::from_secs(0)).await {
             Ok(_) => info!("sched event prev_pid={} next_pid={}", event.prev_pid, event.next_pid),
             Err((e, _)) => warn!("kafka publish failed: {e}"),
@@ -98,7 +100,8 @@ pub async fn drain_syscall(buf: &mut RingBuf<aya::maps::MapData>, producer: &Fut
             }
         });
         let key = event.pid.to_string();
-        let record = FutureRecord::to("kernel.raw").payload(&payload.to_string()).key(&key);
+        let payload_str = payload.to_string();
+        let record = FutureRecord::to("kernel.raw").payload(&payload_str).key(&key);
         match producer.send(record, Duration::from_secs(0)).await {
             Ok(_) => info!(
                 "syscall event pid={} op={:?} dir={:?}",
@@ -131,7 +134,8 @@ pub async fn drain_page_fault(buf: &mut RingBuf<aya::maps::MapData>, producer: &
             }
         });
         let key = event.pid.to_string();
-        let record = FutureRecord::to("kernel.raw").payload(&payload.to_string()).key(&key);
+        let payload_str = payload.to_string();
+        let record = FutureRecord::to("kernel.raw").payload(&payload_str).key(&key);
         match producer.send(record, Duration::from_secs(0)).await {
             Ok(_) => info!("page fault pid={} addr={:#x}", event.pid, event.address),
             Err((e, _)) => warn!("kafka publish failed: {e}"),
@@ -162,7 +166,8 @@ pub async fn drain_block(buf: &mut RingBuf<aya::maps::MapData>, producer: &Futur
             }
         });
         let key = event.pid.to_string();
-        let record = FutureRecord::to("kernel.raw").payload(&payload.to_string()).key(&key);
+        let payload_str = payload.to_string();
+        let record = FutureRecord::to("kernel.raw").payload(&payload_str).key(&key);
         match producer.send(record, Duration::from_secs(0)).await {
             Ok(_) => info!("block event pid={} sector={}", event.pid, event.sector),
             Err((e, _)) => warn!("kafka publish failed: {e}"),
