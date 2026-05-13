@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.1
 // - protoc             v7.34.1
-// source: proto/kprobe.proto
+// source: kprobe.proto
 
 package proto
 
@@ -235,7 +235,7 @@ var KprobeService_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-	Metadata: "proto/kprobe.proto",
+	Metadata: "kprobe.proto",
 }
 
 const (
@@ -249,15 +249,9 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ReplayServiceClient interface {
-	// StartReplay loads events for a transaction, applies injections, and
-	// returns a session ID. Call Control to begin playback.
 	StartReplay(ctx context.Context, in *StartReplayRequest, opts ...grpc.CallOption) (*StartReplayResponse, error)
-	// Control sends play/pause/stop/seek commands to a running session.
 	Control(ctx context.Context, in *ReplayControlRequest, opts ...grpc.CallOption) (*ReplayControlResponse, error)
-	// Status returns the current state and cursor of a session.
 	Status(ctx context.Context, in *ReplayStatusRequest, opts ...grpc.CallOption) (*ReplayStatusResponse, error)
-	// WatchReplay streams replay events to the client as playback progresses.
-	// The stream ends when the session reaches the "complete" or "failed" state.
 	WatchReplay(ctx context.Context, in *WatchReplayRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[WatchReplayResponse], error)
 }
 
@@ -322,15 +316,9 @@ type ReplayService_WatchReplayClient = grpc.ServerStreamingClient[WatchReplayRes
 // All implementations must embed UnimplementedReplayServiceServer
 // for forward compatibility.
 type ReplayServiceServer interface {
-	// StartReplay loads events for a transaction, applies injections, and
-	// returns a session ID. Call Control to begin playback.
 	StartReplay(context.Context, *StartReplayRequest) (*StartReplayResponse, error)
-	// Control sends play/pause/stop/seek commands to a running session.
 	Control(context.Context, *ReplayControlRequest) (*ReplayControlResponse, error)
-	// Status returns the current state and cursor of a session.
 	Status(context.Context, *ReplayStatusRequest) (*ReplayStatusResponse, error)
-	// WatchReplay streams replay events to the client as playback progresses.
-	// The stream ends when the session reaches the "complete" or "failed" state.
 	WatchReplay(*WatchReplayRequest, grpc.ServerStreamingServer[WatchReplayResponse]) error
 	mustEmbedUnimplementedReplayServiceServer()
 }
@@ -467,5 +455,5 @@ var ReplayService_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-	Metadata: "proto/kprobe.proto",
+	Metadata: "kprobe.proto",
 }

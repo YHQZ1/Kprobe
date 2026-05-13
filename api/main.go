@@ -19,10 +19,17 @@ import (
 	"google.golang.org/grpc/reflection"
 )
 
+func env(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
+}
+
 func main() {
+	log.SetFlags(log.Ltime | log.Lmicroseconds)
 	log.Println("kprobe api starting...")
 
-	// ── ClickHouse ────────────────────────────────────────────────────────────
 	chConn, err := clickhouse.Open(&clickhouse.Options{
 		Addr: []string{env("CLICKHOUSE_ADDR", "localhost:9000")},
 		Auth: clickhouse.Auth{
@@ -34,14 +41,13 @@ func main() {
 		ReadTimeout: 10 * time.Second,
 	})
 	if err != nil {
-		log.Fatalf("clickhouse connect failed: %v", err)
+		log.Fatalf("clickhouse connect: %v", err)
 	}
 	if err := chConn.Ping(context.Background()); err != nil {
-		log.Fatalf("clickhouse ping failed: %v", err)
+		log.Fatalf("clickhouse ping: %v", err)
 	}
 	log.Println("clickhouse connected")
 
-	// ── Neo4j ─────────────────────────────────────────────────────────────────
 	neo4jDriver, err := neo4j.NewDriverWithContext(
 		env("NEO4J_BOLT", "bolt://localhost:7687"),
 		neo4j.BasicAuth(
@@ -51,34 +57,30 @@ func main() {
 		),
 	)
 	if err != nil {
-		log.Fatalf("neo4j connect failed: %v", err)
+		log.Fatalf("neo4j connect: %v", err)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	if err := neo4jDriver.VerifyConnectivity(ctx); err != nil {
-		log.Fatalf("neo4j connectivity check failed: %v", err)
+		log.Fatalf("neo4j connectivity: %v", err)
 	}
 	cancel()
 	log.Println("neo4j connected")
 
-	// ── Replay store (separate client for the replay handler) ─────────────────
-	replayDSN := env("CLICKHOUSE_DSN",
-		"clickhouse://localhost:9000/kprobe?username=kprobe&password=kprobe")
-	replayCH, err := replaystore.New(replayDSN)
+	replayDSN := env("CLICKHOUSE_DSN", "clickhouse://localhost:9000/kprobe?username=kprobe&password=kprobe")
+	replayCH, err := replaystore.NewClient(replayDSN)
 	if err != nil {
-		log.Fatalf("replay store connect failed: %v", err)
+		log.Fatalf("replay store connect: %v", err)
 	}
 	defer replayCH.Close()
 	log.Println("replay store connected")
 
-	// ── Handlers ──────────────────────────────────────────────────────────────
 	hub := stream.NewHub()
 	causalHandler := handlers.NewCausalHandler(neo4jDriver, chConn, hub)
 	replayHandler := handlers.NewReplayHandler(replayCH)
 
-	// ── gRPC server ───────────────────────────────────────────────────────────
 	lis, err := net.Listen("tcp", ":8080")
 	if err != nil {
-		log.Fatalf("failed to listen on :8080: %v", err)
+		log.Fatalf("listen :8080: %v", err)
 	}
 
 	srv := grpc.NewServer()
@@ -86,16 +88,15 @@ func main() {
 	pb.RegisterReplayServiceServer(srv, replayHandler)
 	reflection.Register(srv)
 
-	log.Println("gRPC server listening on :8080")
+	log.Println("grpc server listening on :8080")
 
 	go func() {
 		if err := srv.Serve(lis); err != nil {
-			log.Printf("gRPC server error: %v", err)
+			log.Printf("grpc server error: %v", err)
 			os.Exit(1)
 		}
 	}()
 
-	// ── Graceful shutdown ─────────────────────────────────────────────────────
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 	<-sig
@@ -104,13 +105,5 @@ func main() {
 	srv.GracefulStop()
 	neo4jDriver.Close(context.Background())
 	chConn.Close()
-	log.Println("api stopped cleanly")
-}
-
-// env returns the value of an environment variable, or the fallback if unset.
-func env(key, fallback string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return fallback
+	log.Println("api stopped")
 }

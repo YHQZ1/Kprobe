@@ -2,8 +2,6 @@ syntax = "proto3";
 package kprobe;
 option go_package = "github.com/YHQZ1/kprobe/api/proto";
 
-// ─── Shared event types ───────────────────────────────────────────────────────
-
 message KernelEventProto {
   string  event_id       = 1;
   uint64  timestamp_ns   = 2;
@@ -22,8 +20,6 @@ message CausalEdgeProto {
   string transaction_id  = 5;
   string service_name    = 6;
 }
-
-// ─── KprobeService — causal graph, event queries, live stream ─────────────────
 
 message QueryCausalChainRequest {
   string transaction_id = 1;
@@ -64,33 +60,31 @@ service KprobeService {
   rpc StreamEvents     (StreamEventsRequest)         returns (stream StreamEventsResponse);
 }
 
-// ─── ReplayService — create and control deterministic replay sessions ─────────
-
 message StartReplayRequest {
-  string transaction_id      = 1;  // required — financial transaction to replay
-  uint64 timeout_override_ns = 2;  // 0 = use original recorded timeouts
-  double latency_multiplier  = 3;  // 0 or 1.0 = exact replay
-  uint64 extra_latency_ns    = 4;  // added to every inter-event gap
-  string inject_failure_at   = 5;  // "tcp_send" | "tcp_recv" | "sys_write" | "sys_read" | ""
-  double speed_factor        = 6;  // 0 or 1.0 = real time, 10.0 = 10x faster
+  string transaction_id      = 1;
+  uint64 timeout_override_ns = 2;
+  double latency_multiplier  = 3;
+  uint64 extra_latency_ns    = 4;
+  string inject_failure_at   = 5;
+  double speed_factor        = 6;
 }
 
 message StartReplayResponse {
   string session_id  = 1;
-  int32  event_count = 2;  // total events loaded for this session
-  string injections  = 3;  // human-readable summary of active injections
+  int32  event_count = 2;
+  string injections  = 3;
 }
 
 message ReplayControlRequest {
   string session_id = 1;
-  string command    = 2;  // "play" | "pause" | "stop"
-  int32  seek_index = 3;  // only used when command = "seek"
+  string command    = 2;
+  int32  seek_index = 3;
 }
 
 message ReplayControlResponse {
   string session_id = 1;
-  string state      = 2;  // "loading" | "ready" | "playing" | "paused" | "complete" | "failed"
-  int32  cursor     = 3;  // current event index
+  string state      = 2;
+  int32  cursor     = 3;
 }
 
 message ReplayStatusRequest {
@@ -105,8 +99,6 @@ message ReplayStatusResponse {
   string injections  = 5;
 }
 
-// ReplayEventProto is the streaming event type for replay playback.
-// Mirrors KernelEventProto but adds replay-specific fields.
 message ReplayEventProto {
   string event_id        = 1;
   uint64 timestamp_ns    = 2;
@@ -114,9 +106,9 @@ message ReplayEventProto {
   string event_type      = 4;
   string transaction_id  = 5;
   string service_name    = 6;
-  uint64 duration_ns     = 7;  // recorded syscall duration (after injection)
-  int64  return_value    = 8;  // recorded return value (after injection)
-  int32  index           = 9;  // position in the full event list
+  uint64 duration_ns     = 7;
+  int64  return_value    = 8;
+  int32  index           = 9;
 }
 
 message WatchReplayRequest {
@@ -125,21 +117,12 @@ message WatchReplayRequest {
 
 message WatchReplayResponse {
   ReplayEventProto event = 1;
-  string           state = 2;  // current session state after this event
+  string           state = 2;
 }
 
 service ReplayService {
-  // StartReplay loads events for a transaction, applies injections, and
-  // returns a session ID. Call Control to begin playback.
   rpc StartReplay   (StartReplayRequest)    returns (StartReplayResponse);
-
-  // Control sends play/pause/stop/seek commands to a running session.
   rpc Control       (ReplayControlRequest)  returns (ReplayControlResponse);
-
-  // Status returns the current state and cursor of a session.
   rpc Status        (ReplayStatusRequest)   returns (ReplayStatusResponse);
-
-  // WatchReplay streams replay events to the client as playback progresses.
-  // The stream ends when the session reaches the "complete" or "failed" state.
   rpc WatchReplay   (WatchReplayRequest)    returns (stream WatchReplayResponse);
 }

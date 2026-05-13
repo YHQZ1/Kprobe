@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        v7.34.1
-// source: proto/kprobe.proto
+// source: kprobe.proto
 
 package proto
 
@@ -36,7 +36,7 @@ type KernelEventProto struct {
 
 func (x *KernelEventProto) Reset() {
 	*x = KernelEventProto{}
-	mi := &file_proto_kprobe_proto_msgTypes[0]
+	mi := &file_kprobe_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -48,7 +48,7 @@ func (x *KernelEventProto) String() string {
 func (*KernelEventProto) ProtoMessage() {}
 
 func (x *KernelEventProto) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_kprobe_proto_msgTypes[0]
+	mi := &file_kprobe_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -61,7 +61,7 @@ func (x *KernelEventProto) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use KernelEventProto.ProtoReflect.Descriptor instead.
 func (*KernelEventProto) Descriptor() ([]byte, []int) {
-	return file_proto_kprobe_proto_rawDescGZIP(), []int{0}
+	return file_kprobe_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *KernelEventProto) GetEventId() string {
@@ -127,7 +127,7 @@ type CausalEdgeProto struct {
 
 func (x *CausalEdgeProto) Reset() {
 	*x = CausalEdgeProto{}
-	mi := &file_proto_kprobe_proto_msgTypes[1]
+	mi := &file_kprobe_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -139,7 +139,7 @@ func (x *CausalEdgeProto) String() string {
 func (*CausalEdgeProto) ProtoMessage() {}
 
 func (x *CausalEdgeProto) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_kprobe_proto_msgTypes[1]
+	mi := &file_kprobe_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -152,7 +152,7 @@ func (x *CausalEdgeProto) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CausalEdgeProto.ProtoReflect.Descriptor instead.
 func (*CausalEdgeProto) Descriptor() ([]byte, []int) {
-	return file_proto_kprobe_proto_rawDescGZIP(), []int{1}
+	return file_kprobe_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *CausalEdgeProto) GetFromEventId() string {
@@ -206,7 +206,7 @@ type QueryCausalChainRequest struct {
 
 func (x *QueryCausalChainRequest) Reset() {
 	*x = QueryCausalChainRequest{}
-	mi := &file_proto_kprobe_proto_msgTypes[2]
+	mi := &file_kprobe_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -218,7 +218,7 @@ func (x *QueryCausalChainRequest) String() string {
 func (*QueryCausalChainRequest) ProtoMessage() {}
 
 func (x *QueryCausalChainRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_kprobe_proto_msgTypes[2]
+	mi := &file_kprobe_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -231,7 +231,7 @@ func (x *QueryCausalChainRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryCausalChainRequest.ProtoReflect.Descriptor instead.
 func (*QueryCausalChainRequest) Descriptor() ([]byte, []int) {
-	return file_proto_kprobe_proto_rawDescGZIP(), []int{2}
+	return file_kprobe_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *QueryCausalChainRequest) GetTransactionId() string {
@@ -251,7 +251,7 @@ type QueryCausalChainResponse struct {
 
 func (x *QueryCausalChainResponse) Reset() {
 	*x = QueryCausalChainResponse{}
-	mi := &file_proto_kprobe_proto_msgTypes[3]
+	mi := &file_kprobe_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -263,7 +263,7 @@ func (x *QueryCausalChainResponse) String() string {
 func (*QueryCausalChainResponse) ProtoMessage() {}
 
 func (x *QueryCausalChainResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_kprobe_proto_msgTypes[3]
+	mi := &file_kprobe_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -276,7 +276,7 @@ func (x *QueryCausalChainResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryCausalChainResponse.ProtoReflect.Descriptor instead.
 func (*QueryCausalChainResponse) Descriptor() ([]byte, []int) {
-	return file_proto_kprobe_proto_rawDescGZIP(), []int{3}
+	return file_kprobe_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *QueryCausalChainResponse) GetNodes() []*KernelEventProto {
@@ -302,7 +302,7 @@ type QueryEventsRequest struct {
 
 func (x *QueryEventsRequest) Reset() {
 	*x = QueryEventsRequest{}
-	mi := &file_proto_kprobe_proto_msgTypes[4]
+	mi := &file_kprobe_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -314,7 +314,7 @@ func (x *QueryEventsRequest) String() string {
 func (*QueryEventsRequest) ProtoMessage() {}
 
 func (x *QueryEventsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_kprobe_proto_msgTypes[4]
+	mi := &file_kprobe_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -327,7 +327,7 @@ func (x *QueryEventsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryEventsRequest.ProtoReflect.Descriptor instead.
 func (*QueryEventsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_kprobe_proto_rawDescGZIP(), []int{4}
+	return file_kprobe_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *QueryEventsRequest) GetTransactionId() string {
@@ -346,7 +346,7 @@ type QueryEventsResponse struct {
 
 func (x *QueryEventsResponse) Reset() {
 	*x = QueryEventsResponse{}
-	mi := &file_proto_kprobe_proto_msgTypes[5]
+	mi := &file_kprobe_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -358,7 +358,7 @@ func (x *QueryEventsResponse) String() string {
 func (*QueryEventsResponse) ProtoMessage() {}
 
 func (x *QueryEventsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_kprobe_proto_msgTypes[5]
+	mi := &file_kprobe_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -371,7 +371,7 @@ func (x *QueryEventsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryEventsResponse.ProtoReflect.Descriptor instead.
 func (*QueryEventsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_kprobe_proto_rawDescGZIP(), []int{5}
+	return file_kprobe_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *QueryEventsResponse) GetEvents() []*KernelEventProto {
@@ -391,7 +391,7 @@ type QueryTimeRangeRequest struct {
 
 func (x *QueryTimeRangeRequest) Reset() {
 	*x = QueryTimeRangeRequest{}
-	mi := &file_proto_kprobe_proto_msgTypes[6]
+	mi := &file_kprobe_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -403,7 +403,7 @@ func (x *QueryTimeRangeRequest) String() string {
 func (*QueryTimeRangeRequest) ProtoMessage() {}
 
 func (x *QueryTimeRangeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_kprobe_proto_msgTypes[6]
+	mi := &file_kprobe_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -416,7 +416,7 @@ func (x *QueryTimeRangeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryTimeRangeRequest.ProtoReflect.Descriptor instead.
 func (*QueryTimeRangeRequest) Descriptor() ([]byte, []int) {
-	return file_proto_kprobe_proto_rawDescGZIP(), []int{6}
+	return file_kprobe_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *QueryTimeRangeRequest) GetFromNs() uint64 {
@@ -442,7 +442,7 @@ type QueryTimeRangeResponse struct {
 
 func (x *QueryTimeRangeResponse) Reset() {
 	*x = QueryTimeRangeResponse{}
-	mi := &file_proto_kprobe_proto_msgTypes[7]
+	mi := &file_kprobe_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -454,7 +454,7 @@ func (x *QueryTimeRangeResponse) String() string {
 func (*QueryTimeRangeResponse) ProtoMessage() {}
 
 func (x *QueryTimeRangeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_kprobe_proto_msgTypes[7]
+	mi := &file_kprobe_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -467,7 +467,7 @@ func (x *QueryTimeRangeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryTimeRangeResponse.ProtoReflect.Descriptor instead.
 func (*QueryTimeRangeResponse) Descriptor() ([]byte, []int) {
-	return file_proto_kprobe_proto_rawDescGZIP(), []int{7}
+	return file_kprobe_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *QueryTimeRangeResponse) GetEvents() []*KernelEventProto {
@@ -485,7 +485,7 @@ type StreamEventsRequest struct {
 
 func (x *StreamEventsRequest) Reset() {
 	*x = StreamEventsRequest{}
-	mi := &file_proto_kprobe_proto_msgTypes[8]
+	mi := &file_kprobe_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -497,7 +497,7 @@ func (x *StreamEventsRequest) String() string {
 func (*StreamEventsRequest) ProtoMessage() {}
 
 func (x *StreamEventsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_kprobe_proto_msgTypes[8]
+	mi := &file_kprobe_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -510,7 +510,7 @@ func (x *StreamEventsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StreamEventsRequest.ProtoReflect.Descriptor instead.
 func (*StreamEventsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_kprobe_proto_rawDescGZIP(), []int{8}
+	return file_kprobe_proto_rawDescGZIP(), []int{8}
 }
 
 type StreamEventsResponse struct {
@@ -522,7 +522,7 @@ type StreamEventsResponse struct {
 
 func (x *StreamEventsResponse) Reset() {
 	*x = StreamEventsResponse{}
-	mi := &file_proto_kprobe_proto_msgTypes[9]
+	mi := &file_kprobe_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -534,7 +534,7 @@ func (x *StreamEventsResponse) String() string {
 func (*StreamEventsResponse) ProtoMessage() {}
 
 func (x *StreamEventsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_kprobe_proto_msgTypes[9]
+	mi := &file_kprobe_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -547,7 +547,7 @@ func (x *StreamEventsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StreamEventsResponse.ProtoReflect.Descriptor instead.
 func (*StreamEventsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_kprobe_proto_rawDescGZIP(), []int{9}
+	return file_kprobe_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *StreamEventsResponse) GetEvent() *KernelEventProto {
@@ -559,19 +559,19 @@ func (x *StreamEventsResponse) GetEvent() *KernelEventProto {
 
 type StartReplayRequest struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
-	TransactionId     string                 `protobuf:"bytes,1,opt,name=transaction_id,json=transactionId,proto3" json:"transaction_id,omitempty"`                // required — financial transaction to replay
-	TimeoutOverrideNs uint64                 `protobuf:"varint,2,opt,name=timeout_override_ns,json=timeoutOverrideNs,proto3" json:"timeout_override_ns,omitempty"` // 0 = use original recorded timeouts
-	LatencyMultiplier float64                `protobuf:"fixed64,3,opt,name=latency_multiplier,json=latencyMultiplier,proto3" json:"latency_multiplier,omitempty"`  // 0 or 1.0 = exact replay
-	ExtraLatencyNs    uint64                 `protobuf:"varint,4,opt,name=extra_latency_ns,json=extraLatencyNs,proto3" json:"extra_latency_ns,omitempty"`          // added to every inter-event gap
-	InjectFailureAt   string                 `protobuf:"bytes,5,opt,name=inject_failure_at,json=injectFailureAt,proto3" json:"inject_failure_at,omitempty"`        // "tcp_send" | "tcp_recv" | "sys_write" | "sys_read" | ""
-	SpeedFactor       float64                `protobuf:"fixed64,6,opt,name=speed_factor,json=speedFactor,proto3" json:"speed_factor,omitempty"`                    // 0 or 1.0 = real time, 10.0 = 10x faster
+	TransactionId     string                 `protobuf:"bytes,1,opt,name=transaction_id,json=transactionId,proto3" json:"transaction_id,omitempty"`
+	TimeoutOverrideNs uint64                 `protobuf:"varint,2,opt,name=timeout_override_ns,json=timeoutOverrideNs,proto3" json:"timeout_override_ns,omitempty"`
+	LatencyMultiplier float64                `protobuf:"fixed64,3,opt,name=latency_multiplier,json=latencyMultiplier,proto3" json:"latency_multiplier,omitempty"`
+	ExtraLatencyNs    uint64                 `protobuf:"varint,4,opt,name=extra_latency_ns,json=extraLatencyNs,proto3" json:"extra_latency_ns,omitempty"`
+	InjectFailureAt   string                 `protobuf:"bytes,5,opt,name=inject_failure_at,json=injectFailureAt,proto3" json:"inject_failure_at,omitempty"`
+	SpeedFactor       float64                `protobuf:"fixed64,6,opt,name=speed_factor,json=speedFactor,proto3" json:"speed_factor,omitempty"`
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
 
 func (x *StartReplayRequest) Reset() {
 	*x = StartReplayRequest{}
-	mi := &file_proto_kprobe_proto_msgTypes[10]
+	mi := &file_kprobe_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -583,7 +583,7 @@ func (x *StartReplayRequest) String() string {
 func (*StartReplayRequest) ProtoMessage() {}
 
 func (x *StartReplayRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_kprobe_proto_msgTypes[10]
+	mi := &file_kprobe_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -596,7 +596,7 @@ func (x *StartReplayRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartReplayRequest.ProtoReflect.Descriptor instead.
 func (*StartReplayRequest) Descriptor() ([]byte, []int) {
-	return file_proto_kprobe_proto_rawDescGZIP(), []int{10}
+	return file_kprobe_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *StartReplayRequest) GetTransactionId() string {
@@ -644,15 +644,15 @@ func (x *StartReplayRequest) GetSpeedFactor() float64 {
 type StartReplayResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	SessionId     string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
-	EventCount    int32                  `protobuf:"varint,2,opt,name=event_count,json=eventCount,proto3" json:"event_count,omitempty"` // total events loaded for this session
-	Injections    string                 `protobuf:"bytes,3,opt,name=injections,proto3" json:"injections,omitempty"`                    // human-readable summary of active injections
+	EventCount    int32                  `protobuf:"varint,2,opt,name=event_count,json=eventCount,proto3" json:"event_count,omitempty"`
+	Injections    string                 `protobuf:"bytes,3,opt,name=injections,proto3" json:"injections,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *StartReplayResponse) Reset() {
 	*x = StartReplayResponse{}
-	mi := &file_proto_kprobe_proto_msgTypes[11]
+	mi := &file_kprobe_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -664,7 +664,7 @@ func (x *StartReplayResponse) String() string {
 func (*StartReplayResponse) ProtoMessage() {}
 
 func (x *StartReplayResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_kprobe_proto_msgTypes[11]
+	mi := &file_kprobe_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -677,7 +677,7 @@ func (x *StartReplayResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartReplayResponse.ProtoReflect.Descriptor instead.
 func (*StartReplayResponse) Descriptor() ([]byte, []int) {
-	return file_proto_kprobe_proto_rawDescGZIP(), []int{11}
+	return file_kprobe_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *StartReplayResponse) GetSessionId() string {
@@ -704,15 +704,15 @@ func (x *StartReplayResponse) GetInjections() string {
 type ReplayControlRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	SessionId     string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
-	Command       string                 `protobuf:"bytes,2,opt,name=command,proto3" json:"command,omitempty"`                       // "play" | "pause" | "stop"
-	SeekIndex     int32                  `protobuf:"varint,3,opt,name=seek_index,json=seekIndex,proto3" json:"seek_index,omitempty"` // only used when command = "seek"
+	Command       string                 `protobuf:"bytes,2,opt,name=command,proto3" json:"command,omitempty"`
+	SeekIndex     int32                  `protobuf:"varint,3,opt,name=seek_index,json=seekIndex,proto3" json:"seek_index,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ReplayControlRequest) Reset() {
 	*x = ReplayControlRequest{}
-	mi := &file_proto_kprobe_proto_msgTypes[12]
+	mi := &file_kprobe_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -724,7 +724,7 @@ func (x *ReplayControlRequest) String() string {
 func (*ReplayControlRequest) ProtoMessage() {}
 
 func (x *ReplayControlRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_kprobe_proto_msgTypes[12]
+	mi := &file_kprobe_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -737,7 +737,7 @@ func (x *ReplayControlRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReplayControlRequest.ProtoReflect.Descriptor instead.
 func (*ReplayControlRequest) Descriptor() ([]byte, []int) {
-	return file_proto_kprobe_proto_rawDescGZIP(), []int{12}
+	return file_kprobe_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *ReplayControlRequest) GetSessionId() string {
@@ -764,15 +764,15 @@ func (x *ReplayControlRequest) GetSeekIndex() int32 {
 type ReplayControlResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	SessionId     string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
-	State         string                 `protobuf:"bytes,2,opt,name=state,proto3" json:"state,omitempty"`    // "loading" | "ready" | "playing" | "paused" | "complete" | "failed"
-	Cursor        int32                  `protobuf:"varint,3,opt,name=cursor,proto3" json:"cursor,omitempty"` // current event index
+	State         string                 `protobuf:"bytes,2,opt,name=state,proto3" json:"state,omitempty"`
+	Cursor        int32                  `protobuf:"varint,3,opt,name=cursor,proto3" json:"cursor,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ReplayControlResponse) Reset() {
 	*x = ReplayControlResponse{}
-	mi := &file_proto_kprobe_proto_msgTypes[13]
+	mi := &file_kprobe_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -784,7 +784,7 @@ func (x *ReplayControlResponse) String() string {
 func (*ReplayControlResponse) ProtoMessage() {}
 
 func (x *ReplayControlResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_kprobe_proto_msgTypes[13]
+	mi := &file_kprobe_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -797,7 +797,7 @@ func (x *ReplayControlResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReplayControlResponse.ProtoReflect.Descriptor instead.
 func (*ReplayControlResponse) Descriptor() ([]byte, []int) {
-	return file_proto_kprobe_proto_rawDescGZIP(), []int{13}
+	return file_kprobe_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *ReplayControlResponse) GetSessionId() string {
@@ -830,7 +830,7 @@ type ReplayStatusRequest struct {
 
 func (x *ReplayStatusRequest) Reset() {
 	*x = ReplayStatusRequest{}
-	mi := &file_proto_kprobe_proto_msgTypes[14]
+	mi := &file_kprobe_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -842,7 +842,7 @@ func (x *ReplayStatusRequest) String() string {
 func (*ReplayStatusRequest) ProtoMessage() {}
 
 func (x *ReplayStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_kprobe_proto_msgTypes[14]
+	mi := &file_kprobe_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -855,7 +855,7 @@ func (x *ReplayStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReplayStatusRequest.ProtoReflect.Descriptor instead.
 func (*ReplayStatusRequest) Descriptor() ([]byte, []int) {
-	return file_proto_kprobe_proto_rawDescGZIP(), []int{14}
+	return file_kprobe_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *ReplayStatusRequest) GetSessionId() string {
@@ -878,7 +878,7 @@ type ReplayStatusResponse struct {
 
 func (x *ReplayStatusResponse) Reset() {
 	*x = ReplayStatusResponse{}
-	mi := &file_proto_kprobe_proto_msgTypes[15]
+	mi := &file_kprobe_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -890,7 +890,7 @@ func (x *ReplayStatusResponse) String() string {
 func (*ReplayStatusResponse) ProtoMessage() {}
 
 func (x *ReplayStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_kprobe_proto_msgTypes[15]
+	mi := &file_kprobe_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -903,7 +903,7 @@ func (x *ReplayStatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReplayStatusResponse.ProtoReflect.Descriptor instead.
 func (*ReplayStatusResponse) Descriptor() ([]byte, []int) {
-	return file_proto_kprobe_proto_rawDescGZIP(), []int{15}
+	return file_kprobe_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *ReplayStatusResponse) GetSessionId() string {
@@ -941,8 +941,6 @@ func (x *ReplayStatusResponse) GetInjections() string {
 	return ""
 }
 
-// ReplayEventProto is the streaming event type for replay playback.
-// Mirrors KernelEventProto but adds replay-specific fields.
 type ReplayEventProto struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	EventId       string                 `protobuf:"bytes,1,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
@@ -951,16 +949,16 @@ type ReplayEventProto struct {
 	EventType     string                 `protobuf:"bytes,4,opt,name=event_type,json=eventType,proto3" json:"event_type,omitempty"`
 	TransactionId string                 `protobuf:"bytes,5,opt,name=transaction_id,json=transactionId,proto3" json:"transaction_id,omitempty"`
 	ServiceName   string                 `protobuf:"bytes,6,opt,name=service_name,json=serviceName,proto3" json:"service_name,omitempty"`
-	DurationNs    uint64                 `protobuf:"varint,7,opt,name=duration_ns,json=durationNs,proto3" json:"duration_ns,omitempty"`    // recorded syscall duration (after injection)
-	ReturnValue   int64                  `protobuf:"varint,8,opt,name=return_value,json=returnValue,proto3" json:"return_value,omitempty"` // recorded return value (after injection)
-	Index         int32                  `protobuf:"varint,9,opt,name=index,proto3" json:"index,omitempty"`                                // position in the full event list
+	DurationNs    uint64                 `protobuf:"varint,7,opt,name=duration_ns,json=durationNs,proto3" json:"duration_ns,omitempty"`
+	ReturnValue   int64                  `protobuf:"varint,8,opt,name=return_value,json=returnValue,proto3" json:"return_value,omitempty"`
+	Index         int32                  `protobuf:"varint,9,opt,name=index,proto3" json:"index,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ReplayEventProto) Reset() {
 	*x = ReplayEventProto{}
-	mi := &file_proto_kprobe_proto_msgTypes[16]
+	mi := &file_kprobe_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -972,7 +970,7 @@ func (x *ReplayEventProto) String() string {
 func (*ReplayEventProto) ProtoMessage() {}
 
 func (x *ReplayEventProto) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_kprobe_proto_msgTypes[16]
+	mi := &file_kprobe_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -985,7 +983,7 @@ func (x *ReplayEventProto) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReplayEventProto.ProtoReflect.Descriptor instead.
 func (*ReplayEventProto) Descriptor() ([]byte, []int) {
-	return file_proto_kprobe_proto_rawDescGZIP(), []int{16}
+	return file_kprobe_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *ReplayEventProto) GetEventId() string {
@@ -1060,7 +1058,7 @@ type WatchReplayRequest struct {
 
 func (x *WatchReplayRequest) Reset() {
 	*x = WatchReplayRequest{}
-	mi := &file_proto_kprobe_proto_msgTypes[17]
+	mi := &file_kprobe_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1072,7 +1070,7 @@ func (x *WatchReplayRequest) String() string {
 func (*WatchReplayRequest) ProtoMessage() {}
 
 func (x *WatchReplayRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_kprobe_proto_msgTypes[17]
+	mi := &file_kprobe_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1085,7 +1083,7 @@ func (x *WatchReplayRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WatchReplayRequest.ProtoReflect.Descriptor instead.
 func (*WatchReplayRequest) Descriptor() ([]byte, []int) {
-	return file_proto_kprobe_proto_rawDescGZIP(), []int{17}
+	return file_kprobe_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *WatchReplayRequest) GetSessionId() string {
@@ -1098,14 +1096,14 @@ func (x *WatchReplayRequest) GetSessionId() string {
 type WatchReplayResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Event         *ReplayEventProto      `protobuf:"bytes,1,opt,name=event,proto3" json:"event,omitempty"`
-	State         string                 `protobuf:"bytes,2,opt,name=state,proto3" json:"state,omitempty"` // current session state after this event
+	State         string                 `protobuf:"bytes,2,opt,name=state,proto3" json:"state,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *WatchReplayResponse) Reset() {
 	*x = WatchReplayResponse{}
-	mi := &file_proto_kprobe_proto_msgTypes[18]
+	mi := &file_kprobe_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1117,7 +1115,7 @@ func (x *WatchReplayResponse) String() string {
 func (*WatchReplayResponse) ProtoMessage() {}
 
 func (x *WatchReplayResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_kprobe_proto_msgTypes[18]
+	mi := &file_kprobe_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1130,7 +1128,7 @@ func (x *WatchReplayResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WatchReplayResponse.ProtoReflect.Descriptor instead.
 func (*WatchReplayResponse) Descriptor() ([]byte, []int) {
-	return file_proto_kprobe_proto_rawDescGZIP(), []int{18}
+	return file_kprobe_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *WatchReplayResponse) GetEvent() *ReplayEventProto {
@@ -1147,11 +1145,11 @@ func (x *WatchReplayResponse) GetState() string {
 	return ""
 }
 
-var File_proto_kprobe_proto protoreflect.FileDescriptor
+var File_kprobe_proto protoreflect.FileDescriptor
 
-const file_proto_kprobe_proto_rawDesc = "" +
+const file_kprobe_proto_rawDesc = "" +
 	"\n" +
-	"\x12proto/kprobe.proto\x12\x06kprobe\"\xe6\x01\n" +
+	"\fkprobe.proto\x12\x06kprobe\"\xe6\x01\n" +
 	"\x10KernelEventProto\x12\x19\n" +
 	"\bevent_id\x18\x01 \x01(\tR\aeventId\x12!\n" +
 	"\ftimestamp_ns\x18\x02 \x01(\x04R\vtimestampNs\x12\x10\n" +
@@ -1256,19 +1254,19 @@ const file_proto_kprobe_proto_rawDesc = "" +
 	"\vWatchReplay\x12\x1a.kprobe.WatchReplayRequest\x1a\x1b.kprobe.WatchReplayResponse0\x01B#Z!github.com/YHQZ1/kprobe/api/protob\x06proto3"
 
 var (
-	file_proto_kprobe_proto_rawDescOnce sync.Once
-	file_proto_kprobe_proto_rawDescData []byte
+	file_kprobe_proto_rawDescOnce sync.Once
+	file_kprobe_proto_rawDescData []byte
 )
 
-func file_proto_kprobe_proto_rawDescGZIP() []byte {
-	file_proto_kprobe_proto_rawDescOnce.Do(func() {
-		file_proto_kprobe_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_proto_kprobe_proto_rawDesc), len(file_proto_kprobe_proto_rawDesc)))
+func file_kprobe_proto_rawDescGZIP() []byte {
+	file_kprobe_proto_rawDescOnce.Do(func() {
+		file_kprobe_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_kprobe_proto_rawDesc), len(file_kprobe_proto_rawDesc)))
 	})
-	return file_proto_kprobe_proto_rawDescData
+	return file_kprobe_proto_rawDescData
 }
 
-var file_proto_kprobe_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
-var file_proto_kprobe_proto_goTypes = []any{
+var file_kprobe_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
+var file_kprobe_proto_goTypes = []any{
 	(*KernelEventProto)(nil),         // 0: kprobe.KernelEventProto
 	(*CausalEdgeProto)(nil),          // 1: kprobe.CausalEdgeProto
 	(*QueryCausalChainRequest)(nil),  // 2: kprobe.QueryCausalChainRequest
@@ -1289,7 +1287,7 @@ var file_proto_kprobe_proto_goTypes = []any{
 	(*WatchReplayRequest)(nil),       // 17: kprobe.WatchReplayRequest
 	(*WatchReplayResponse)(nil),      // 18: kprobe.WatchReplayResponse
 }
-var file_proto_kprobe_proto_depIdxs = []int32{
+var file_kprobe_proto_depIdxs = []int32{
 	0,  // 0: kprobe.QueryCausalChainResponse.nodes:type_name -> kprobe.KernelEventProto
 	1,  // 1: kprobe.QueryCausalChainResponse.edges:type_name -> kprobe.CausalEdgeProto
 	0,  // 2: kprobe.QueryEventsResponse.events:type_name -> kprobe.KernelEventProto
@@ -1319,26 +1317,26 @@ var file_proto_kprobe_proto_depIdxs = []int32{
 	0,  // [0:6] is the sub-list for field type_name
 }
 
-func init() { file_proto_kprobe_proto_init() }
-func file_proto_kprobe_proto_init() {
-	if File_proto_kprobe_proto != nil {
+func init() { file_kprobe_proto_init() }
+func file_kprobe_proto_init() {
+	if File_kprobe_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_kprobe_proto_rawDesc), len(file_proto_kprobe_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_kprobe_proto_rawDesc), len(file_kprobe_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   19,
 			NumExtensions: 0,
 			NumServices:   2,
 		},
-		GoTypes:           file_proto_kprobe_proto_goTypes,
-		DependencyIndexes: file_proto_kprobe_proto_depIdxs,
-		MessageInfos:      file_proto_kprobe_proto_msgTypes,
+		GoTypes:           file_kprobe_proto_goTypes,
+		DependencyIndexes: file_kprobe_proto_depIdxs,
+		MessageInfos:      file_kprobe_proto_msgTypes,
 	}.Build()
-	File_proto_kprobe_proto = out.File
-	file_proto_kprobe_proto_goTypes = nil
-	file_proto_kprobe_proto_depIdxs = nil
+	File_kprobe_proto = out.File
+	file_kprobe_proto_goTypes = nil
+	file_kprobe_proto_depIdxs = nil
 }

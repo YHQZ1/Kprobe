@@ -2,10 +2,7 @@ package handlers
 
 import (
 	"context"
-	"fmt"
-	"time"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	pb "github.com/YHQZ1/kprobe/api/proto"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
@@ -85,8 +82,8 @@ func (h *CausalHandler) QueryCausalChain(ctx context.Context, req *pb.QueryCausa
 
 		for _, rel := range neo4jPath.Relationships {
 			edges = append(edges, &pb.CausalEdgeProto{
-				FromEventId:   fmt.Sprintf("%d", rel.StartId),
-				ToEventId:     fmt.Sprintf("%d", rel.EndId),
+				FromEventId:   nodeProps(rel.StartId, neo4jPath.Nodes),
+				ToEventId:     nodeProps(rel.EndId, neo4jPath.Nodes),
 				CauseType:     rel.Props["cause_type"].(string),
 				LatencyNs:     uint64(rel.Props["latency_ns"].(int64)),
 				TransactionId: rel.Props["transaction_id"].(string),
@@ -104,7 +101,7 @@ func (h *CausalHandler) QueryEvents(ctx context.Context, req *pb.QueryEventsRequ
 	}
 
 	rows, err := h.ch.Query(ctx, `
-		SELECT event_id, timestamp_ns, pid, source_topic, transaction_id, service_name, trace_id
+		SELECT event_id, event_type, timestamp_ns, pid, trace_id, service_name, transaction_id
 		FROM kprobe.kernel_events
 		WHERE transaction_id = ?
 		ORDER BY timestamp_ns ASC
@@ -118,8 +115,8 @@ func (h *CausalHandler) QueryEvents(ctx context.Context, req *pb.QueryEventsRequ
 	for rows.Next() {
 		var e pb.KernelEventProto
 		if err := rows.Scan(
-			&e.EventId, &e.TimestampNs, &e.Pid,
-			&e.EventType, &e.TransactionId, &e.ServiceName, &e.TraceId,
+			&e.EventId, &e.EventType, &e.TimestampNs, &e.Pid,
+			&e.TraceId, &e.ServiceName, &e.TransactionId,
 		); err != nil {
 			return nil, status.Errorf(codes.Internal, "scan failed: %v", err)
 		}
@@ -135,7 +132,7 @@ func (h *CausalHandler) QueryTimeRange(ctx context.Context, req *pb.QueryTimeRan
 	}
 
 	rows, err := h.ch.Query(ctx, `
-		SELECT event_id, timestamp_ns, pid, source_topic, transaction_id, service_name, trace_id
+		SELECT event_id, event_type, timestamp_ns, pid, trace_id, service_name, transaction_id
 		FROM kprobe.kernel_events
 		WHERE timestamp_ns BETWEEN ? AND ?
 		ORDER BY timestamp_ns ASC
@@ -149,8 +146,8 @@ func (h *CausalHandler) QueryTimeRange(ctx context.Context, req *pb.QueryTimeRan
 	for rows.Next() {
 		var e pb.KernelEventProto
 		if err := rows.Scan(
-			&e.EventId, &e.TimestampNs, &e.Pid,
-			&e.EventType, &e.TransactionId, &e.ServiceName, &e.TraceId,
+			&e.EventId, &e.EventType, &e.TimestampNs, &e.Pid,
+			&e.TraceId, &e.ServiceName, &e.TransactionId,
 		); err != nil {
 			return nil, status.Errorf(codes.Internal, "scan failed: %v", err)
 		}
@@ -176,22 +173,11 @@ func (h *CausalHandler) StreamEvents(req *pb.StreamEventsRequest, stream pb.Kpro
 	}
 }
 
-func newClickHouseConn(addr, database, username, password string) (driver.Conn, error) {
-	conn, err := clickhouse.Open(&clickhouse.Options{
-		Addr: []string{addr},
-		Auth: clickhouse.Auth{
-			Database: database,
-			Username: username,
-			Password: password,
-		},
-		DialTimeout: 5 * time.Second,
-		ReadTimeout: 10 * time.Second,
-	})
-	if err != nil {
-		return nil, err
+func nodeProps(id int64, nodes []neo4j.Node) string {
+	for _, n := range nodes {
+		if n.Id == id {
+			return n.Props["event_id"].(string)
+		}
 	}
-	if err := conn.Ping(context.Background()); err != nil {
-		return nil, err
-	}
-	return conn, nil
+	return ""
 }
