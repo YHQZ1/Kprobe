@@ -1,6 +1,6 @@
 module github.com/YHQZ1/kprobe/engine
 
-go 1.22
+go 1.24.1
 
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.23.0

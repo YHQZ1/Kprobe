@@ -13,29 +13,30 @@ import (
 	"github.com/YHQZ1/kprobe/replay/injector"
 	"github.com/YHQZ1/kprobe/replay/session"
 	"github.com/YHQZ1/kprobe/replay/store"
+	sharedconfig "github.com/YHQZ1/kprobe/shared/config"
 )
-
-func env(key, fallback string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return fallback
-}
 
 func main() {
 	log.SetPrefix("[replay] ")
 	log.SetFlags(log.Ltime | log.Lmicroseconds)
-
 	log.Println("kprobe replay engine starting...")
 
-	dsn := env("CLICKHOUSE_DSN", "clickhouse://localhost:9000/kprobe?username=kprobe&password=kprobe")
-	ch, err := store.NewClient(dsn)
+	chCfg := sharedconfig.ClickHouseConfigFromEnv()
+	db, err := sharedconfig.NewClickHouseDB(chCfg)
 	if err != nil {
 		log.Fatalf("clickhouse: %v", err)
 	}
-	defer ch.Close()
+	defer db.Close()
+
+	pingCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	if err := db.PingContext(pingCtx); err != nil {
+		cancel()
+		log.Fatalf("clickhouse ping: %v", err)
+	}
+	cancel()
 	log.Println("clickhouse connected")
 
+	ch := store.NewClient(db)
 	mgr := session.NewManager(ch)
 	log.Println("session manager ready")
 

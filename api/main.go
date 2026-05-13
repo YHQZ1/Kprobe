@@ -9,69 +9,64 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/YHQZ1/kprobe/api/handlers"
 	pb "github.com/YHQZ1/kprobe/api/proto"
 	"github.com/YHQZ1/kprobe/api/stream"
 	replaystore "github.com/YHQZ1/kprobe/replay/store"
-	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
+	"github.com/YHQZ1/kprobe/shared/config"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )
-
-func env(key, fallback string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return fallback
-}
 
 func main() {
 	log.SetFlags(log.Ltime | log.Lmicroseconds)
 	log.Println("kprobe api starting...")
 
-	chConn, err := clickhouse.Open(&clickhouse.Options{
-		Addr: []string{env("CLICKHOUSE_ADDR", "localhost:9000")},
-		Auth: clickhouse.Auth{
-			Database: env("CLICKHOUSE_DB", "kprobe"),
-			Username: env("CLICKHOUSE_USER", "kprobe"),
-			Password: env("CLICKHOUSE_PASS", "kprobe"),
-		},
-		DialTimeout: 5 * time.Second,
-		ReadTimeout: 10 * time.Second,
-	})
+	chCfg := config.ClickHouseConfigFromEnv()
+
+	chConn, err := config.NewClickHouseConn(chCfg)
 	if err != nil {
 		log.Fatalf("clickhouse connect: %v", err)
 	}
-	if err := chConn.Ping(context.Background()); err != nil {
+	defer chConn.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	if err := chConn.Ping(ctx); err != nil {
+		cancel()
 		log.Fatalf("clickhouse ping: %v", err)
 	}
+	cancel()
 	log.Println("clickhouse connected")
 
-	neo4jDriver, err := neo4j.NewDriverWithContext(
-		env("NEO4J_BOLT", "bolt://localhost:7687"),
-		neo4j.BasicAuth(
-			env("NEO4J_USER", "neo4j"),
-			env("NEO4J_PASS", "kprobe_secret"),
-			"",
-		),
-	)
+	neo4jCfg := config.Neo4jConfigFromEnv()
+	neo4jDriver, err := config.NewNeo4jDriver(neo4jCfg)
 	if err != nil {
 		log.Fatalf("neo4j connect: %v", err)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	if err := neo4jDriver.VerifyConnectivity(ctx); err != nil {
+	defer neo4jDriver.Close(context.Background())
+
+	verifyCtx, verifyCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	if err := neo4jDriver.VerifyConnectivity(verifyCtx); err != nil {
+		verifyCancel()
 		log.Fatalf("neo4j connectivity: %v", err)
 	}
-	cancel()
+	verifyCancel()
 	log.Println("neo4j connected")
 
-	replayDSN := env("CLICKHOUSE_DSN", "clickhouse://localhost:9000/kprobe?username=kprobe&password=kprobe")
-	replayCH, err := replaystore.NewClient(replayDSN)
+	chDB, err := config.NewClickHouseDB(chCfg)
 	if err != nil {
 		log.Fatalf("replay store connect: %v", err)
 	}
-	defer replayCH.Close()
+	defer chDB.Close()
+
+	pingCtx, pingCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	if err := chDB.PingContext(pingCtx); err != nil {
+		pingCancel()
+		log.Fatalf("replay store ping: %v", err)
+	}
+	pingCancel()
+
+	replayCH := replaystore.NewClient(chDB)
 	log.Println("replay store connected")
 
 	hub := stream.NewHub()
@@ -103,7 +98,5 @@ func main() {
 
 	log.Println("shutting down...")
 	srv.GracefulStop()
-	neo4jDriver.Close(context.Background())
-	chConn.Close()
 	log.Println("api stopped")
 }

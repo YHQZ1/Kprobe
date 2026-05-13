@@ -13,12 +13,7 @@ type Neo4jStore struct {
 	driver neo4j.DriverWithContext
 }
 
-func NewNeo4jStore(uri string, username string, password string) (*Neo4jStore, error) {
-	driver, err := neo4j.NewDriverWithContext(uri, neo4j.BasicAuth(username, password, ""))
-	if err != nil {
-		return nil, fmt.Errorf("neo4j driver: %w", err)
-	}
-
+func NewNeo4jStore(driver neo4j.DriverWithContext) (*Neo4jStore, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 

@@ -4,9 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"time"
 
-	_ "github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/YHQZ1/kprobe/shared/types"
 )
 
@@ -19,20 +17,8 @@ type Client struct {
 	db *sql.DB
 }
 
-func NewClient(dsn string) (*Client, error) {
-	db, err := sql.Open("clickhouse", dsn)
-	if err != nil {
-		return nil, fmt.Errorf("store open: %w", err)
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	if err := db.PingContext(ctx); err != nil {
-		return nil, fmt.Errorf("store ping: %w", err)
-	}
-
-	return &Client{db: db}, nil
+func NewClient(db *sql.DB) *Client {
+	return &Client{db: db}
 }
 
 func (c *Client) Close() error {
