@@ -237,3 +237,235 @@ var KprobeService_ServiceDesc = grpc.ServiceDesc{
 	},
 	Metadata: "proto/kprobe.proto",
 }
+
+const (
+	ReplayService_StartReplay_FullMethodName = "/kprobe.ReplayService/StartReplay"
+	ReplayService_Control_FullMethodName     = "/kprobe.ReplayService/Control"
+	ReplayService_Status_FullMethodName      = "/kprobe.ReplayService/Status"
+	ReplayService_WatchReplay_FullMethodName = "/kprobe.ReplayService/WatchReplay"
+)
+
+// ReplayServiceClient is the client API for ReplayService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type ReplayServiceClient interface {
+	// StartReplay loads events for a transaction, applies injections, and
+	// returns a session ID. Call Control to begin playback.
+	StartReplay(ctx context.Context, in *StartReplayRequest, opts ...grpc.CallOption) (*StartReplayResponse, error)
+	// Control sends play/pause/stop/seek commands to a running session.
+	Control(ctx context.Context, in *ReplayControlRequest, opts ...grpc.CallOption) (*ReplayControlResponse, error)
+	// Status returns the current state and cursor of a session.
+	Status(ctx context.Context, in *ReplayStatusRequest, opts ...grpc.CallOption) (*ReplayStatusResponse, error)
+	// WatchReplay streams replay events to the client as playback progresses.
+	// The stream ends when the session reaches the "complete" or "failed" state.
+	WatchReplay(ctx context.Context, in *WatchReplayRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[WatchReplayResponse], error)
+}
+
+type replayServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewReplayServiceClient(cc grpc.ClientConnInterface) ReplayServiceClient {
+	return &replayServiceClient{cc}
+}
+
+func (c *replayServiceClient) StartReplay(ctx context.Context, in *StartReplayRequest, opts ...grpc.CallOption) (*StartReplayResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(StartReplayResponse)
+	err := c.cc.Invoke(ctx, ReplayService_StartReplay_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *replayServiceClient) Control(ctx context.Context, in *ReplayControlRequest, opts ...grpc.CallOption) (*ReplayControlResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ReplayControlResponse)
+	err := c.cc.Invoke(ctx, ReplayService_Control_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *replayServiceClient) Status(ctx context.Context, in *ReplayStatusRequest, opts ...grpc.CallOption) (*ReplayStatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ReplayStatusResponse)
+	err := c.cc.Invoke(ctx, ReplayService_Status_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *replayServiceClient) WatchReplay(ctx context.Context, in *WatchReplayRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[WatchReplayResponse], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &ReplayService_ServiceDesc.Streams[0], ReplayService_WatchReplay_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[WatchReplayRequest, WatchReplayResponse]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type ReplayService_WatchReplayClient = grpc.ServerStreamingClient[WatchReplayResponse]
+
+// ReplayServiceServer is the server API for ReplayService service.
+// All implementations must embed UnimplementedReplayServiceServer
+// for forward compatibility.
+type ReplayServiceServer interface {
+	// StartReplay loads events for a transaction, applies injections, and
+	// returns a session ID. Call Control to begin playback.
+	StartReplay(context.Context, *StartReplayRequest) (*StartReplayResponse, error)
+	// Control sends play/pause/stop/seek commands to a running session.
+	Control(context.Context, *ReplayControlRequest) (*ReplayControlResponse, error)
+	// Status returns the current state and cursor of a session.
+	Status(context.Context, *ReplayStatusRequest) (*ReplayStatusResponse, error)
+	// WatchReplay streams replay events to the client as playback progresses.
+	// The stream ends when the session reaches the "complete" or "failed" state.
+	WatchReplay(*WatchReplayRequest, grpc.ServerStreamingServer[WatchReplayResponse]) error
+	mustEmbedUnimplementedReplayServiceServer()
+}
+
+// UnimplementedReplayServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedReplayServiceServer struct{}
+
+func (UnimplementedReplayServiceServer) StartReplay(context.Context, *StartReplayRequest) (*StartReplayResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method StartReplay not implemented")
+}
+func (UnimplementedReplayServiceServer) Control(context.Context, *ReplayControlRequest) (*ReplayControlResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Control not implemented")
+}
+func (UnimplementedReplayServiceServer) Status(context.Context, *ReplayStatusRequest) (*ReplayStatusResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Status not implemented")
+}
+func (UnimplementedReplayServiceServer) WatchReplay(*WatchReplayRequest, grpc.ServerStreamingServer[WatchReplayResponse]) error {
+	return status.Error(codes.Unimplemented, "method WatchReplay not implemented")
+}
+func (UnimplementedReplayServiceServer) mustEmbedUnimplementedReplayServiceServer() {}
+func (UnimplementedReplayServiceServer) testEmbeddedByValue()                       {}
+
+// UnsafeReplayServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to ReplayServiceServer will
+// result in compilation errors.
+type UnsafeReplayServiceServer interface {
+	mustEmbedUnimplementedReplayServiceServer()
+}
+
+func RegisterReplayServiceServer(s grpc.ServiceRegistrar, srv ReplayServiceServer) {
+	// If the following call panics, it indicates UnimplementedReplayServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&ReplayService_ServiceDesc, srv)
+}
+
+func _ReplayService_StartReplay_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StartReplayRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ReplayServiceServer).StartReplay(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ReplayService_StartReplay_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ReplayServiceServer).StartReplay(ctx, req.(*StartReplayRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ReplayService_Control_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReplayControlRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ReplayServiceServer).Control(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ReplayService_Control_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ReplayServiceServer).Control(ctx, req.(*ReplayControlRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ReplayService_Status_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReplayStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ReplayServiceServer).Status(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ReplayService_Status_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ReplayServiceServer).Status(ctx, req.(*ReplayStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ReplayService_WatchReplay_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(WatchReplayRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ReplayServiceServer).WatchReplay(m, &grpc.GenericServerStream[WatchReplayRequest, WatchReplayResponse]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type ReplayService_WatchReplayServer = grpc.ServerStreamingServer[WatchReplayResponse]
+
+// ReplayService_ServiceDesc is the grpc.ServiceDesc for ReplayService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var ReplayService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "kprobe.ReplayService",
+	HandlerType: (*ReplayServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "StartReplay",
+			Handler:    _ReplayService_StartReplay_Handler,
+		},
+		{
+			MethodName: "Control",
+			Handler:    _ReplayService_Control_Handler,
+		},
+		{
+			MethodName: "Status",
+			Handler:    _ReplayService_Status_Handler,
+		},
+	},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "WatchReplay",
+			Handler:       _ReplayService_WatchReplay_Handler,
+			ServerStreams: true,
+		},
+	},
+	Metadata: "proto/kprobe.proto",
+}

@@ -557,6 +557,596 @@ func (x *StreamEventsResponse) GetEvent() *KernelEventProto {
 	return nil
 }
 
+type StartReplayRequest struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	TransactionId     string                 `protobuf:"bytes,1,opt,name=transaction_id,json=transactionId,proto3" json:"transaction_id,omitempty"`                // required — financial transaction to replay
+	TimeoutOverrideNs uint64                 `protobuf:"varint,2,opt,name=timeout_override_ns,json=timeoutOverrideNs,proto3" json:"timeout_override_ns,omitempty"` // 0 = use original recorded timeouts
+	LatencyMultiplier float64                `protobuf:"fixed64,3,opt,name=latency_multiplier,json=latencyMultiplier,proto3" json:"latency_multiplier,omitempty"`  // 0 or 1.0 = exact replay
+	ExtraLatencyNs    uint64                 `protobuf:"varint,4,opt,name=extra_latency_ns,json=extraLatencyNs,proto3" json:"extra_latency_ns,omitempty"`          // added to every inter-event gap
+	InjectFailureAt   string                 `protobuf:"bytes,5,opt,name=inject_failure_at,json=injectFailureAt,proto3" json:"inject_failure_at,omitempty"`        // "tcp_send" | "tcp_recv" | "sys_write" | "sys_read" | ""
+	SpeedFactor       float64                `protobuf:"fixed64,6,opt,name=speed_factor,json=speedFactor,proto3" json:"speed_factor,omitempty"`                    // 0 or 1.0 = real time, 10.0 = 10x faster
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *StartReplayRequest) Reset() {
+	*x = StartReplayRequest{}
+	mi := &file_proto_kprobe_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StartReplayRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StartReplayRequest) ProtoMessage() {}
+
+func (x *StartReplayRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_kprobe_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StartReplayRequest.ProtoReflect.Descriptor instead.
+func (*StartReplayRequest) Descriptor() ([]byte, []int) {
+	return file_proto_kprobe_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *StartReplayRequest) GetTransactionId() string {
+	if x != nil {
+		return x.TransactionId
+	}
+	return ""
+}
+
+func (x *StartReplayRequest) GetTimeoutOverrideNs() uint64 {
+	if x != nil {
+		return x.TimeoutOverrideNs
+	}
+	return 0
+}
+
+func (x *StartReplayRequest) GetLatencyMultiplier() float64 {
+	if x != nil {
+		return x.LatencyMultiplier
+	}
+	return 0
+}
+
+func (x *StartReplayRequest) GetExtraLatencyNs() uint64 {
+	if x != nil {
+		return x.ExtraLatencyNs
+	}
+	return 0
+}
+
+func (x *StartReplayRequest) GetInjectFailureAt() string {
+	if x != nil {
+		return x.InjectFailureAt
+	}
+	return ""
+}
+
+func (x *StartReplayRequest) GetSpeedFactor() float64 {
+	if x != nil {
+		return x.SpeedFactor
+	}
+	return 0
+}
+
+type StartReplayResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SessionId     string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	EventCount    int32                  `protobuf:"varint,2,opt,name=event_count,json=eventCount,proto3" json:"event_count,omitempty"` // total events loaded for this session
+	Injections    string                 `protobuf:"bytes,3,opt,name=injections,proto3" json:"injections,omitempty"`                    // human-readable summary of active injections
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StartReplayResponse) Reset() {
+	*x = StartReplayResponse{}
+	mi := &file_proto_kprobe_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StartReplayResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StartReplayResponse) ProtoMessage() {}
+
+func (x *StartReplayResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_kprobe_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StartReplayResponse.ProtoReflect.Descriptor instead.
+func (*StartReplayResponse) Descriptor() ([]byte, []int) {
+	return file_proto_kprobe_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *StartReplayResponse) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *StartReplayResponse) GetEventCount() int32 {
+	if x != nil {
+		return x.EventCount
+	}
+	return 0
+}
+
+func (x *StartReplayResponse) GetInjections() string {
+	if x != nil {
+		return x.Injections
+	}
+	return ""
+}
+
+type ReplayControlRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SessionId     string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	Command       string                 `protobuf:"bytes,2,opt,name=command,proto3" json:"command,omitempty"`                       // "play" | "pause" | "stop"
+	SeekIndex     int32                  `protobuf:"varint,3,opt,name=seek_index,json=seekIndex,proto3" json:"seek_index,omitempty"` // only used when command = "seek"
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReplayControlRequest) Reset() {
+	*x = ReplayControlRequest{}
+	mi := &file_proto_kprobe_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReplayControlRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReplayControlRequest) ProtoMessage() {}
+
+func (x *ReplayControlRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_kprobe_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReplayControlRequest.ProtoReflect.Descriptor instead.
+func (*ReplayControlRequest) Descriptor() ([]byte, []int) {
+	return file_proto_kprobe_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *ReplayControlRequest) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *ReplayControlRequest) GetCommand() string {
+	if x != nil {
+		return x.Command
+	}
+	return ""
+}
+
+func (x *ReplayControlRequest) GetSeekIndex() int32 {
+	if x != nil {
+		return x.SeekIndex
+	}
+	return 0
+}
+
+type ReplayControlResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SessionId     string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	State         string                 `protobuf:"bytes,2,opt,name=state,proto3" json:"state,omitempty"`    // "loading" | "ready" | "playing" | "paused" | "complete" | "failed"
+	Cursor        int32                  `protobuf:"varint,3,opt,name=cursor,proto3" json:"cursor,omitempty"` // current event index
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReplayControlResponse) Reset() {
+	*x = ReplayControlResponse{}
+	mi := &file_proto_kprobe_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReplayControlResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReplayControlResponse) ProtoMessage() {}
+
+func (x *ReplayControlResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_kprobe_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReplayControlResponse.ProtoReflect.Descriptor instead.
+func (*ReplayControlResponse) Descriptor() ([]byte, []int) {
+	return file_proto_kprobe_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *ReplayControlResponse) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *ReplayControlResponse) GetState() string {
+	if x != nil {
+		return x.State
+	}
+	return ""
+}
+
+func (x *ReplayControlResponse) GetCursor() int32 {
+	if x != nil {
+		return x.Cursor
+	}
+	return 0
+}
+
+type ReplayStatusRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SessionId     string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReplayStatusRequest) Reset() {
+	*x = ReplayStatusRequest{}
+	mi := &file_proto_kprobe_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReplayStatusRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReplayStatusRequest) ProtoMessage() {}
+
+func (x *ReplayStatusRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_kprobe_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReplayStatusRequest.ProtoReflect.Descriptor instead.
+func (*ReplayStatusRequest) Descriptor() ([]byte, []int) {
+	return file_proto_kprobe_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *ReplayStatusRequest) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+type ReplayStatusResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SessionId     string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	State         string                 `protobuf:"bytes,2,opt,name=state,proto3" json:"state,omitempty"`
+	Cursor        int32                  `protobuf:"varint,3,opt,name=cursor,proto3" json:"cursor,omitempty"`
+	EventCount    int32                  `protobuf:"varint,4,opt,name=event_count,json=eventCount,proto3" json:"event_count,omitempty"`
+	Injections    string                 `protobuf:"bytes,5,opt,name=injections,proto3" json:"injections,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReplayStatusResponse) Reset() {
+	*x = ReplayStatusResponse{}
+	mi := &file_proto_kprobe_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReplayStatusResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReplayStatusResponse) ProtoMessage() {}
+
+func (x *ReplayStatusResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_kprobe_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReplayStatusResponse.ProtoReflect.Descriptor instead.
+func (*ReplayStatusResponse) Descriptor() ([]byte, []int) {
+	return file_proto_kprobe_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *ReplayStatusResponse) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *ReplayStatusResponse) GetState() string {
+	if x != nil {
+		return x.State
+	}
+	return ""
+}
+
+func (x *ReplayStatusResponse) GetCursor() int32 {
+	if x != nil {
+		return x.Cursor
+	}
+	return 0
+}
+
+func (x *ReplayStatusResponse) GetEventCount() int32 {
+	if x != nil {
+		return x.EventCount
+	}
+	return 0
+}
+
+func (x *ReplayStatusResponse) GetInjections() string {
+	if x != nil {
+		return x.Injections
+	}
+	return ""
+}
+
+// ReplayEventProto is the streaming event type for replay playback.
+// Mirrors KernelEventProto but adds replay-specific fields.
+type ReplayEventProto struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	EventId       string                 `protobuf:"bytes,1,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
+	TimestampNs   uint64                 `protobuf:"varint,2,opt,name=timestamp_ns,json=timestampNs,proto3" json:"timestamp_ns,omitempty"`
+	Pid           uint32                 `protobuf:"varint,3,opt,name=pid,proto3" json:"pid,omitempty"`
+	EventType     string                 `protobuf:"bytes,4,opt,name=event_type,json=eventType,proto3" json:"event_type,omitempty"`
+	TransactionId string                 `protobuf:"bytes,5,opt,name=transaction_id,json=transactionId,proto3" json:"transaction_id,omitempty"`
+	ServiceName   string                 `protobuf:"bytes,6,opt,name=service_name,json=serviceName,proto3" json:"service_name,omitempty"`
+	DurationNs    uint64                 `protobuf:"varint,7,opt,name=duration_ns,json=durationNs,proto3" json:"duration_ns,omitempty"`    // recorded syscall duration (after injection)
+	ReturnValue   int64                  `protobuf:"varint,8,opt,name=return_value,json=returnValue,proto3" json:"return_value,omitempty"` // recorded return value (after injection)
+	Index         int32                  `protobuf:"varint,9,opt,name=index,proto3" json:"index,omitempty"`                                // position in the full event list
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReplayEventProto) Reset() {
+	*x = ReplayEventProto{}
+	mi := &file_proto_kprobe_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReplayEventProto) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReplayEventProto) ProtoMessage() {}
+
+func (x *ReplayEventProto) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_kprobe_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReplayEventProto.ProtoReflect.Descriptor instead.
+func (*ReplayEventProto) Descriptor() ([]byte, []int) {
+	return file_proto_kprobe_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *ReplayEventProto) GetEventId() string {
+	if x != nil {
+		return x.EventId
+	}
+	return ""
+}
+
+func (x *ReplayEventProto) GetTimestampNs() uint64 {
+	if x != nil {
+		return x.TimestampNs
+	}
+	return 0
+}
+
+func (x *ReplayEventProto) GetPid() uint32 {
+	if x != nil {
+		return x.Pid
+	}
+	return 0
+}
+
+func (x *ReplayEventProto) GetEventType() string {
+	if x != nil {
+		return x.EventType
+	}
+	return ""
+}
+
+func (x *ReplayEventProto) GetTransactionId() string {
+	if x != nil {
+		return x.TransactionId
+	}
+	return ""
+}
+
+func (x *ReplayEventProto) GetServiceName() string {
+	if x != nil {
+		return x.ServiceName
+	}
+	return ""
+}
+
+func (x *ReplayEventProto) GetDurationNs() uint64 {
+	if x != nil {
+		return x.DurationNs
+	}
+	return 0
+}
+
+func (x *ReplayEventProto) GetReturnValue() int64 {
+	if x != nil {
+		return x.ReturnValue
+	}
+	return 0
+}
+
+func (x *ReplayEventProto) GetIndex() int32 {
+	if x != nil {
+		return x.Index
+	}
+	return 0
+}
+
+type WatchReplayRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SessionId     string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WatchReplayRequest) Reset() {
+	*x = WatchReplayRequest{}
+	mi := &file_proto_kprobe_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WatchReplayRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WatchReplayRequest) ProtoMessage() {}
+
+func (x *WatchReplayRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_kprobe_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WatchReplayRequest.ProtoReflect.Descriptor instead.
+func (*WatchReplayRequest) Descriptor() ([]byte, []int) {
+	return file_proto_kprobe_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *WatchReplayRequest) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+type WatchReplayResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Event         *ReplayEventProto      `protobuf:"bytes,1,opt,name=event,proto3" json:"event,omitempty"`
+	State         string                 `protobuf:"bytes,2,opt,name=state,proto3" json:"state,omitempty"` // current session state after this event
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WatchReplayResponse) Reset() {
+	*x = WatchReplayResponse{}
+	mi := &file_proto_kprobe_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WatchReplayResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WatchReplayResponse) ProtoMessage() {}
+
+func (x *WatchReplayResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_kprobe_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WatchReplayResponse.ProtoReflect.Descriptor instead.
+func (*WatchReplayResponse) Descriptor() ([]byte, []int) {
+	return file_proto_kprobe_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *WatchReplayResponse) GetEvent() *ReplayEventProto {
+	if x != nil {
+		return x.Event
+	}
+	return nil
+}
+
+func (x *WatchReplayResponse) GetState() string {
+	if x != nil {
+		return x.State
+	}
+	return ""
+}
+
 var File_proto_kprobe_proto protoreflect.FileDescriptor
 
 const file_proto_kprobe_proto_rawDesc = "" +
@@ -596,12 +1186,74 @@ const file_proto_kprobe_proto_rawDesc = "" +
 	"\x06events\x18\x01 \x03(\v2\x18.kprobe.KernelEventProtoR\x06events\"\x15\n" +
 	"\x13StreamEventsRequest\"F\n" +
 	"\x14StreamEventsResponse\x12.\n" +
-	"\x05event\x18\x01 \x01(\v2\x18.kprobe.KernelEventProtoR\x05event2\xcc\x02\n" +
+	"\x05event\x18\x01 \x01(\v2\x18.kprobe.KernelEventProtoR\x05event\"\x93\x02\n" +
+	"\x12StartReplayRequest\x12%\n" +
+	"\x0etransaction_id\x18\x01 \x01(\tR\rtransactionId\x12.\n" +
+	"\x13timeout_override_ns\x18\x02 \x01(\x04R\x11timeoutOverrideNs\x12-\n" +
+	"\x12latency_multiplier\x18\x03 \x01(\x01R\x11latencyMultiplier\x12(\n" +
+	"\x10extra_latency_ns\x18\x04 \x01(\x04R\x0eextraLatencyNs\x12*\n" +
+	"\x11inject_failure_at\x18\x05 \x01(\tR\x0finjectFailureAt\x12!\n" +
+	"\fspeed_factor\x18\x06 \x01(\x01R\vspeedFactor\"u\n" +
+	"\x13StartReplayResponse\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x1f\n" +
+	"\vevent_count\x18\x02 \x01(\x05R\n" +
+	"eventCount\x12\x1e\n" +
+	"\n" +
+	"injections\x18\x03 \x01(\tR\n" +
+	"injections\"n\n" +
+	"\x14ReplayControlRequest\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x18\n" +
+	"\acommand\x18\x02 \x01(\tR\acommand\x12\x1d\n" +
+	"\n" +
+	"seek_index\x18\x03 \x01(\x05R\tseekIndex\"d\n" +
+	"\x15ReplayControlResponse\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x14\n" +
+	"\x05state\x18\x02 \x01(\tR\x05state\x12\x16\n" +
+	"\x06cursor\x18\x03 \x01(\x05R\x06cursor\"4\n" +
+	"\x13ReplayStatusRequest\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\"\xa4\x01\n" +
+	"\x14ReplayStatusResponse\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x14\n" +
+	"\x05state\x18\x02 \x01(\tR\x05state\x12\x16\n" +
+	"\x06cursor\x18\x03 \x01(\x05R\x06cursor\x12\x1f\n" +
+	"\vevent_count\x18\x04 \x01(\x05R\n" +
+	"eventCount\x12\x1e\n" +
+	"\n" +
+	"injections\x18\x05 \x01(\tR\n" +
+	"injections\"\xa5\x02\n" +
+	"\x10ReplayEventProto\x12\x19\n" +
+	"\bevent_id\x18\x01 \x01(\tR\aeventId\x12!\n" +
+	"\ftimestamp_ns\x18\x02 \x01(\x04R\vtimestampNs\x12\x10\n" +
+	"\x03pid\x18\x03 \x01(\rR\x03pid\x12\x1d\n" +
+	"\n" +
+	"event_type\x18\x04 \x01(\tR\teventType\x12%\n" +
+	"\x0etransaction_id\x18\x05 \x01(\tR\rtransactionId\x12!\n" +
+	"\fservice_name\x18\x06 \x01(\tR\vserviceName\x12\x1f\n" +
+	"\vduration_ns\x18\a \x01(\x04R\n" +
+	"durationNs\x12!\n" +
+	"\freturn_value\x18\b \x01(\x03R\vreturnValue\x12\x14\n" +
+	"\x05index\x18\t \x01(\x05R\x05index\"3\n" +
+	"\x12WatchReplayRequest\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\"[\n" +
+	"\x13WatchReplayResponse\x12.\n" +
+	"\x05event\x18\x01 \x01(\v2\x18.kprobe.ReplayEventProtoR\x05event\x12\x14\n" +
+	"\x05state\x18\x02 \x01(\tR\x05state2\xcc\x02\n" +
 	"\rKprobeService\x12U\n" +
 	"\x10QueryCausalChain\x12\x1f.kprobe.QueryCausalChainRequest\x1a .kprobe.QueryCausalChainResponse\x12F\n" +
 	"\vQueryEvents\x12\x1a.kprobe.QueryEventsRequest\x1a\x1b.kprobe.QueryEventsResponse\x12O\n" +
 	"\x0eQueryTimeRange\x12\x1d.kprobe.QueryTimeRangeRequest\x1a\x1e.kprobe.QueryTimeRangeResponse\x12K\n" +
-	"\fStreamEvents\x12\x1b.kprobe.StreamEventsRequest\x1a\x1c.kprobe.StreamEventsResponse0\x01B#Z!github.com/YHQZ1/kprobe/api/protob\x06proto3"
+	"\fStreamEvents\x12\x1b.kprobe.StreamEventsRequest\x1a\x1c.kprobe.StreamEventsResponse0\x012\xae\x02\n" +
+	"\rReplayService\x12F\n" +
+	"\vStartReplay\x12\x1a.kprobe.StartReplayRequest\x1a\x1b.kprobe.StartReplayResponse\x12F\n" +
+	"\aControl\x12\x1c.kprobe.ReplayControlRequest\x1a\x1d.kprobe.ReplayControlResponse\x12C\n" +
+	"\x06Status\x12\x1b.kprobe.ReplayStatusRequest\x1a\x1c.kprobe.ReplayStatusResponse\x12H\n" +
+	"\vWatchReplay\x12\x1a.kprobe.WatchReplayRequest\x1a\x1b.kprobe.WatchReplayResponse0\x01B#Z!github.com/YHQZ1/kprobe/api/protob\x06proto3"
 
 var (
 	file_proto_kprobe_proto_rawDescOnce sync.Once
@@ -615,7 +1267,7 @@ func file_proto_kprobe_proto_rawDescGZIP() []byte {
 	return file_proto_kprobe_proto_rawDescData
 }
 
-var file_proto_kprobe_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_proto_kprobe_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
 var file_proto_kprobe_proto_goTypes = []any{
 	(*KernelEventProto)(nil),         // 0: kprobe.KernelEventProto
 	(*CausalEdgeProto)(nil),          // 1: kprobe.CausalEdgeProto
@@ -627,26 +1279,44 @@ var file_proto_kprobe_proto_goTypes = []any{
 	(*QueryTimeRangeResponse)(nil),   // 7: kprobe.QueryTimeRangeResponse
 	(*StreamEventsRequest)(nil),      // 8: kprobe.StreamEventsRequest
 	(*StreamEventsResponse)(nil),     // 9: kprobe.StreamEventsResponse
+	(*StartReplayRequest)(nil),       // 10: kprobe.StartReplayRequest
+	(*StartReplayResponse)(nil),      // 11: kprobe.StartReplayResponse
+	(*ReplayControlRequest)(nil),     // 12: kprobe.ReplayControlRequest
+	(*ReplayControlResponse)(nil),    // 13: kprobe.ReplayControlResponse
+	(*ReplayStatusRequest)(nil),      // 14: kprobe.ReplayStatusRequest
+	(*ReplayStatusResponse)(nil),     // 15: kprobe.ReplayStatusResponse
+	(*ReplayEventProto)(nil),         // 16: kprobe.ReplayEventProto
+	(*WatchReplayRequest)(nil),       // 17: kprobe.WatchReplayRequest
+	(*WatchReplayResponse)(nil),      // 18: kprobe.WatchReplayResponse
 }
 var file_proto_kprobe_proto_depIdxs = []int32{
-	0, // 0: kprobe.QueryCausalChainResponse.nodes:type_name -> kprobe.KernelEventProto
-	1, // 1: kprobe.QueryCausalChainResponse.edges:type_name -> kprobe.CausalEdgeProto
-	0, // 2: kprobe.QueryEventsResponse.events:type_name -> kprobe.KernelEventProto
-	0, // 3: kprobe.QueryTimeRangeResponse.events:type_name -> kprobe.KernelEventProto
-	0, // 4: kprobe.StreamEventsResponse.event:type_name -> kprobe.KernelEventProto
-	2, // 5: kprobe.KprobeService.QueryCausalChain:input_type -> kprobe.QueryCausalChainRequest
-	4, // 6: kprobe.KprobeService.QueryEvents:input_type -> kprobe.QueryEventsRequest
-	6, // 7: kprobe.KprobeService.QueryTimeRange:input_type -> kprobe.QueryTimeRangeRequest
-	8, // 8: kprobe.KprobeService.StreamEvents:input_type -> kprobe.StreamEventsRequest
-	3, // 9: kprobe.KprobeService.QueryCausalChain:output_type -> kprobe.QueryCausalChainResponse
-	5, // 10: kprobe.KprobeService.QueryEvents:output_type -> kprobe.QueryEventsResponse
-	7, // 11: kprobe.KprobeService.QueryTimeRange:output_type -> kprobe.QueryTimeRangeResponse
-	9, // 12: kprobe.KprobeService.StreamEvents:output_type -> kprobe.StreamEventsResponse
-	9, // [9:13] is the sub-list for method output_type
-	5, // [5:9] is the sub-list for method input_type
-	5, // [5:5] is the sub-list for extension type_name
-	5, // [5:5] is the sub-list for extension extendee
-	0, // [0:5] is the sub-list for field type_name
+	0,  // 0: kprobe.QueryCausalChainResponse.nodes:type_name -> kprobe.KernelEventProto
+	1,  // 1: kprobe.QueryCausalChainResponse.edges:type_name -> kprobe.CausalEdgeProto
+	0,  // 2: kprobe.QueryEventsResponse.events:type_name -> kprobe.KernelEventProto
+	0,  // 3: kprobe.QueryTimeRangeResponse.events:type_name -> kprobe.KernelEventProto
+	0,  // 4: kprobe.StreamEventsResponse.event:type_name -> kprobe.KernelEventProto
+	16, // 5: kprobe.WatchReplayResponse.event:type_name -> kprobe.ReplayEventProto
+	2,  // 6: kprobe.KprobeService.QueryCausalChain:input_type -> kprobe.QueryCausalChainRequest
+	4,  // 7: kprobe.KprobeService.QueryEvents:input_type -> kprobe.QueryEventsRequest
+	6,  // 8: kprobe.KprobeService.QueryTimeRange:input_type -> kprobe.QueryTimeRangeRequest
+	8,  // 9: kprobe.KprobeService.StreamEvents:input_type -> kprobe.StreamEventsRequest
+	10, // 10: kprobe.ReplayService.StartReplay:input_type -> kprobe.StartReplayRequest
+	12, // 11: kprobe.ReplayService.Control:input_type -> kprobe.ReplayControlRequest
+	14, // 12: kprobe.ReplayService.Status:input_type -> kprobe.ReplayStatusRequest
+	17, // 13: kprobe.ReplayService.WatchReplay:input_type -> kprobe.WatchReplayRequest
+	3,  // 14: kprobe.KprobeService.QueryCausalChain:output_type -> kprobe.QueryCausalChainResponse
+	5,  // 15: kprobe.KprobeService.QueryEvents:output_type -> kprobe.QueryEventsResponse
+	7,  // 16: kprobe.KprobeService.QueryTimeRange:output_type -> kprobe.QueryTimeRangeResponse
+	9,  // 17: kprobe.KprobeService.StreamEvents:output_type -> kprobe.StreamEventsResponse
+	11, // 18: kprobe.ReplayService.StartReplay:output_type -> kprobe.StartReplayResponse
+	13, // 19: kprobe.ReplayService.Control:output_type -> kprobe.ReplayControlResponse
+	15, // 20: kprobe.ReplayService.Status:output_type -> kprobe.ReplayStatusResponse
+	18, // 21: kprobe.ReplayService.WatchReplay:output_type -> kprobe.WatchReplayResponse
+	14, // [14:22] is the sub-list for method output_type
+	6,  // [6:14] is the sub-list for method input_type
+	6,  // [6:6] is the sub-list for extension type_name
+	6,  // [6:6] is the sub-list for extension extendee
+	0,  // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_proto_kprobe_proto_init() }
@@ -660,9 +1330,9 @@ func file_proto_kprobe_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_kprobe_proto_rawDesc), len(file_proto_kprobe_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   10,
+			NumMessages:   19,
 			NumExtensions: 0,
-			NumServices:   1,
+			NumServices:   2,
 		},
 		GoTypes:           file_proto_kprobe_proto_goTypes,
 		DependencyIndexes: file_proto_kprobe_proto_depIdxs,

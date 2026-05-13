@@ -9,8 +9,11 @@ require (
 	google.golang.org/protobuf v1.34.1
 )
 
+require github.com/YHQZ1/kprobe/shared v0.0.0 // indirect
+
 require (
 	github.com/ClickHouse/ch-go v0.71.0 // indirect
+	github.com/YHQZ1/kprobe/replay v0.0.0
 	github.com/andybalholm/brotli v1.2.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/go-faster/city v1.0.1 // indirect
@@ -31,3 +34,5 @@ require (
 )
 
 replace github.com/YHQZ1/kprobe/shared => ../shared
+
+replace github.com/YHQZ1/kprobe/replay => ../replay
