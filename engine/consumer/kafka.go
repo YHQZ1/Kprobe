@@ -10,7 +10,8 @@ import (
 )
 
 type Consumer struct {
-	reader *kafka.Reader
+	reader    *kafka.Reader
+	dlqWriter *kafka.Writer
 }
 
 type Handler func(event types.KernelEvent)
@@ -23,7 +24,14 @@ func NewConsumer(brokers []string, topic string, groupID string) *Consumer {
 		MinBytes: 1,
 		MaxBytes: 10e6,
 	})
-	return &Consumer{reader: reader}
+
+	dlqWriter := &kafka.Writer{
+		Addr:     kafka.TCP(brokers...),
+		Topic:    "kernel.dlq",
+		Balancer: &kafka.LeastBytes{},
+	}
+
+	return &Consumer{reader: reader, dlqWriter: dlqWriter}
 }
 
 func (c *Consumer) Consume(ctx context.Context, handler Handler) error {
@@ -39,9 +47,19 @@ func (c *Consumer) Consume(ctx context.Context, handler Handler) error {
 
 		var event types.KernelEvent
 		if err := json.Unmarshal(msg.Value, &event); err != nil {
-			log.Printf("failed to unmarshal event: %v", err)
+			log.Printf("unmarshal error, routing to dlq: %v", err)
+			c.sendDLQ(ctx, msg.Value, "unmarshal_error")
 			if err := c.reader.CommitMessages(ctx, msg); err != nil {
-				log.Printf("kafka commit error after unmarshal failure: %v", err)
+				log.Printf("kafka commit error: %v", err)
+			}
+			continue
+		}
+
+		if !event.EventType.Valid() {
+			log.Printf("unknown event_type %q, routing to dlq", event.EventType)
+			c.sendDLQ(ctx, msg.Value, "unknown_event_type")
+			if err := c.reader.CommitMessages(ctx, msg); err != nil {
+				log.Printf("kafka commit error: %v", err)
 			}
 			continue
 		}
@@ -54,6 +72,21 @@ func (c *Consumer) Consume(ctx context.Context, handler Handler) error {
 	}
 }
 
+func (c *Consumer) sendDLQ(ctx context.Context, value []byte, reason string) {
+	err := c.dlqWriter.WriteMessages(ctx, kafka.Message{
+		Value: value,
+		Headers: []kafka.Header{
+			{Key: "dlq_reason", Value: []byte(reason)},
+		},
+	})
+	if err != nil {
+		log.Printf("dlq write error (reason=%s): %v", reason, err)
+	}
+}
+
 func (c *Consumer) Close() error {
+	if err := c.dlqWriter.Close(); err != nil {
+		log.Printf("dlq writer close error: %v", err)
+	}
 	return c.reader.Close()
 }
