@@ -36,7 +36,7 @@ func NewOTelConsumer(brokers []string, topic string, groupID string, enricher *e
 
 func (c *OTelConsumer) Consume(ctx context.Context) error {
 	for {
-		msg, err := c.reader.ReadMessage(ctx)
+		msg, err := c.reader.FetchMessage(ctx)
 		if err != nil {
 			if ctx.Err() != nil {
 				return nil
@@ -48,29 +48,34 @@ func (c *OTelConsumer) Consume(ctx context.Context) error {
 		var span otelSpanMessage
 		if err := json.Unmarshal(msg.Value, &span); err != nil {
 			log.Printf("otel unmarshal error: %v", err)
-			continue
-		}
-
-		if span.TraceID == "" || span.SpanID == "" {
-			continue
-		}
-
-		entry := enrich.SpanEntry{
-			TraceID:     span.TraceID,
-			SpanID:      span.SpanID,
-			ServiceName: span.ServiceName,
-			StartTimeNs: span.StartTimeNs,
-			EndTimeNs:   span.EndTimeNs,
-			PID:         extractPID(span.Attributes),
-		}
-
-		if span.Attributes != nil {
-			if txID, ok := span.Attributes["transaction.id"].(string); ok {
-				entry.TransactionID = txID
+			if err := c.reader.CommitMessages(ctx, msg); err != nil {
+				log.Printf("otel kafka commit error after unmarshal failure: %v", err)
 			}
+			continue
 		}
 
-		c.enricher.AddSpan(entry)
+		if span.TraceID != "" && span.SpanID != "" {
+			entry := enrich.SpanEntry{
+				TraceID:     span.TraceID,
+				SpanID:      span.SpanID,
+				ServiceName: span.ServiceName,
+				StartTimeNs: span.StartTimeNs,
+				EndTimeNs:   span.EndTimeNs,
+				PID:         extractPID(span.Attributes),
+			}
+
+			if span.Attributes != nil {
+				if txID, ok := span.Attributes["transaction.id"].(string); ok {
+					entry.TransactionID = txID
+				}
+			}
+
+			c.enricher.AddSpan(entry)
+		}
+
+		if err := c.reader.CommitMessages(ctx, msg); err != nil {
+			log.Printf("otel kafka commit error: %v", err)
+		}
 	}
 }
 

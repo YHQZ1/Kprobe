@@ -28,7 +28,7 @@ func NewConsumer(brokers []string, topic string, groupID string) *Consumer {
 
 func (c *Consumer) Consume(ctx context.Context, handler Handler) error {
 	for {
-		msg, err := c.reader.ReadMessage(ctx)
+		msg, err := c.reader.FetchMessage(ctx)
 		if err != nil {
 			if ctx.Err() != nil {
 				return nil
@@ -40,10 +40,17 @@ func (c *Consumer) Consume(ctx context.Context, handler Handler) error {
 		var event types.KernelEvent
 		if err := json.Unmarshal(msg.Value, &event); err != nil {
 			log.Printf("failed to unmarshal event: %v", err)
+			if err := c.reader.CommitMessages(ctx, msg); err != nil {
+				log.Printf("kafka commit error after unmarshal failure: %v", err)
+			}
 			continue
 		}
 
 		handler(event)
+
+		if err := c.reader.CommitMessages(ctx, msg); err != nil {
+			log.Printf("kafka commit error: %v", err)
+		}
 	}
 }
 
