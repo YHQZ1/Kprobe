@@ -2,6 +2,8 @@ module github.com/YHQZ1/kprobe/replay
 
 go 1.24.1
 
+toolchain go1.24.1
+
 require github.com/YHQZ1/kprobe/shared v0.0.0
 
 require (

@@ -2,6 +2,8 @@ module github.com/YHQZ1/kprobe/shared
 
 go 1.24.1
 
+toolchain go1.24.1
+
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.23.0
 	github.com/neo4j/neo4j-go-driver/v5 v5.20.0
