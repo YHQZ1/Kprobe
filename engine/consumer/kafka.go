@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"time"
 
 	"github.com/YHQZ1/kprobe/engine/metrics"
 	"github.com/YHQZ1/kprobe/shared/types"
@@ -13,6 +14,8 @@ import (
 type Consumer struct {
 	reader    *kafka.Reader
 	dlqWriter *kafka.Writer
+	commitCh  chan kafka.Message
+	dlqCh     chan kafka.Message
 }
 
 type Handler func(event types.KernelEvent)
@@ -32,10 +35,18 @@ func NewConsumer(brokers []string, topic string, groupID string) *Consumer {
 		Balancer: &kafka.LeastBytes{},
 	}
 
-	return &Consumer{reader: reader, dlqWriter: dlqWriter}
+	return &Consumer{
+		reader:    reader,
+		dlqWriter: dlqWriter,
+		commitCh:  make(chan kafka.Message, 10000),
+		dlqCh:     make(chan kafka.Message, 10000),
+	}
 }
 
 func (c *Consumer) Consume(ctx context.Context, handler Handler) error {
+	go c.commitWorker(ctx)
+	go c.dlqWorker(ctx)
+
 	for {
 		msg, err := c.reader.FetchMessage(ctx)
 		if err != nil {
@@ -49,41 +60,82 @@ func (c *Consumer) Consume(ctx context.Context, handler Handler) error {
 		var event types.KernelEvent
 		if err := json.Unmarshal(msg.Value, &event); err != nil {
 			log.Printf("unmarshal error, routing to dlq: %v", err)
-			c.sendDLQ(ctx, msg.Value, "unmarshal_error")
-			if err := c.reader.CommitMessages(ctx, msg); err != nil {
-				log.Printf("kafka commit error: %v", err)
-			}
+			c.sendDLQAsync(msg, "unmarshal_error")
+			c.commitCh <- msg
 			continue
 		}
 
 		if !event.EventType.Valid() {
 			log.Printf("unknown event_type %q, routing to dlq", event.EventType)
-			c.sendDLQ(ctx, msg.Value, "unknown_event_type")
-			if err := c.reader.CommitMessages(ctx, msg); err != nil {
-				log.Printf("kafka commit error: %v", err)
-			}
+			c.sendDLQAsync(msg, "unknown_event_type")
+			c.commitCh <- msg
 			continue
 		}
 
 		metrics.EventsConsumed.WithLabelValues(string(event.EventType)).Inc()
+
 		handler(event)
 
-		if err := c.reader.CommitMessages(ctx, msg); err != nil {
-			log.Printf("kafka commit error: %v", err)
+		c.commitCh <- msg
+	}
+}
+
+func (c *Consumer) commitWorker(ctx context.Context) {
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+
+	var batch []kafka.Message
+
+	for {
+		select {
+		case msg := <-c.commitCh:
+			batch = append(batch, msg)
+			if len(batch) >= 1000 {
+				if err := c.reader.CommitMessages(ctx, batch...); err != nil {
+					log.Printf("kafka batch commit error: %v", err)
+				}
+				batch = batch[:0]
+			}
+		case <-ticker.C:
+			if len(batch) > 0 {
+				if err := c.reader.CommitMessages(ctx, batch...); err != nil {
+					log.Printf("kafka batch commit error: %v", err)
+				}
+				batch = batch[:0]
+			}
+		case <-ctx.Done():
+			if len(batch) > 0 {
+				_ = c.reader.CommitMessages(context.Background(), batch...)
+			}
+			return
 		}
 	}
 }
 
-func (c *Consumer) sendDLQ(ctx context.Context, value []byte, reason string) {
+func (c *Consumer) sendDLQAsync(msg kafka.Message, reason string) {
 	metrics.DLQTotal.WithLabelValues(reason).Inc()
-	err := c.dlqWriter.WriteMessages(ctx, kafka.Message{
-		Value: value,
-		Headers: []kafka.Header{
-			{Key: "dlq_reason", Value: []byte(reason)},
-		},
-	})
-	if err != nil {
-		log.Printf("dlq write error (reason=%s): %v", reason, err)
+	msg.Headers = append(msg.Headers, kafka.Header{Key: "dlq_reason", Value: []byte(reason)})
+	select {
+	case c.dlqCh <- msg:
+	default:
+		log.Printf("dlq channel full, dropping invalid message")
+	}
+}
+
+func (c *Consumer) dlqWorker(ctx context.Context) {
+	for {
+		select {
+		case msg := <-c.dlqCh:
+			err := c.dlqWriter.WriteMessages(ctx, kafka.Message{
+				Value:   msg.Value,
+				Headers: msg.Headers,
+			})
+			if err != nil {
+				log.Printf("dlq write error: %v", err)
+			}
+		case <-ctx.Done():
+			return
+		}
 	}
 }
 

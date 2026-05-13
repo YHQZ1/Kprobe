@@ -29,10 +29,10 @@ type Engine struct {
 func NewEngine(store *graph.Neo4jStore) *Engine {
 	return &Engine{
 		store:           store,
-		window:          make([]types.KernelEvent, 0, 1000),
+		window:          make([]types.KernelEvent, 0, 10000),
 		crossProcWindow: make([]types.KernelEvent, 0, crossProcWinSize),
 		ticker:          time.NewTicker(windowDuration),
-		input:           make(chan types.KernelEvent, 10000),
+		input:           make(chan types.KernelEvent, 50000),
 		done:            make(chan struct{}),
 	}
 }
@@ -81,10 +81,13 @@ func (e *Engine) flush(ctx context.Context) {
 func (e *Engine) processWindow(ctx context.Context, events []types.KernelEvent) error {
 	for i := range events {
 		events[i].EventID = uuid.New().String()
-		if err := e.store.WriteNode(ctx, events[i]); err != nil {
-			log.Printf("write node failed: %v", err)
-		}
 	}
+
+	if err := e.store.WriteNodesBatch(ctx, events); err != nil {
+		log.Printf("write nodes batch failed: %v", err)
+	}
+
+	var edges []graph.EdgeBatch
 
 	byTID := make(map[uint32][]int)
 	byPID := make(map[uint32][]int)
@@ -101,7 +104,9 @@ func (e *Engine) processWindow(ctx context.Context, events []types.KernelEvent) 
 		for x := 0; x < len(indices); x++ {
 			for y := x + 1; y < len(indices); y++ {
 				i, j := indices[x], indices[y]
-				e.tryWriteEdge(ctx, events, i, j, false)
+				if edge, ok := e.tryCreateEdge(events, i, j, false); ok {
+					edges = append(edges, edge)
+				}
 			}
 		}
 	}
@@ -116,7 +121,9 @@ func (e *Engine) processWindow(ctx context.Context, events []types.KernelEvent) 
 				if events[i].TID == events[j].TID {
 					continue
 				}
-				e.tryWriteEdge(ctx, events, i, j, true)
+				if edge, ok := e.tryCreateEdge(events, i, j, true); ok {
+					edges = append(edges, edge)
+				}
 			}
 		}
 	}
@@ -126,6 +133,7 @@ func (e *Engine) processWindow(ctx context.Context, events []types.KernelEvent) 
 			e.crossProcWindow = append(e.crossProcWindow, ev)
 		}
 	}
+
 	if len(e.crossProcWindow) > crossProcWinSize {
 		e.crossProcWindow = e.crossProcWindow[len(e.crossProcWindow)-crossProcWinSize:]
 	}
@@ -149,35 +157,47 @@ func (e *Engine) processWindow(ctx context.Context, events []types.KernelEvent) 
 				continue
 			}
 			latencyNs := ev.TimestampNs - prior.TimestampNs
-			if err := e.store.WriteEdge(ctx, prior.EventID, ev.EventID, causeType, latencyNs, prior.TransactionID, prior.ServiceName); err != nil {
-				log.Printf("write cross-proc edge failed: %v", err)
-			}
+			edges = append(edges, graph.EdgeBatch{
+				FromID:        prior.EventID,
+				ToID:          ev.EventID,
+				CauseType:     causeType,
+				LatencyNs:     latencyNs,
+				TransactionID: prior.TransactionID,
+				ServiceName:   prior.ServiceName,
+			})
+		}
+	}
+
+	if len(edges) > 0 {
+		if err := e.store.WriteEdgesBatch(ctx, edges); err != nil {
+			log.Printf("write edges batch failed: %v", err)
 		}
 	}
 
 	return nil
 }
 
-func (e *Engine) tryWriteEdge(ctx context.Context, events []types.KernelEvent, i, j int, crossThread bool) {
+func (e *Engine) tryCreateEdge(events []types.KernelEvent, i, j int, crossThread bool) (graph.EdgeBatch, bool) {
 	a, b := events[i], events[j]
-
 	if b.TimestampNs <= a.TimestampNs {
 		a, b = b, a
 	}
-
 	if b.TimestampNs-a.TimestampNs > causalThresholdNs {
-		return
+		return graph.EdgeBatch{}, false
 	}
-
 	causeType := eventPairToCause(a.EventType, b.EventType, crossThread)
 	if causeType == "" {
-		return
+		return graph.EdgeBatch{}, false
 	}
-
 	latencyNs := b.TimestampNs - a.TimestampNs
-	if err := e.store.WriteEdge(ctx, a.EventID, b.EventID, causeType, latencyNs, a.TransactionID, a.ServiceName); err != nil {
-		log.Printf("write edge failed: %v", err)
-	}
+	return graph.EdgeBatch{
+		FromID:        a.EventID,
+		ToID:          b.EventID,
+		CauseType:     causeType,
+		LatencyNs:     latencyNs,
+		TransactionID: a.TransactionID,
+		ServiceName:   a.ServiceName,
+	}, true
 }
 
 func eventPairToCause(from, to types.EventType, crossThread bool) string {
@@ -185,7 +205,6 @@ func eventPairToCause(from, to types.EventType, crossThread bool) string {
 	if crossThread {
 		prefix = "CROSS_THREAD_"
 	}
-
 	switch {
 	case from == types.EventTypeTCPSend && to == types.EventTypeTCPRecv:
 		return prefix + "TCP_RTT"

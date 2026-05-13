@@ -19,19 +19,21 @@ const (
 )
 
 type ClickHouseStore struct {
-	conn  driver.Conn
-	mu    sync.Mutex
-	buf   []types.KernelEvent
-	close chan struct{}
-	done  chan struct{}
+	conn        driver.Conn
+	mu          sync.Mutex
+	buf         []types.KernelEvent
+	signalFlush chan struct{}
+	close       chan struct{}
+	done        chan struct{}
 }
 
 func NewClickHouseStore(conn driver.Conn) *ClickHouseStore {
 	s := &ClickHouseStore{
-		conn:  conn,
-		buf:   make([]types.KernelEvent, 0, flushSize),
-		close: make(chan struct{}),
-		done:  make(chan struct{}),
+		conn:        conn,
+		buf:         make([]types.KernelEvent, 0, flushSize),
+		signalFlush: make(chan struct{}, 1),
+		close:       make(chan struct{}),
+		done:        make(chan struct{}),
 	}
 	go s.flusher()
 	return s
@@ -44,7 +46,10 @@ func (s *ClickHouseStore) InsertEvent(ctx context.Context, event types.KernelEve
 	s.mu.Unlock()
 
 	if full {
-		s.flushNow(ctx)
+		select {
+		case s.signalFlush <- struct{}{}:
+		default:
+		}
 	}
 }
 
@@ -56,15 +61,17 @@ func (s *ClickHouseStore) flusher() {
 	for {
 		select {
 		case <-ticker.C:
-			s.flushNow(context.Background())
+			s.executeFlush()
+		case <-s.signalFlush:
+			s.executeFlush()
 		case <-s.close:
-			s.flushNow(context.Background())
+			s.executeFlush()
 			return
 		}
 	}
 }
 
-func (s *ClickHouseStore) flushNow(ctx context.Context) {
+func (s *ClickHouseStore) executeFlush() {
 	s.mu.Lock()
 	if len(s.buf) == 0 {
 		s.mu.Unlock()
@@ -75,11 +82,25 @@ func (s *ClickHouseStore) flushNow(ctx context.Context) {
 	s.mu.Unlock()
 
 	metrics.BatchFlushSize.Observe(float64(len(batch)))
-
 	start := time.Now()
-	if err := s.writeBatch(ctx, batch); err != nil {
-		log.Printf("clickhouse flush error (dropped %d events): %v", len(batch), err)
+
+	maxRetries := 3
+	for i := 0; i < maxRetries; i++ {
+		flushCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		err := s.writeBatch(flushCtx, batch)
+		cancel()
+
+		if err == nil {
+			break
+		}
+
+		log.Printf("clickhouse flush attempt %d failed: %v", i+1, err)
+		if i == maxRetries-1 {
+			log.Printf("clickhouse flush exhausted retries (dropped %d events)", len(batch))
+		}
+		time.Sleep(time.Duration(i*500) * time.Millisecond)
 	}
+
 	metrics.BatchFlushDuration.Observe(time.Since(start).Seconds())
 }
 
@@ -97,7 +118,7 @@ func (s *ClickHouseStore) writeBatch(ctx context.Context, events []types.KernelE
 	for _, event := range events {
 		payloadBytes, err := json.Marshal(event.Payload)
 		if err != nil {
-			log.Printf("marshal payload for event %s: %v — skipping", event.EventID, err)
+			log.Printf("marshal payload for event %s: %v", event.EventID, err)
 			continue
 		}
 
@@ -115,11 +136,10 @@ func (s *ClickHouseStore) writeBatch(ctx context.Context, events []types.KernelE
 			event.ReturnValue,
 			string(payloadBytes),
 		); err != nil {
-			log.Printf("append event %s to batch: %v — skipping", event.EventID, err)
+			log.Printf("append event %s to batch: %v", event.EventID, err)
 			continue
 		}
 	}
-
 	return b.Send()
 }
 
