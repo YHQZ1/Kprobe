@@ -1,7 +1,5 @@
 import { useState } from "react";
-
-const CORRECT_USER = "admin";
-const CORRECT_PASS = "admin";
+import { setToken } from "../lib/auth";
 
 interface LoginProps {
   onAuth: () => void;
@@ -13,24 +11,36 @@ export default function Login({ onAuth }: LoginProps) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
     setLoading(true);
 
-    setTimeout(() => {
-      if (username === CORRECT_USER && password === CORRECT_PASS) {
-        onAuth();
-      } else {
-        setError("Invalid credentials.");
-        setLoading(false);
+    try {
+      const res = await fetch("/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error ?? "Invalid credentials.");
+        return;
       }
-    }, 420);
+
+      const data = await res.json();
+      setToken(data.token);
+      onAuth();
+    } catch {
+      setError("Unable to reach the server. Check your connection.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
     <div style={s.root}>
-      {/* Left panel — branding */}
       <div style={s.left}>
         <div style={s.leftInner}>
           <div style={s.wordmark}>
@@ -60,7 +70,6 @@ export default function Login({ onAuth }: LoginProps) {
           </div>
         </div>
 
-        {/* Decorative kernel event stream */}
         <div style={s.streamDecor}>
           <div style={s.streamLabel}>
             <span style={s.streamPulse} />
@@ -90,7 +99,6 @@ export default function Login({ onAuth }: LoginProps) {
         </div>
       </div>
 
-      {/* Right panel — login form */}
       <div style={s.right}>
         <div style={s.card}>
           <div style={s.cardHeader}>
@@ -114,7 +122,7 @@ export default function Login({ onAuth }: LoginProps) {
                   ...s.input,
                   ...(error ? s.inputError : {}),
                 }}
-                placeholder="admin"
+                placeholder="username"
                 spellCheck={false}
               />
             </div>
@@ -178,13 +186,6 @@ export default function Login({ onAuth }: LoginProps) {
               )}
             </button>
           </form>
-
-          <div style={s.cardFooter}>
-            <span style={s.footerText}>Default credentials:&nbsp;</span>
-            <code style={s.footerCode}>admin</code>
-            <span style={s.footerText}>&nbsp;/&nbsp;</span>
-            <code style={s.footerCode}>admin</code>
-          </div>
         </div>
 
         <div style={s.rightFooter}>
@@ -205,8 +206,6 @@ const s: Record<string, React.CSSProperties> = {
     backgroundColor: "var(--bg)",
     color: "var(--text-primary)",
   },
-
-  // Left panel
   left: {
     flex: 1,
     borderRight: "1px solid var(--border-subtle)",
@@ -272,8 +271,6 @@ const s: Record<string, React.CSSProperties> = {
     color: "var(--text-muted)",
     fontWeight: 500,
   },
-
-  // Decorative stream
   streamDecor: {
     border: "1px solid var(--border-subtle)",
     overflow: "hidden",

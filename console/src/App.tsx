@@ -1,7 +1,7 @@
 import { useState, useEffect, lazy } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import RequireAuth from "./components/RequireAuth";
-import { getAuth, setAuth } from "./lib/auth";
+import { isAuthenticated, clearToken } from "./lib/auth"; // <-- Updated imports
 
 const StreamPage = lazy(() => import("./pages/Stream"));
 const GraphPage = lazy(() => import("./pages/Graph"));
@@ -10,7 +10,8 @@ const ReplayPage = lazy(() => import("./pages/Replay"));
 const SettingsPage = lazy(() => import("./pages/Settings"));
 
 export default function App() {
-  const [authed, setAuthed] = useState(() => getAuth());
+  // Use the new isAuthenticated() function from auth.ts
+  const [authed, setAuthed] = useState(() => isAuthenticated());
   const [theme, setTheme] = useState<"dark" | "light">("dark");
 
   useEffect(() => {
@@ -18,12 +19,11 @@ export default function App() {
   }, [theme]);
 
   function handleAuth() {
-    setAuth(true);
     setAuthed(true);
   }
 
   function handleLogout() {
-    setAuth(false);
+    clearToken(); // <-- Clear the JWT from memory
     setAuthed(false);
   }
 

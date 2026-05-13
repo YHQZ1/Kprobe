@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"strings"
@@ -26,6 +27,9 @@ func main() {
 	log.Println("kprobe api starting...")
 
 	apiToken := mustEnv("KPROBE_API_TOKEN")
+	apiUser := mustEnv("KPROBE_API_USER")
+	apiPass := mustEnv("KPROBE_API_PASS")
+	jwtSecret := mustEnv("KPROBE_JWT_SECRET")
 
 	chCfg := config.ClickHouseConfigFromEnv()
 
@@ -97,6 +101,28 @@ func main() {
 	}()
 	log.Println("broadcast consumer running")
 
+	mux := http.NewServeMux()
+	mux.Handle("/auth/login", auth.LoginHandler(apiUser, apiPass, jwtSecret))
+	mux.HandleFunc("/auth/options", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	httpSrv := &http.Server{
+		Addr:         ":8081",
+		Handler:      mux,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 5 * time.Second,
+	}
+
+	go func() {
+		log.Println("auth http server listening on :8081")
+		if err := httpSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Printf("auth http server error: %v", err)
+		}
+	}()
+
 	lis, err := net.Listen("tcp", ":8080")
 	if err != nil {
 		log.Fatalf("listen :8080: %v", err)
@@ -130,6 +156,11 @@ func main() {
 
 	log.Println("shutting down...")
 	serverCancel()
+
+	shutCtx, shutCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer shutCancel()
+	httpSrv.Shutdown(shutCtx)
+
 	srv.GracefulStop()
 	log.Println("api stopped")
 }
