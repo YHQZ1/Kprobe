@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/YHQZ1/kprobe/api/auth"
 	apiconsumer "github.com/YHQZ1/kprobe/api/consumer"
 	"github.com/YHQZ1/kprobe/api/handlers"
 	pb "github.com/YHQZ1/kprobe/api/proto"
@@ -24,6 +25,8 @@ func main() {
 	log.SetFlags(log.Ltime | log.Lmicroseconds)
 	log.Println("kprobe api starting...")
 
+	apiToken := mustEnv("KPROBE_API_TOKEN")
+
 	chCfg := config.ClickHouseConfigFromEnv()
 
 	chConn, err := config.NewClickHouseConn(chCfg)
@@ -32,12 +35,12 @@ func main() {
 	}
 	defer chConn.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	if err := chConn.Ping(ctx); err != nil {
-		cancel()
+	pingCtx, pingCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	if err := chConn.Ping(pingCtx); err != nil {
+		pingCancel()
 		log.Fatalf("clickhouse ping: %v", err)
 	}
-	cancel()
+	pingCancel()
 	log.Println("clickhouse connected")
 
 	neo4jCfg := config.Neo4jConfigFromEnv()
@@ -61,12 +64,12 @@ func main() {
 	}
 	defer chDB.Close()
 
-	pingCtx, pingCancel := context.WithTimeout(context.Background(), 5*time.Second)
-	if err := chDB.PingContext(pingCtx); err != nil {
-		pingCancel()
+	pingCtx2, pingCancel2 := context.WithTimeout(context.Background(), 5*time.Second)
+	if err := chDB.PingContext(pingCtx2); err != nil {
+		pingCancel2()
 		log.Fatalf("replay store ping: %v", err)
 	}
-	pingCancel()
+	pingCancel2()
 
 	replayCH := replaystore.NewClient(chDB)
 	log.Println("replay store connected")
@@ -99,10 +102,18 @@ func main() {
 		log.Fatalf("listen :8080: %v", err)
 	}
 
-	srv := grpc.NewServer()
+	srv := grpc.NewServer(
+		grpc.ChainUnaryInterceptor(auth.UnaryInterceptor(apiToken)),
+		grpc.ChainStreamInterceptor(auth.StreamInterceptor(apiToken)),
+	)
+
 	pb.RegisterKprobeServiceServer(srv, causalHandler)
 	pb.RegisterReplayServiceServer(srv, replayHandler)
-	reflection.Register(srv)
+
+	if os.Getenv("KPROBE_ENABLE_REFLECTION") == "true" {
+		reflection.Register(srv)
+		log.Println("grpc reflection enabled")
+	}
 
 	log.Println("grpc server listening on :8080")
 
