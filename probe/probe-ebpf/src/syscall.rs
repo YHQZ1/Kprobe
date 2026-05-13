@@ -51,7 +51,10 @@ fn try_syscall(ctx: TracePointContext, op: SyscallOp, dir: SyscallDir) -> Result
     let ret: i64 = match dir {
         SyscallDir::Enter => 0,
         SyscallDir::Exit => {
-            let raw: i64 = unsafe { ctx.read_at(48).map_err(|_| 0i64)? };
+            let raw: i64 = match unsafe { ctx.read_at(48) } {
+                Ok(v) => v,
+                Err(_) => 0i64,
+            };
             raw
         }
     };

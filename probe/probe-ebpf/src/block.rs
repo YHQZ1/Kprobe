@@ -29,8 +29,14 @@ fn try_block(ctx: TracePointContext, dir: BlockDir) -> Result<u32, u32> {
     let timestamp_ns = unsafe { bpf_ktime_get_ns() };
     let cpu = unsafe { bpf_get_smp_processor_id() };
 
-    let sector: u64 = unsafe { ctx.read_at(8).map_err(|_| 0u64)? };
-    let bytes: u64 = unsafe { ctx.read_at(16).map_err(|_| 0u64)? };
+    let sector: u64 = match unsafe { ctx.read_at(8) } {
+        Ok(v) => v,
+        Err(_) => 0u64,
+    };
+    let bytes: u64 = match unsafe { ctx.read_at(16) } {
+        Ok(v) => v,
+        Err(_) => 0u64,
+    };
     let op: u32 = unsafe { ctx.read_at(24).map_err(|_| 0u32)? };
 
     let event = BlockEvent {

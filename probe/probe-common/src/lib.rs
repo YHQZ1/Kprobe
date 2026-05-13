@@ -6,11 +6,11 @@ pub mod syscall;
 pub mod fault;
 pub mod block;
 
-pub use tcp::TcpEvent;
+pub use tcp::{TcpEvent, TcpEventType};
 pub use sched::SchedEvent;
-pub use syscall::{SyscallEvent, SyscallDir};
+pub use syscall::{SyscallDir, SyscallEvent, SyscallOp};
 pub use fault::PageFaultEvent;
-pub use block::BlockEvent;
+pub use block::{BlockDir, BlockEvent};
 
 #[cfg(feature = "user")]
 unsafe impl aya::Pod for TcpEvent {}
