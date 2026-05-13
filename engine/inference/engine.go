@@ -72,32 +72,26 @@ func (e *Engine) flush(ctx context.Context) {
 }
 
 func (e *Engine) processWindow(ctx context.Context, events []types.KernelEvent) error {
-	nodeIDs := make([]string, len(events))
-
-	for i, event := range events {
-		nodeIDs[i] = uuid.New().String()
-		event.EventID = nodeIDs[i]
-		if err := e.store.WriteNode(ctx, event); err != nil {
+	for i := range events {
+		events[i].EventID = uuid.New().String()
+		if err := e.store.WriteNode(ctx, events[i]); err != nil {
 			log.Printf("write node failed: %v", err)
 		}
 	}
 
 	for i := 0; i < len(events); i++ {
 		for j := i + 1; j < len(events); j++ {
-			a := events[i]
-			b := events[j]
-
-			causeType := inferCause(a, b)
+			causeType := inferCause(events[i], events[j])
 			if causeType == "" {
 				continue
 			}
 
 			latencyNs := uint64(0)
-			if b.TimestampNs > a.TimestampNs {
-				latencyNs = b.TimestampNs - a.TimestampNs
+			if events[j].TimestampNs > events[i].TimestampNs {
+				latencyNs = events[j].TimestampNs - events[i].TimestampNs
 			}
 
-			if err := e.store.WriteEdge(ctx, nodeIDs[i], nodeIDs[j], causeType, latencyNs, a.TransactionID, a.ServiceName); err != nil {
+			if err := e.store.WriteEdge(ctx, events[i].EventID, events[j].EventID, causeType, latencyNs, events[i].TransactionID, events[i].ServiceName); err != nil {
 				log.Printf("write edge failed: %v", err)
 			}
 		}
@@ -137,10 +131,6 @@ func eventPairToCause(from, to types.EventType) string {
 	switch {
 	case from == types.EventTypeTCPSend && to == types.EventTypeTCPRecv:
 		return "TCP_RTT"
-	case from == types.EventTypeTCPSend && to == types.EventTypeTCPRetransmit:
-		return "TCP_RETRANSMIT"
-	case from == types.EventTypeTCPRetransmit && to == types.EventTypeSysWrite:
-		return "NETWORK_DELAY_TO_SYSCALL"
 	case from == types.EventTypeSysRead && to == types.EventTypeSysWrite:
 		return "READ_TO_WRITE"
 	case from == types.EventTypeSysWrite && to == types.EventTypeSysRead:
@@ -160,7 +150,7 @@ func eventPairToCause(from, to types.EventType) string {
 	case from == to:
 		return "SEQUENTIAL"
 	default:
-		return "SEQUENTIAL"
+		return ""
 	}
 }
 
