@@ -2,13 +2,12 @@ module github.com/YHQZ1/kprobe/api
 
 go 1.24.1
 
-toolchain go1.24.1
-
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.23.0
 	github.com/YHQZ1/kprobe/replay v0.0.0
 	github.com/YHQZ1/kprobe/shared v0.0.0
 	github.com/neo4j/neo4j-go-driver/v5 v5.20.0
+	github.com/segmentio/kafka-go v0.4.47
 	google.golang.org/grpc v1.64.0
 	google.golang.org/protobuf v1.34.1
 )

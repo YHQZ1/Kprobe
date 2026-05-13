@@ -6,9 +6,11 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
+	apiconsumer "github.com/YHQZ1/kprobe/api/consumer"
 	"github.com/YHQZ1/kprobe/api/handlers"
 	pb "github.com/YHQZ1/kprobe/api/proto"
 	"github.com/YHQZ1/kprobe/api/stream"
@@ -73,6 +75,25 @@ func main() {
 	causalHandler := handlers.NewCausalHandler(neo4jDriver, chConn, hub)
 	replayHandler := handlers.NewReplayHandler(replayCH)
 
+	kafkaBrokers := strings.Split(mustEnv("KAFKA_BROKERS"), ",")
+	broadcastConsumer := apiconsumer.NewBroadcastConsumer(
+		kafkaBrokers,
+		"kernel.enriched",
+		"kprobe-api-stream",
+		hub,
+	)
+	defer broadcastConsumer.Close()
+
+	serverCtx, serverCancel := context.WithCancel(context.Background())
+	defer serverCancel()
+
+	go func() {
+		if err := broadcastConsumer.Consume(serverCtx); err != nil {
+			log.Printf("broadcast consumer: %v", err)
+		}
+	}()
+	log.Println("broadcast consumer running")
+
 	lis, err := net.Listen("tcp", ":8080")
 	if err != nil {
 		log.Fatalf("listen :8080: %v", err)
@@ -97,6 +118,15 @@ func main() {
 	<-sig
 
 	log.Println("shutting down...")
+	serverCancel()
 	srv.GracefulStop()
 	log.Println("api stopped")
+}
+
+func mustEnv(key string) string {
+	v := os.Getenv(key)
+	if v == "" {
+		log.Fatalf("required environment variable %q is not set", key)
+	}
+	return v
 }
