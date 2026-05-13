@@ -29,7 +29,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("clickhouse: %v", err)
 	}
-	defer chConn.Close()
 	log.Println("clickhouse connected")
 
 	neo4jCfg := config.Neo4jConfigFromEnv()
@@ -46,6 +45,7 @@ func main() {
 	log.Println("neo4j connected")
 
 	ch := store.NewClickHouseStore(chConn)
+	defer ch.Close()
 
 	enricher := enrich.NewEnricher()
 	engine := inference.NewEngine(neo)
@@ -54,12 +54,23 @@ func main() {
 	log.Println("causal engine running")
 
 	kafkaBrokers := strings.Split(mustEnv("KAFKA_BROKERS"), ",")
-	consumer := consumer.NewConsumer(kafkaBrokers, "kernel.enriched", "kprobe-engine")
-	defer consumer.Close()
+
+	otelConsumer := consumer.NewOTelConsumer(kafkaBrokers, "otel.spans", "kprobe-otel", enricher)
+	defer otelConsumer.Close()
+
+	go func() {
+		if err := otelConsumer.Consume(ctx); err != nil {
+			log.Printf("otel consumer: %v", err)
+		}
+	}()
+	log.Println("otel span consumer running")
+
+	eventConsumer := consumer.NewConsumer(kafkaBrokers, "kernel.enriched", "kprobe-engine")
+	defer eventConsumer.Close()
 	log.Printf("consuming from kernel.enriched (%s)", mustEnv("KAFKA_BROKERS"))
 
 	go func() {
-		if err := consumer.Consume(ctx, func(event types.KernelEvent) {
+		if err := eventConsumer.Consume(ctx, func(event types.KernelEvent) {
 			enriched := enricher.Process(event)
 			for _, ev := range enriched {
 				ch.InsertEvent(ctx, ev)

@@ -6,15 +6,7 @@ import (
 	"github.com/YHQZ1/kprobe/shared/types"
 )
 
-type Enricher struct {
-	mu sync.Mutex
-
-	syscallInFlight map[uint64]types.KernelEvent
-	blockInFlight   map[uint64]types.KernelEvent
-	otelSpans       []spanEntry
-}
-
-type spanEntry struct {
+type SpanEntry struct {
 	TraceID       string
 	SpanID        string
 	ServiceName   string
@@ -24,6 +16,13 @@ type spanEntry struct {
 	EndTimeNs     uint64
 }
 
+type Enricher struct {
+	mu              sync.Mutex
+	syscallInFlight map[uint64]types.KernelEvent
+	blockInFlight   map[uint64]types.KernelEvent
+	otelSpans       []SpanEntry
+}
+
 func NewEnricher() *Enricher {
 	return &Enricher{
 		syscallInFlight: make(map[uint64]types.KernelEvent),
@@ -31,7 +30,7 @@ func NewEnricher() *Enricher {
 	}
 }
 
-func (e *Enricher) AddSpan(s spanEntry) {
+func (e *Enricher) AddSpan(s SpanEntry) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.otelSpans = append(e.otelSpans, s)
