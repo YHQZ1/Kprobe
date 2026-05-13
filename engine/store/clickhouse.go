@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	"github.com/YHQZ1/kprobe/engine/metrics"
 	"github.com/YHQZ1/kprobe/shared/types"
 )
 
@@ -73,9 +74,13 @@ func (s *ClickHouseStore) flushNow(ctx context.Context) {
 	s.buf = make([]types.KernelEvent, 0, flushSize)
 	s.mu.Unlock()
 
+	metrics.BatchFlushSize.Observe(float64(len(batch)))
+
+	start := time.Now()
 	if err := s.writeBatch(ctx, batch); err != nil {
 		log.Printf("clickhouse flush error (dropped %d events): %v", len(batch), err)
 	}
+	metrics.BatchFlushDuration.Observe(time.Since(start).Seconds())
 }
 
 func (s *ClickHouseStore) writeBatch(ctx context.Context, events []types.KernelEvent) error {

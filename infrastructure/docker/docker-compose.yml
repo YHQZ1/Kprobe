@@ -116,6 +116,9 @@ services:
       - "3000:3000"
     environment:
       GF_AUTH_ANONYMOUS_ENABLED: "true"
+    volumes:
+      - ../observability/grafana/provisioning:/etc/grafana/provisioning
+      - ../observability/grafana/dashboards:/var/lib/grafana/dashboards
 
 volumes:
   kafka-data:

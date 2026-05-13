@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/YHQZ1/kprobe/engine/graph"
+	"github.com/YHQZ1/kprobe/engine/metrics"
 	"github.com/YHQZ1/kprobe/shared/types"
 	"github.com/google/uuid"
 )
@@ -40,6 +41,7 @@ func (e *Engine) Ingest(event types.KernelEvent) {
 	select {
 	case e.input <- event:
 	default:
+		metrics.EventsDropped.Inc()
 	}
 }
 
@@ -68,6 +70,8 @@ func (e *Engine) flush(ctx context.Context) {
 	events := make([]types.KernelEvent, len(e.window))
 	copy(events, e.window)
 	e.window = e.window[:0]
+
+	metrics.InferenceWindowSize.Observe(float64(len(events)))
 
 	if err := e.processWindow(ctx, events); err != nil {
 		log.Printf("error processing window: %v", err)

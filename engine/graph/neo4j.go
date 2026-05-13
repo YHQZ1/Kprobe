@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/YHQZ1/kprobe/engine/metrics"
 	"github.com/YHQZ1/kprobe/shared/types"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
@@ -25,6 +26,11 @@ func NewNeo4jStore(driver neo4j.DriverWithContext) (*Neo4jStore, error) {
 }
 
 func (s *Neo4jStore) WriteNode(ctx context.Context, event types.KernelEvent) error {
+	start := time.Now()
+	defer func() {
+		metrics.Neo4jWriteDuration.WithLabelValues("node").Observe(time.Since(start).Seconds())
+	}()
+
 	session := s.driver.NewSession(ctx, neo4j.SessionConfig{})
 	defer session.Close(ctx)
 
@@ -58,6 +64,11 @@ func (s *Neo4jStore) WriteNode(ctx context.Context, event types.KernelEvent) err
 }
 
 func (s *Neo4jStore) WriteEdge(ctx context.Context, fromID, toID, causeType string, latencyNs uint64, transactionID, serviceName string) error {
+	start := time.Now()
+	defer func() {
+		metrics.Neo4jWriteDuration.WithLabelValues("edge").Observe(time.Since(start).Seconds())
+	}()
+
 	session := s.driver.NewSession(ctx, neo4j.SessionConfig{})
 	defer session.Close(ctx)
 

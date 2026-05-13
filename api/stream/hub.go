@@ -3,6 +3,7 @@ package stream
 import (
 	"sync"
 
+	"github.com/YHQZ1/kprobe/api/metrics"
 	pb "github.com/YHQZ1/kprobe/api/proto"
 )
 
@@ -23,8 +24,8 @@ func (h *Hub) Broadcast(event *pb.KernelEventProto) {
 	for ch := range h.subscribers {
 		select {
 		case ch <- event:
+			metrics.BroadcastEventsTotal.Inc()
 		default:
-
 		}
 	}
 }
@@ -34,6 +35,7 @@ func (h *Hub) Subscribe() chan *pb.KernelEventProto {
 	h.mu.Lock()
 	h.subscribers[ch] = struct{}{}
 	h.mu.Unlock()
+	metrics.StreamSubscribers.Inc()
 	return ch
 }
 
@@ -41,5 +43,6 @@ func (h *Hub) Unsubscribe(ch chan *pb.KernelEventProto) {
 	h.mu.Lock()
 	delete(h.subscribers, ch)
 	h.mu.Unlock()
+	metrics.StreamSubscribers.Dec()
 	close(ch)
 }

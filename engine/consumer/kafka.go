@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log"
 
+	"github.com/YHQZ1/kprobe/engine/metrics"
 	"github.com/YHQZ1/kprobe/shared/types"
 	"github.com/segmentio/kafka-go"
 )
@@ -64,6 +65,7 @@ func (c *Consumer) Consume(ctx context.Context, handler Handler) error {
 			continue
 		}
 
+		metrics.EventsConsumed.WithLabelValues(string(event.EventType)).Inc()
 		handler(event)
 
 		if err := c.reader.CommitMessages(ctx, msg); err != nil {
@@ -73,6 +75,7 @@ func (c *Consumer) Consume(ctx context.Context, handler Handler) error {
 }
 
 func (c *Consumer) sendDLQ(ctx context.Context, value []byte, reason string) {
+	metrics.DLQTotal.WithLabelValues(reason).Inc()
 	err := c.dlqWriter.WriteMessages(ctx, kafka.Message{
 		Value: value,
 		Headers: []kafka.Header{

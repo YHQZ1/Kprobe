@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"strings"
@@ -15,6 +16,7 @@ import (
 	"github.com/YHQZ1/kprobe/engine/store"
 	"github.com/YHQZ1/kprobe/shared/config"
 	"github.com/YHQZ1/kprobe/shared/types"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func main() {
@@ -81,12 +83,31 @@ func main() {
 		}
 	}()
 
+	metricsMux := http.NewServeMux()
+	metricsMux.Handle("/metrics", promhttp.Handler())
+	metricsSrv := &http.Server{
+		Addr:    ":9091",
+		Handler: metricsMux,
+	}
+
+	go func() {
+		log.Println("metrics server listening on :9091")
+		if err := metricsSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Printf("metrics server error: %v", err)
+		}
+	}()
+
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 	<-sig
 
 	log.Println("shutting down...")
 	cancel()
+
+	shutCtx, shutCancel := context.WithCancel(context.Background())
+	defer shutCancel()
+	metricsSrv.Shutdown(shutCtx)
+
 	engine.Wait()
 	log.Println("engine stopped")
 }

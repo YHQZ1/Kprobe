@@ -14,10 +14,12 @@ import (
 	"github.com/YHQZ1/kprobe/api/auth"
 	apiconsumer "github.com/YHQZ1/kprobe/api/consumer"
 	"github.com/YHQZ1/kprobe/api/handlers"
+	apimetrics "github.com/YHQZ1/kprobe/api/metrics"
 	pb "github.com/YHQZ1/kprobe/api/proto"
 	"github.com/YHQZ1/kprobe/api/stream"
 	replaystore "github.com/YHQZ1/kprobe/replay/store"
 	"github.com/YHQZ1/kprobe/shared/config"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )
@@ -129,7 +131,10 @@ func main() {
 	}
 
 	srv := grpc.NewServer(
-		grpc.ChainUnaryInterceptor(auth.UnaryInterceptor(apiToken)),
+		grpc.ChainUnaryInterceptor(
+			auth.UnaryInterceptor(apiToken),
+			metricsUnaryInterceptor,
+		),
 		grpc.ChainStreamInterceptor(auth.StreamInterceptor(apiToken)),
 	)
 
@@ -150,6 +155,20 @@ func main() {
 		}
 	}()
 
+	metricsMux := http.NewServeMux()
+	metricsMux.Handle("/metrics", promhttp.Handler())
+	metricsSrv := &http.Server{
+		Addr:    ":9093",
+		Handler: metricsMux,
+	}
+
+	go func() {
+		log.Println("metrics server listening on :9093")
+		if err := metricsSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Printf("metrics server error: %v", err)
+		}
+	}()
+
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 	<-sig
@@ -161,6 +180,7 @@ func main() {
 	defer shutCancel()
 	httpSrv.Shutdown(shutCtx)
 
+	metricsSrv.Shutdown(shutCtx)
 	srv.GracefulStop()
 	log.Println("api stopped")
 }
@@ -171,4 +191,19 @@ func mustEnv(key string) string {
 		log.Fatalf("required environment variable %q is not set", key)
 	}
 	return v
+}
+
+func metricsUnaryInterceptor(
+	ctx context.Context,
+	req any,
+	info *grpc.UnaryServerInfo,
+	handler grpc.UnaryHandler,
+) (any, error) {
+	resp, err := handler(ctx, req)
+	code := "ok"
+	if err != nil {
+		code = "error"
+	}
+	apimetrics.GRPCRequestsTotal.WithLabelValues(info.FullMethod, code).Inc()
+	return resp, err
 }
