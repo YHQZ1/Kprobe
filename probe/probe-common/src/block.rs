@@ -4,30 +4,22 @@ use serde::{Deserialize, Serialize};
 #[repr(u32)]
 #[derive(Clone, Copy)]
 #[cfg_attr(feature = "user", derive(Serialize, Deserialize))]
-pub enum SyscallOp {
-    Read = 0,
-    Write = 1,
-}
-
-#[repr(u32)]
-#[derive(Clone, Copy)]
-#[cfg_attr(feature = "user", derive(Serialize, Deserialize))]
-pub enum SyscallDir {
-    Enter = 0,
-    Exit = 1,
+pub enum BlockDir {
+    Issue = 0,
+    Complete = 1,
 }
 
 #[repr(C)]
 #[derive(Clone, Copy)]
 #[cfg_attr(feature = "user", derive(Serialize, Deserialize))]
-pub struct SyscallEvent {
+pub struct BlockEvent {
     pub pid: u32,
     pub tid: u32,
     pub cpu: u32,
     pub timestamp_ns: u64,
-    pub op: SyscallOp,
-    pub dir: SyscallDir,
-    pub fd: u32,
+    pub dir: BlockDir,
+    pub sector: u64,
     pub bytes: u64,
-    pub ret: i64,
+    pub op: u32,
+    pub _pad: u32,
 }

@@ -1,6 +1,15 @@
 #[cfg(feature = "user")]
 use serde::{Deserialize, Serialize};
 
+#[repr(u32)]
+#[derive(Clone, Copy)]
+#[cfg_attr(feature = "user", derive(Serialize, Deserialize))]
+pub enum TcpEventType {
+    Send = 0,
+    Recv = 1,
+    Retransmit = 2,
+}
+
 #[repr(C)]
 #[derive(Clone, Copy)]
 #[cfg_attr(feature = "user", derive(Serialize, Deserialize))]
@@ -9,14 +18,7 @@ pub struct TcpEvent {
     pub tid: u32,
     pub cpu: u32,
     pub timestamp_ns: u64,
+    pub event_type: TcpEventType,
     pub data_len: u32,
-    pub event_type: EventType,
-}
-
-#[repr(u32)]
-#[derive(Clone, Copy)]
-#[cfg_attr(feature = "user", derive(Serialize, Deserialize))]
-pub enum EventType {
-    TcpSend = 0,
-    TcpRecv = 1,
+    pub _pad: u32,
 }

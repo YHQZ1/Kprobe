@@ -5,27 +5,25 @@ mod tcp;
 mod sched;
 mod syscall;
 mod fault;
+mod block;
 
 use aya_ebpf::macros::map;
 use aya_ebpf::maps::RingBuf;
 
 #[map]
-static EVENTS_SEND: RingBuf = RingBuf::with_byte_size(256 * 1024, 0);
+static EVENTS_TCP: RingBuf = RingBuf::with_byte_size(256 * 1024, 0);
 
 #[map]
-static EVENTS_RECV: RingBuf = RingBuf::with_byte_size(256 * 1024, 0);
+static EVENTS_SYSCALL: RingBuf = RingBuf::with_byte_size(256 * 1024, 0);
 
 #[map]
 static EVENTS_SCHED: RingBuf = RingBuf::with_byte_size(256 * 1024, 0);
 
 #[map]
-static EVENTS_WRITE: RingBuf = RingBuf::with_byte_size(256 * 1024, 0);
-
-#[map]
-static EVENTS_READ: RingBuf = RingBuf::with_byte_size(256 * 1024, 0);
-
-#[map]
 static EVENTS_PAGE_FAULT: RingBuf = RingBuf::with_byte_size(256 * 1024, 0);
+
+#[map]
+static EVENTS_BLOCK: RingBuf = RingBuf::with_byte_size(256 * 1024, 0);
 
 #[cfg(not(test))]
 #[panic_handler]

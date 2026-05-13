@@ -1,74 +1,74 @@
 use aya_ebpf::{
-    helpers::{bpf_get_current_pid_tgid, bpf_ktime_get_ns, bpf_get_smp_processor_id},
-    macros::kprobe,
-    programs::ProbeContext,
+    helpers::{bpf_get_current_pid_tgid, bpf_get_smp_processor_id, bpf_ktime_get_ns},
+    macros::tracepoint,
+    programs::TracePointContext,
 };
-use probe_common::{SyscallEvent, SyscallEventType};
-use crate::{EVENTS_WRITE, EVENTS_READ};
+use probe_common::{SyscallDir, SyscallEvent, SyscallOp};
+use crate::EVENTS_SYSCALL;
 
-#[kprobe]
-pub fn probe_sys_write(ctx: ProbeContext) -> u32 {
-    match try_sys_write(ctx) {
+#[tracepoint]
+pub fn probe_sys_enter_read(ctx: TracePointContext) -> u32 {
+    match try_syscall(ctx, SyscallOp::Read, SyscallDir::Enter) {
         Ok(ret) => ret,
         Err(ret) => ret,
     }
 }
 
-#[kprobe]
-pub fn probe_sys_read(ctx: ProbeContext) -> u32 {
-    match try_sys_read(ctx) {
+#[tracepoint]
+pub fn probe_sys_exit_read(ctx: TracePointContext) -> u32 {
+    match try_syscall(ctx, SyscallOp::Read, SyscallDir::Exit) {
         Ok(ret) => ret,
         Err(ret) => ret,
     }
 }
 
-fn try_sys_write(ctx: ProbeContext) -> Result<u32, u32> {
+#[tracepoint]
+pub fn probe_sys_enter_write(ctx: TracePointContext) -> u32 {
+    match try_syscall(ctx, SyscallOp::Write, SyscallDir::Enter) {
+        Ok(ret) => ret,
+        Err(ret) => ret,
+    }
+}
+
+#[tracepoint]
+pub fn probe_sys_exit_write(ctx: TracePointContext) -> u32 {
+    match try_syscall(ctx, SyscallOp::Write, SyscallDir::Exit) {
+        Ok(ret) => ret,
+        Err(ret) => ret,
+    }
+}
+
+fn try_syscall(ctx: TracePointContext, op: SyscallOp, dir: SyscallDir) -> Result<u32, u32> {
     let pid_tgid = bpf_get_current_pid_tgid();
     let pid = (pid_tgid >> 32) as u32;
     let tid = pid_tgid as u32;
     let timestamp_ns = unsafe { bpf_ktime_get_ns() };
     let cpu = unsafe { bpf_get_smp_processor_id() };
-    let fd: u32 = ctx.arg(0).unwrap_or(0);
-    let count: u64 = ctx.arg(2).unwrap_or(0);
+
+    let fd: u32 = unsafe { ctx.read_at(16).map_err(|_| 0u32)? };
+    let bytes: u64 = unsafe { ctx.read_at(32).map_err(|_| 0u32)? };
+
+    let ret: i64 = match dir {
+        SyscallDir::Enter => 0,
+        SyscallDir::Exit => {
+            let raw: i64 = unsafe { ctx.read_at(48).map_err(|_| 0i64)? };
+            raw
+        }
+    };
 
     let event = SyscallEvent {
         pid,
         tid,
         cpu,
         timestamp_ns,
+        op,
+        dir,
         fd,
-        count,
-        event_type: SyscallEventType::SysWrite,
+        bytes,
+        ret,
     };
 
-    if let Some(mut entry) = EVENTS_WRITE.reserve::<SyscallEvent>(0) {
-        unsafe { (*entry.as_mut_ptr()) = event };
-        entry.submit(0);
-    }
-
-    Ok(0)
-}
-
-fn try_sys_read(ctx: ProbeContext) -> Result<u32, u32> {
-    let pid_tgid = bpf_get_current_pid_tgid();
-    let pid = (pid_tgid >> 32) as u32;
-    let tid = pid_tgid as u32;
-    let timestamp_ns = unsafe { bpf_ktime_get_ns() };
-    let cpu = unsafe { bpf_get_smp_processor_id() };
-    let fd: u32 = ctx.arg(0).unwrap_or(0);
-    let count: u64 = ctx.arg(2).unwrap_or(0);
-
-    let event = SyscallEvent {
-        pid,
-        tid,
-        cpu,
-        timestamp_ns,
-        fd,
-        count,
-        event_type: SyscallEventType::SysRead,
-    };
-
-    if let Some(mut entry) = EVENTS_READ.reserve::<SyscallEvent>(0) {
+    if let Some(mut entry) = EVENTS_SYSCALL.reserve::<SyscallEvent>(0) {
         unsafe { (*entry.as_mut_ptr()) = event };
         entry.submit(0);
     }
