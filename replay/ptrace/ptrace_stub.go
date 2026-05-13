@@ -8,11 +8,9 @@ import (
 	"github.com/YHQZ1/kprobe/replay/store"
 )
 
-// Tracer is a stub on non-Linux platforms.
-// ptrace syscall interception requires Linux — use Codespaces or a Linux VM.
 type Tracer struct{}
 
-func New(binary string, args []string, events []store.ReplayEvent) *Tracer {
+func New(binary string, args []string, events []store.Event) *Tracer {
 	return &Tracer{}
 }
 

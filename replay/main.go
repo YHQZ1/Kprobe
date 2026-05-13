@@ -15,13 +15,11 @@ import (
 	"github.com/YHQZ1/kprobe/replay/store"
 )
 
-// clickhouseDSN reads the ClickHouse DSN from the environment, falling back
-// to the local Docker Compose address for development.
-func clickhouseDSN() string {
-	if dsn := os.Getenv("CLICKHOUSE_DSN"); dsn != "" {
-		return dsn
+func env(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
 	}
-	return "clickhouse://localhost:9000/kprobe?username=default&password="
+	return fallback
 }
 
 func main() {
@@ -30,26 +28,20 @@ func main() {
 
 	log.Println("kprobe replay engine starting...")
 
-	// --- ClickHouse store ---
-	ch, err := store.New(clickhouseDSN())
+	dsn := env("CLICKHOUSE_DSN", "clickhouse://localhost:9000/kprobe?username=kprobe&password=kprobe")
+	ch, err := store.NewClient(dsn)
 	if err != nil {
-		log.Fatalf("failed to connect to ClickHouse: %v", err)
+		log.Fatalf("clickhouse: %v", err)
 	}
 	defer ch.Close()
-	log.Println("ClickHouse connected")
+	log.Println("clickhouse connected")
 
-	// --- Session manager ---
 	mgr := session.NewManager(ch)
 	log.Println("session manager ready")
 
-	// --- Graceful shutdown ---
-	ctx, stop := signal.NotifyContext(context.Background(),
-		syscall.SIGINT, syscall.SIGTERM)
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	// Development smoke test: if REPLAY_TRANSACTION_ID is set, run a single
-	// replay session immediately so you can verify the pipeline end to end
-	// without needing the full gRPC API wired up.
 	if txID := os.Getenv("REPLAY_TRANSACTION_ID"); txID != "" {
 		log.Printf("smoke test: replaying transaction %s", txID)
 		if err := smokeTest(ctx, mgr, txID); err != nil {
@@ -58,33 +50,15 @@ func main() {
 		return
 	}
 
-	// TODO(phase5): register gRPC handlers so the API server can create and
-	// control replay sessions over the wire. The session.Manager and
-	// injector.Injector are the two dependencies the handlers need.
-	//
-	// Example handler shape:
-	//   func (h *ReplayHandler) StartSession(ctx, req) (*ReplaySession, error) {
-	//       cfg := &config.SessionConfig{TransactionID: req.TransactionId, ...}
-	//       inj := injector.New(cfg)
-	//       events, _ := h.store.EventsByTransaction(ctx, cfg.TransactionID)
-	//       modified, _ := inj.Apply(events)
-	//       sess, _ := h.mgr.Create(ctx, cfg, onEvent)
-	//       _ = modified // pass to ptrace.New(binary, args, modified)
-	//       return sess, nil
-	//   }
-
-	log.Println("replay engine ready — waiting for sessions")
+	log.Println("replay engine ready")
 	<-ctx.Done()
 	log.Println("shutting down")
 }
 
-// smokeTest creates a single replay session for the given transaction ID,
-// runs it to completion, and prints a summary. Used during development to
-// verify the store → session → injector pipeline without a real gRPC client.
 func smokeTest(ctx context.Context, mgr *session.Manager, txID string) error {
 	cfg := &config.SessionConfig{
 		TransactionID:     txID,
-		SpeedFactor:       10.0, // run at 10x speed in the smoke test
+		SpeedFactor:       10.0,
 		LatencyMultiplier: 1.0,
 	}
 
@@ -92,10 +66,10 @@ func smokeTest(ctx context.Context, mgr *session.Manager, txID string) error {
 	log.Printf("smoke test: %s", inj.Summary())
 
 	var count int
-	sess, err := mgr.Create(ctx, cfg, func(event store.ReplayEvent, index int) {
+	sess, err := mgr.Create(ctx, cfg, func(event store.Event, index int) {
 		count++
 		if index < 5 || index%100 == 0 {
-			log.Printf("  [%4d] ts=%d pid=%d type=%d svc=%s tx=%s",
+			log.Printf("  [%4d] ts=%d pid=%d type=%s svc=%s tx=%s",
 				index,
 				event.TimestampNs,
 				event.PID,
@@ -115,7 +89,6 @@ func smokeTest(ctx context.Context, mgr *session.Manager, txID string) error {
 		return fmt.Errorf("play: %w", err)
 	}
 
-	// Wait for completion or context cancellation.
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
 

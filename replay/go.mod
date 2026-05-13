@@ -3,7 +3,7 @@ module github.com/YHQZ1/kprobe/replay
 go 1.22
 
 require (
-	github.com/ClickHouse/clickhouse-go/v2 v2.23.2
+	github.com/ClickHouse/clickhouse-go/v2 v2.23.0
 	github.com/YHQZ1/kprobe/shared v0.0.0
 )
 
@@ -18,7 +18,7 @@ require (
 	github.com/pierrec/lz4/v4 v4.1.21 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/segmentio/asm v1.2.0 // indirect
-	github.com/shopspring/decimal v1.4.0 // indirect
+	github.com/shopspring/decimal v1.3.1 // indirect
 	go.opentelemetry.io/otel v1.24.0 // indirect
 	go.opentelemetry.io/otel/trace v1.24.0 // indirect
 	golang.org/x/sys v0.18.0 // indirect
