@@ -1,92 +1,32 @@
-[sources.kafka_tcp]
+[sources.kernel_raw]
 type = "kafka"
 bootstrap_servers = "localhost:9092"
-topics = ["kernel.tcp"]
-group_id = "vector-tcp"
-auto_offset_reset = "latest"
-
-[sources.kafka_sched]
-type = "kafka"
-bootstrap_servers = "localhost:9092"
-topics = ["kernel.sched"]
-group_id = "vector-sched"
-auto_offset_reset = "latest"
-
-[sources.kafka_syscall]
-type = "kafka"
-bootstrap_servers = "localhost:9092"
-topics = ["kernel.syscall"]
-group_id = "vector-syscall"
-auto_offset_reset = "latest"
-
-[sources.kafka_fault]
-type = "kafka"
-bootstrap_servers = "localhost:9092"
-topics = ["kernel.fault"]
-group_id = "vector-fault"
+topics = ["kernel.raw"]
+group_id = "vector-kprobe"
 auto_offset_reset = "latest"
 
 [sources.otel_traces]
 type = "opentelemetry"
 grpc.address = "0.0.0.0:4317"
 
-# Parse raw kafka messages as JSON
-[transforms.parse_tcp]
+[transforms.parse_raw]
 type = "remap"
-inputs = ["kafka_tcp"]
+inputs = ["kernel_raw"]
 source = '''
 . = parse_json!(.message)
-.source_topic = "kernel.tcp"
-'''
-
-[transforms.parse_sched]
-type = "remap"
-inputs = ["kafka_sched"]
-source = '''
-. = parse_json!(.message)
-.source_topic = "kernel.sched"
-'''
-
-[transforms.parse_syscall]
-type = "remap"
-inputs = ["kafka_syscall"]
-source = '''
-. = parse_json!(.message)
-.source_topic = "kernel.syscall"
-'''
-
-[transforms.parse_fault]
-type = "remap"
-inputs = ["kafka_fault"]
-source = '''
-. = parse_json!(.message)
-.source_topic = "kernel.fault"
-'''
-
-# Merge all parsed events into one stream
-[transforms.all_events]
-type = "merge"
-inputs = ["parse_tcp", "parse_sched", "parse_syscall", "parse_fault"]
-
-# Enrich with OTel trace context by matching PID
-[transforms.enrich_with_otel]
-type = "remap"
-inputs = ["all_events"]
-source = '''
-# Tag with ingestion timestamp
 .ingested_at = now()
-
-# Default trace fields — will be overwritten if OTel match found
-.trace_id = "unknown"
-.span_id = "unknown"
-.service_name = "unknown"
-.transaction_id = "unknown"
 '''
 
-# Write enriched events to ClickHouse
+[transforms.forward_to_clickhouse]
+type = "remap"
+inputs = ["parse_raw"]
+source = '''
+. = parse_raw
+'''
+
 [sinks.clickhouse]
 type = "clickhouse"
-inputs = ["enrich_with_otel"]
+inputs = ["forward_to_clickhouse"]
 endpoint = "http://localhost:8123"
 database = "kprobe"
 table = "kernel_events"
@@ -98,13 +38,19 @@ auth.password = "kprobe"
 [sinks.clickhouse.encoding]
 timestamp_format = "unix"
 
-# Publish enriched events back to Kafka for Go causal engine
 [sinks.kafka_enriched]
 type = "kafka"
-inputs = ["enrich_with_otel"]
+inputs = ["parse_raw"]
 bootstrap_servers = "localhost:9092"
 topic = "kernel.enriched"
 compression = "none"
 
 [sinks.kafka_enriched.encoding]
+codec = "json"
+
+[sinks.otel_logs]
+type = "console"
+inputs = ["otel_traces"]
+
+[sinks.otel_logs.encoding]
 codec = "json"
