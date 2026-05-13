@@ -62,9 +62,7 @@ func main() {
 		if err := consumer.Consume(ctx, func(event types.KernelEvent) {
 			enriched := enricher.Process(event)
 			for _, ev := range enriched {
-				if err := ch.InsertEvent(ctx, ev); err != nil {
-					log.Printf("clickhouse insert: %v", err)
-				}
+				ch.InsertEvent(ctx, ev)
 				engine.Ingest(ev)
 			}
 		}); err != nil {
