@@ -7,11 +7,12 @@
 package proto
 
 import (
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
+
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (
@@ -30,6 +31,10 @@ type KernelEventProto struct {
 	TransactionId string                 `protobuf:"bytes,5,opt,name=transaction_id,json=transactionId,proto3" json:"transaction_id,omitempty"`
 	ServiceName   string                 `protobuf:"bytes,6,opt,name=service_name,json=serviceName,proto3" json:"service_name,omitempty"`
 	TraceId       string                 `protobuf:"bytes,7,opt,name=trace_id,json=traceId,proto3" json:"trace_id,omitempty"`
+	DurationNs    uint64                 `protobuf:"varint,8,opt,name=duration_ns,json=durationNs,proto3" json:"duration_ns,omitempty"`
+	Tid           uint32                 `protobuf:"varint,9,opt,name=tid,proto3" json:"tid,omitempty"`
+	Cpu           uint32                 `protobuf:"varint,10,opt,name=cpu,proto3" json:"cpu,omitempty"`
+	SpanId        string                 `protobuf:"bytes,11,opt,name=span_id,json=spanId,proto3" json:"span_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -109,6 +114,34 @@ func (x *KernelEventProto) GetServiceName() string {
 func (x *KernelEventProto) GetTraceId() string {
 	if x != nil {
 		return x.TraceId
+	}
+	return ""
+}
+
+func (x *KernelEventProto) GetDurationNs() uint64 {
+	if x != nil {
+		return x.DurationNs
+	}
+	return 0
+}
+
+func (x *KernelEventProto) GetTid() uint32 {
+	if x != nil {
+		return x.Tid
+	}
+	return 0
+}
+
+func (x *KernelEventProto) GetCpu() uint32 {
+	if x != nil {
+		return x.Cpu
+	}
+	return 0
+}
+
+func (x *KernelEventProto) GetSpanId() string {
+	if x != nil {
+		return x.SpanId
 	}
 	return ""
 }

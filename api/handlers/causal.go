@@ -102,7 +102,9 @@ func (h *CausalHandler) QueryEvents(ctx context.Context, req *pb.QueryEventsRequ
 	}
 
 	rows, err := h.ch.Query(ctx, `
-		SELECT event_id, event_type, timestamp_ns, pid, trace_id, service_name, transaction_id
+		SELECT event_id, event_type, timestamp_ns, pid, tid, cpu,
+		       trace_id, span_id, service_name, transaction_id,
+		       duration_ns
 		FROM kprobe.kernel_events
 		WHERE transaction_id = ?
 		ORDER BY timestamp_ns ASC
@@ -117,7 +119,9 @@ func (h *CausalHandler) QueryEvents(ctx context.Context, req *pb.QueryEventsRequ
 		var e pb.KernelEventProto
 		if err := rows.Scan(
 			&e.EventId, &e.EventType, &e.TimestampNs, &e.Pid,
-			&e.TraceId, &e.ServiceName, &e.TransactionId,
+			&e.Tid, &e.Cpu,
+			&e.TraceId, &e.SpanId, &e.ServiceName, &e.TransactionId,
+			&e.DurationNs,
 		); err != nil {
 			return nil, status.Errorf(codes.Internal, "scan failed: %v", err)
 		}
@@ -133,7 +137,9 @@ func (h *CausalHandler) QueryTimeRange(ctx context.Context, req *pb.QueryTimeRan
 	}
 
 	rows, err := h.ch.Query(ctx, `
-		SELECT event_id, event_type, timestamp_ns, pid, trace_id, service_name, transaction_id
+		SELECT event_id, event_type, timestamp_ns, pid, tid, cpu,
+		       trace_id, span_id, service_name, transaction_id,
+		       duration_ns
 		FROM kprobe.kernel_events
 		WHERE timestamp_ns BETWEEN ? AND ?
 		ORDER BY timestamp_ns ASC
@@ -148,7 +154,9 @@ func (h *CausalHandler) QueryTimeRange(ctx context.Context, req *pb.QueryTimeRan
 		var e pb.KernelEventProto
 		if err := rows.Scan(
 			&e.EventId, &e.EventType, &e.TimestampNs, &e.Pid,
-			&e.TraceId, &e.ServiceName, &e.TransactionId,
+			&e.Tid, &e.Cpu,
+			&e.TraceId, &e.SpanId, &e.ServiceName, &e.TransactionId,
+			&e.DurationNs,
 		); err != nil {
 			return nil, status.Errorf(codes.Internal, "scan failed: %v", err)
 		}

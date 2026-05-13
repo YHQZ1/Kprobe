@@ -10,6 +10,10 @@ message KernelEventProto {
   string  transaction_id = 5;
   string  service_name   = 6;
   string  trace_id       = 7;
+  uint64  duration_ns    = 8;
+  uint32  tid            = 9;
+  uint32  cpu            = 10;
+  string  span_id        = 11;
 }
 
 message CausalEdgeProto {
