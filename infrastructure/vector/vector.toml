@@ -17,27 +17,6 @@ source = '''
 .ingested_at = now()
 '''
 
-[transforms.forward_to_clickhouse]
-type = "remap"
-inputs = ["parse_raw"]
-source = '''
-. = parse_raw
-'''
-
-[sinks.clickhouse]
-type = "clickhouse"
-inputs = ["forward_to_clickhouse"]
-endpoint = "http://localhost:8123"
-database = "kprobe"
-table = "kernel_events"
-compression = "gzip"
-auth.strategy = "basic"
-auth.user = "kprobe"
-auth.password = "kprobe"
-
-[sinks.clickhouse.encoding]
-timestamp_format = "unix"
-
 [sinks.kafka_enriched]
 type = "kafka"
 inputs = ["parse_raw"]
@@ -48,9 +27,12 @@ compression = "none"
 [sinks.kafka_enriched.encoding]
 codec = "json"
 
-[sinks.otel_logs]
-type = "console"
+[sinks.kafka_otel_spans]
+type = "kafka"
 inputs = ["otel_traces"]
+bootstrap_servers = "localhost:9092"
+topic = "otel.spans"
+compression = "none"
 
-[sinks.otel_logs.encoding]
+[sinks.kafka_otel_spans.encoding]
 codec = "json"
