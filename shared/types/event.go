@@ -5,13 +5,14 @@ import "time"
 type EventType string
 
 const (
-	EventTypeTCPSend     EventType = "tcp_send"
-	EventTypeTCPRecv     EventType = "tcp_recv"
-	EventTypeSysRead     EventType = "sys_read"
-	EventTypeSysWrite    EventType = "sys_write"
-	EventTypeSchedSwitch EventType = "sched_switch"
-	EventTypePageFault   EventType = "page_fault"
-	EventTypeBlockIO     EventType = "block_io"
+	EventTypeTCPSend       EventType = "tcp_send"
+	EventTypeTCPRecv       EventType = "tcp_recv"
+	EventTypeTCPRetransmit EventType = "tcp_retransmit"
+	EventTypeSysRead       EventType = "sys_read"
+	EventTypeSysWrite      EventType = "sys_write"
+	EventTypeSchedSwitch   EventType = "sched_switch"
+	EventTypePageFault     EventType = "page_fault"
+	EventTypeBlockIO       EventType = "block_io"
 )
 
 func (e EventType) Valid() bool {
