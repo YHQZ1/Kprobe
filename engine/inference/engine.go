@@ -80,7 +80,9 @@ func (e *Engine) flush(ctx context.Context) {
 
 func (e *Engine) processWindow(ctx context.Context, events []types.KernelEvent) error {
 	for i := range events {
-		events[i].EventID = uuid.New().String()
+		if events[i].EventID == "" {
+			events[i].EventID = uuid.New().String()
+		}
 	}
 
 	if err := e.store.WriteNodesBatch(ctx, events); err != nil {

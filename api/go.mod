@@ -2,6 +2,8 @@ module github.com/YHQZ1/kprobe/api
 
 go 1.24.1
 
+toolchain go1.24.1
+
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.23.0
 	github.com/YHQZ1/kprobe/replay v0.0.0

@@ -16,6 +16,7 @@ import (
 	"github.com/YHQZ1/kprobe/engine/store"
 	"github.com/YHQZ1/kprobe/shared/config"
 	"github.com/YHQZ1/kprobe/shared/types"
+	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -74,9 +75,10 @@ func main() {
 	go func() {
 		if err := eventConsumer.Consume(ctx, func(event types.KernelEvent) {
 			enriched := enricher.Process(event)
-			for _, ev := range enriched {
-				ch.InsertEvent(ctx, ev)
-				engine.Ingest(ev)
+			for i := range enriched {
+				enriched[i].EventID = uuid.New().String()
+				ch.InsertEvent(ctx, enriched[i])
+				engine.Ingest(enriched[i])
 			}
 		}); err != nil {
 			log.Printf("kafka consumer: %v", err)

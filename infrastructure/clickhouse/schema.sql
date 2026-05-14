@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS kprobe.kernel_events
     pid             UInt32,
     tid             UInt32,
     cpu             UInt32,
+    cgroup_id       UInt64,
 
     trace_id        String,
     span_id         String,

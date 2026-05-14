@@ -32,7 +32,7 @@ func NewBroadcastConsumer(brokers []string, topic string, groupID string, hub Hu
 
 func (c *BroadcastConsumer) Consume(ctx context.Context) error {
 	for {
-		msg, err := c.reader.ReadMessage(ctx)
+		msg, err := c.reader.FetchMessage(ctx)
 		if err != nil {
 			if ctx.Err() != nil {
 				return nil
@@ -51,11 +51,19 @@ func (c *BroadcastConsumer) Consume(ctx context.Context) error {
 			EventId:       event.EventID,
 			TimestampNs:   event.TimestampNs,
 			Pid:           event.PID,
+			Tid:           event.TID,
+			Cpu:           event.CPU,
 			EventType:     string(event.EventType),
 			TransactionId: event.TransactionID,
 			ServiceName:   event.ServiceName,
 			TraceId:       event.TraceID,
+			SpanId:        event.SpanID,
+			DurationNs:    event.DurationNs,
 		})
+
+		if err := c.reader.CommitMessages(ctx, msg); err != nil {
+			log.Printf("broadcast commit error: %v", err)
+		}
 	}
 }
 

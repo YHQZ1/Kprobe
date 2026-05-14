@@ -181,6 +181,15 @@ func (s *Session) Stop() {
 		s.cancelFn = nil
 	}
 	s.state = StateReady
+}
+
+func (s *Session) Reset() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.state == StatePlaying {
+		return
+	}
 	s.cursor = 0
 }
 

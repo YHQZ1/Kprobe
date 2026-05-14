@@ -36,7 +36,7 @@ type inflight struct {
 }
 
 type Enricher struct {
-	mu              sync.RWMutex
+	mu              sync.Mutex
 	syscallInFlight map[pairKey]inflight
 	blockInFlight   map[pairKey]inflight
 	otelSpans       map[uint32][]SpanEntry

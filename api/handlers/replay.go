@@ -97,12 +97,14 @@ func (h *ReplayHandler) Control(ctx context.Context, req *pb.ReplayControlReques
 		sess.Pause()
 	case "stop":
 		sess.Stop()
+	case "reset":
+		sess.Reset()
 	case "seek":
 		if err := sess.Seek(int(req.SeekIndex)); err != nil {
 			return nil, status.Errorf(codes.InvalidArgument, "seek: %v", err)
 		}
 	default:
-		return nil, status.Errorf(codes.InvalidArgument, "unknown command %q — valid: play, pause, stop, seek", req.Command)
+		return nil, status.Errorf(codes.InvalidArgument, "unknown command %q — valid: play, pause, stop, reset, seek", req.Command)
 	}
 
 	return &pb.ReplayControlResponse{
