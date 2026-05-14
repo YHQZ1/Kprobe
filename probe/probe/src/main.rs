@@ -1,5 +1,5 @@
 use aya::{
-    maps::{Array, RingBuf},
+    maps::{Array, AsyncRingBuf},
     programs::{KProbe, TracePoint},
     Ebpf,
 };
@@ -91,30 +91,27 @@ async fn main() -> anyhow::Result<()> {
 
     info!("11 probes attached");
 
-    let tcp_map = ebpf.take_map("EVENTS_TCP").unwrap();
-    let mut tcp_buf = RingBuf::try_from(tcp_map)?;
-
-    let syscall_map = ebpf.take_map("EVENTS_SYSCALL").unwrap();
-    let mut syscall_buf = RingBuf::try_from(syscall_map)?;
-
-    let sched_map = ebpf.take_map("EVENTS_SCHED").unwrap();
-    let mut sched_buf = RingBuf::try_from(sched_map)?;
-
-    let fault_map = ebpf.take_map("EVENTS_PAGE_FAULT").unwrap();
-    let mut fault_buf = RingBuf::try_from(fault_map)?;
-
-    let block_map = ebpf.take_map("EVENTS_BLOCK").unwrap();
-    let mut block_buf = RingBuf::try_from(block_map)?;
+    let tcp_buf = AsyncRingBuf::try_from(ebpf.take_map("EVENTS_TCP").unwrap())?;
+    let syscall_buf = AsyncRingBuf::try_from(ebpf.take_map("EVENTS_SYSCALL").unwrap())?;
+    let sched_buf = AsyncRingBuf::try_from(ebpf.take_map("EVENTS_SCHED").unwrap())?;
+    let fault_buf = AsyncRingBuf::try_from(ebpf.take_map("EVENTS_PAGE_FAULT").unwrap())?;
+    let block_buf = AsyncRingBuf::try_from(ebpf.take_map("EVENTS_BLOCK").unwrap())?;
 
     let drop_map = ebpf.map("DROP_COUNTERS").unwrap();
     let drop_counters: Array<_, u64> = Array::try_from(drop_map)?;
+
+    tokio::spawn(publisher::drain_tcp(tcp_buf, producer.clone()));
+    tokio::spawn(publisher::drain_syscall(syscall_buf, producer.clone()));
+    tokio::spawn(publisher::drain_sched(sched_buf, producer.clone()));
+    tokio::spawn(publisher::drain_page_fault(fault_buf, producer.clone()));
+    tokio::spawn(publisher::drain_block(block_buf, producer.clone()));
 
     let ctrl_c = signal::ctrl_c();
     tokio::pin!(ctrl_c);
 
     let map_names = ["TCP", "SYSCALL", "SCHED", "PAGE_FAULT", "BLOCK"];
     let mut last_drops = [0u64; 5];
-    let mut tick: u32 = 0;
+    let mut interval = tokio::time::interval(std::time::Duration::from_secs(5));
 
     loop {
         tokio::select! {
@@ -122,27 +119,17 @@ async fn main() -> anyhow::Result<()> {
                 info!("shutting down...");
                 break;
             }
-            else => {
-                publisher::drain_tcp(&mut tcp_buf, &producer).await;
-                publisher::drain_syscall(&mut syscall_buf, &producer).await;
-                publisher::drain_sched(&mut sched_buf, &producer).await;
-                publisher::drain_page_fault(&mut fault_buf, &producer).await;
-                publisher::drain_block(&mut block_buf, &producer).await;
-                tokio::time::sleep(std::time::Duration::from_millis(10)).await;
-
-                tick += 1;
-                if tick % 500 == 0 {
-                    for i in 0..5u32 {
-                        if let Ok(count) = drop_counters.get(&i, 0) {
-                            let prev = last_drops[i as usize];
-                            if count > prev {
-                                warn!(
-                                    "ring buffer EVENTS_{} dropped {} events in last 5s",
-                                    map_names[i as usize],
-                                    count - prev
-                                );
-                                last_drops[i as usize] = count;
-                            }
+            _ = interval.tick() => {
+                for i in 0..5u32 {
+                    if let Ok(count) = drop_counters.get(&i, 0) {
+                        let prev = last_drops[i as usize];
+                        if count > prev {
+                            warn!(
+                                "ring buffer EVENTS_{} dropped {} events in last 5s",
+                                map_names[i as usize],
+                                count - prev
+                            );
+                            last_drops[i as usize] = count;
                         }
                     }
                 }

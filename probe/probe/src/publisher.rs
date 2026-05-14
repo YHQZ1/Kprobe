@@ -1,4 +1,4 @@
-use aya::maps::RingBuf;
+use aya::maps::AsyncRingBuf;
 use log::{info, warn};
 use probe_common::{
     PageFaultEvent, SchedEvent, SyscallDir, SyscallOp, TcpEventType, BlockEvent,
@@ -7,8 +7,8 @@ use probe_common::{
 use rdkafka::producer::{FutureProducer, FutureRecord};
 use std::time::Duration;
 
-pub async fn drain_tcp(buf: &mut RingBuf<aya::maps::MapData>, producer: &FutureProducer) {
-    while let Some(item) = buf.next() {
+pub async fn drain_tcp(mut buf: AsyncRingBuf<aya::maps::MapData>, producer: FutureProducer) {
+    while let Some(item) = buf.next().await {
         let event = unsafe { &*(item.as_ptr() as *const TcpEvent) };
         let event_type = match event.event_type {
             TcpEventType::Send => "tcp_send",
@@ -43,8 +43,8 @@ pub async fn drain_tcp(buf: &mut RingBuf<aya::maps::MapData>, producer: &FutureP
     }
 }
 
-pub async fn drain_sched(buf: &mut RingBuf<aya::maps::MapData>, producer: &FutureProducer) {
-    while let Some(item) = buf.next() {
+pub async fn drain_sched(mut buf: AsyncRingBuf<aya::maps::MapData>, producer: FutureProducer) {
+    while let Some(item) = buf.next().await {
         let event = unsafe { &*(item.as_ptr() as *const SchedEvent) };
         let payload = serde_json::json!({
             "event_id": "",
@@ -73,8 +73,8 @@ pub async fn drain_sched(buf: &mut RingBuf<aya::maps::MapData>, producer: &Futur
     }
 }
 
-pub async fn drain_syscall(buf: &mut RingBuf<aya::maps::MapData>, producer: &FutureProducer) {
-    while let Some(item) = buf.next() {
+pub async fn drain_syscall(mut buf: AsyncRingBuf<aya::maps::MapData>, producer: FutureProducer) {
+    while let Some(item) = buf.next().await {
         let event = unsafe { &*(item.as_ptr() as *const SyscallEvent) };
         let event_type = match event.op {
             SyscallOp::Read => "sys_read",
@@ -112,8 +112,8 @@ pub async fn drain_syscall(buf: &mut RingBuf<aya::maps::MapData>, producer: &Fut
     }
 }
 
-pub async fn drain_page_fault(buf: &mut RingBuf<aya::maps::MapData>, producer: &FutureProducer) {
-    while let Some(item) = buf.next() {
+pub async fn drain_page_fault(mut buf: AsyncRingBuf<aya::maps::MapData>, producer: FutureProducer) {
+    while let Some(item) = buf.next().await {
         let event = unsafe { &*(item.as_ptr() as *const PageFaultEvent) };
         let payload = serde_json::json!({
             "event_id": "",
@@ -144,8 +144,8 @@ pub async fn drain_page_fault(buf: &mut RingBuf<aya::maps::MapData>, producer: &
     }
 }
 
-pub async fn drain_block(buf: &mut RingBuf<aya::maps::MapData>, producer: &FutureProducer) {
-    while let Some(item) = buf.next() {
+pub async fn drain_block(mut buf: AsyncRingBuf<aya::maps::MapData>, producer: FutureProducer) {
+    while let Some(item) = buf.next().await {
         let event = unsafe { &*(item.as_ptr() as *const BlockEvent) };
         let payload = serde_json::json!({
             "event_id": "",
