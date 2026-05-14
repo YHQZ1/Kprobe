@@ -107,7 +107,7 @@ func (s *ClickHouseStore) executeFlush() {
 func (s *ClickHouseStore) writeBatch(ctx context.Context, events []types.KernelEvent) error {
 	b, err := s.conn.PrepareBatch(ctx, `
     INSERT INTO kprobe.kernel_events
-        (event_id, event_type, timestamp_ns, pid, tid, cpu,
+        (event_id, event_type, timestamp_ns, pid, tid, cpu, cgroup_id,
          trace_id, span_id, service_name, transaction_id,
          duration_ns, return_value, payload)
 	`)
@@ -129,6 +129,7 @@ func (s *ClickHouseStore) writeBatch(ctx context.Context, events []types.KernelE
 			event.PID,
 			event.TID,
 			event.CPU,
+			event.CgroupID,
 			event.TraceID,
 			event.SpanID,
 			event.ServiceName,

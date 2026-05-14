@@ -239,6 +239,9 @@ func eventPairToCause(from, to types.EventType, crossThread bool) string {
 func crossProcCause(prior, ev types.KernelEvent) string {
 	switch prior.EventType {
 	case types.EventTypeSchedSwitch:
+		if prior.SchedNextPID != ev.PID || prior.CPU != ev.CPU {
+			return ""
+		}
 		return "SCHED_DELAY"
 	case types.EventTypePageFault:
 		return "MEMORY_PRESSURE"

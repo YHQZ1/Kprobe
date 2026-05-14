@@ -49,20 +49,18 @@ pub async fn drain_sched(buf: &mut RingBuf<aya::maps::MapData>, producer: &Futur
             "event_id": "",
             "event_type": "sched_switch",
             "timestamp_ns": event.timestamp_ns,
-            "pid": 0,
-            "tid": 0,
+            "pid": event.prev_pid,
+            "tid": event.prev_pid,
             "cpu": event.cpu,
+            "cgroup_id": 0u64,
+            "sched_next_pid": event.next_pid,
             "trace_id": "",
             "span_id": "",
             "service_name": "",
             "transaction_id": "",
             "duration_ns": 0,
             "return_value": 0,
-            "payload": {
-                "sched_prev_pid": event.prev_pid,
-                "sched_next_pid": event.next_pid,
-                "sched_prev_state": event.prev_state,
-            }
+            "payload": {}
         });
         let key = event.prev_pid.to_string();
         let payload_str = payload.to_string();

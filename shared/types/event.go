@@ -43,6 +43,7 @@ type KernelEvent struct {
 	TID           uint32             `json:"tid"`
 	CPU           uint32             `json:"cpu"`
 	CgroupID      uint64             `json:"cgroup_id"`
+	SchedNextPID  uint32             `json:"sched_next_pid,omitempty"`
 	TraceID       string             `json:"trace_id"`
 	SpanID        string             `json:"span_id"`
 	ServiceName   string             `json:"service_name"`
