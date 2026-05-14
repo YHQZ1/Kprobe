@@ -19,6 +19,7 @@ func (e EventType) Valid() bool {
 	switch e {
 	case EventTypeTCPSend,
 		EventTypeTCPRecv,
+		EventTypeTCPRetransmit,
 		EventTypeSysRead,
 		EventTypeSysWrite,
 		EventTypeSchedSwitch,

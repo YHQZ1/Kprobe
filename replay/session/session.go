@@ -237,7 +237,7 @@ func (s *Session) runPlayback(ctx context.Context) {
 				gapNs = nextTs - currentTs
 			}
 
-			scaledNs := float64(gapNs)*latencyMult + float64(s.Config.ExtraLatencyNs)
+			scaledNs := float64(gapNs) * latencyMult
 			delayNs := int64(scaledNs / speedFactor)
 
 			if delayNs > 0 {
