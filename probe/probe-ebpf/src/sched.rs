@@ -6,6 +6,18 @@ use aya_ebpf::{
 use probe_common::SchedEvent;
 use crate::{DROP_COUNTERS, EVENTS_SCHED};
 
+#[repr(C)]
+struct SchedSwitchArgs {
+    _pad: [u8; 8],
+    prev_comm: [u8; 16],
+    prev_pid: i32,
+    prev_prio: i32,
+    prev_state: i64,
+    next_comm: [u8; 16],
+    next_pid: i32,
+    next_prio: i32,
+}
+
 #[tracepoint]
 pub fn probe_sched_switch(ctx: TracePointContext) -> u32 {
     match try_sched_switch(ctx) {
@@ -19,17 +31,15 @@ fn try_sched_switch(ctx: TracePointContext) -> Result<u32, u32> {
     let cpu = unsafe { bpf_get_smp_processor_id() };
     let cgroup_id = unsafe { bpf_get_current_cgroup_id() };
 
-    let prev_pid: u32 = unsafe { ctx.read_at(24).map_err(|_| 0u32)? };
-    let prev_state: u64 = unsafe { ctx.read_at(32).map_err(|_| 0u32)? };
-    let next_pid: u32 = unsafe { ctx.read_at(56).map_err(|_| 0u32)? };
+    let args: SchedSwitchArgs = unsafe { ctx.read_at(0).map_err(|_| 0u32)? };
 
     let event = SchedEvent {
         cpu,
         cgroup_id,
         timestamp_ns,
-        prev_pid,
-        next_pid,
-        prev_state,
+        prev_pid: args.prev_pid as u32,
+        next_pid: args.next_pid as u32,
+        prev_state: args.prev_state as u64,
     };
 
     if let Some(mut entry) = EVENTS_SCHED.reserve::<SchedEvent>(0) {
@@ -38,6 +48,5 @@ fn try_sched_switch(ctx: TracePointContext) -> Result<u32, u32> {
     } else if let Some(counter) = DROP_COUNTERS.get_ptr_mut(2) {
         unsafe { *counter += 1 };
     }
-
     Ok(0)
 }

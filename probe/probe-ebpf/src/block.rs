@@ -6,6 +6,14 @@ use aya_ebpf::{
 use probe_common::{BlockDir, BlockEvent};
 use crate::{DROP_COUNTERS, EVENTS_BLOCK};
 
+#[repr(C)]
+struct BlockRqArgs {
+    _pad: [u8; 8],
+    sector: u64,
+    bytes: u64,
+    op: u32,
+}
+
 #[tracepoint]
 pub fn probe_block_rq_issue(ctx: TracePointContext) -> u32 {
     match try_block(ctx, BlockDir::Issue) {
@@ -30,15 +38,7 @@ fn try_block(ctx: TracePointContext, dir: BlockDir) -> Result<u32, u32> {
     let cpu = unsafe { bpf_get_smp_processor_id() };
     let cgroup_id = unsafe { bpf_get_current_cgroup_id() };
 
-    let sector: u64 = match unsafe { ctx.read_at(8) } {
-        Ok(v) => v,
-        Err(_) => 0u64,
-    };
-    let bytes: u64 = match unsafe { ctx.read_at(16) } {
-        Ok(v) => v,
-        Err(_) => 0u64,
-    };
-    let op: u32 = unsafe { ctx.read_at(24).map_err(|_| 0u32)? };
+    let args: BlockRqArgs = unsafe { ctx.read_at(0).map_err(|_| 0u32)? };
 
     let event = BlockEvent {
         pid,
@@ -47,9 +47,9 @@ fn try_block(ctx: TracePointContext, dir: BlockDir) -> Result<u32, u32> {
         cgroup_id,
         timestamp_ns,
         dir,
-        sector,
-        bytes,
-        op,
+        sector: args.sector,
+        bytes: args.bytes,
+        op: args.op,
         _pad: 0,
     };
 
@@ -59,6 +59,5 @@ fn try_block(ctx: TracePointContext, dir: BlockDir) -> Result<u32, u32> {
     } else if let Some(counter) = DROP_COUNTERS.get_ptr_mut(4) {
         unsafe { *counter += 1 };
     }
-
     Ok(0)
 }

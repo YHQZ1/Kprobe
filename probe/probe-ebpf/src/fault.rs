@@ -6,6 +6,13 @@ use aya_ebpf::{
 use probe_common::PageFaultEvent;
 use crate::{DROP_COUNTERS, EVENTS_PAGE_FAULT};
 
+#[repr(C)]
+struct PageFaultArgs {
+    _pad: [u8; 8],
+    address: u64,
+    flags: u64,
+}
+
 #[tracepoint]
 pub fn probe_mm_page_fault(ctx: TracePointContext) -> u32 {
     match try_mm_page_fault(ctx) {
@@ -22,8 +29,7 @@ fn try_mm_page_fault(ctx: TracePointContext) -> Result<u32, u32> {
     let cpu = unsafe { bpf_get_smp_processor_id() };
     let cgroup_id = unsafe { bpf_get_current_cgroup_id() };
 
-    let address: u64 = unsafe { ctx.read_at(8).map_err(|_| 0u32)? };
-    let flags: u64 = unsafe { ctx.read_at(16).map_err(|_| 0u32)? };
+    let args: PageFaultArgs = unsafe { ctx.read_at(0).map_err(|_| 0u32)? };
 
     let event = PageFaultEvent {
         pid,
@@ -31,8 +37,8 @@ fn try_mm_page_fault(ctx: TracePointContext) -> Result<u32, u32> {
         cpu,
         cgroup_id,
         timestamp_ns,
-        address,
-        flags,
+        address: args.address,
+        flags: args.flags,
     };
 
     if let Some(mut entry) = EVENTS_PAGE_FAULT.reserve::<PageFaultEvent>(0) {
@@ -41,6 +47,5 @@ fn try_mm_page_fault(ctx: TracePointContext) -> Result<u32, u32> {
     } else if let Some(counter) = DROP_COUNTERS.get_ptr_mut(3) {
         unsafe { *counter += 1 };
     }
-
     Ok(0)
 }

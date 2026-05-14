@@ -6,6 +6,22 @@ use aya_ebpf::{
 use probe_common::{SyscallDir, SyscallEvent, SyscallOp};
 use crate::{DROP_COUNTERS, EVENTS_SYSCALL};
 
+#[repr(C)]
+struct SysEnterArgs {
+    _pad: [u8; 8],
+    syscall_nr: i32,
+    _pad2: [u8; 4],
+    args: [u64; 6],
+}
+
+#[repr(C)]
+struct SysExitArgs {
+    _pad: [u8; 8],
+    syscall_nr: i32,
+    _pad2: [u8; 4],
+    ret: i64,
+}
+
 #[tracepoint]
 pub fn probe_sys_enter_read(ctx: TracePointContext) -> u32 {
     match try_syscall(ctx, SyscallOp::Read, SyscallDir::Enter) {
@@ -46,17 +62,14 @@ fn try_syscall(ctx: TracePointContext, op: SyscallOp, dir: SyscallDir) -> Result
     let cpu = unsafe { bpf_get_smp_processor_id() };
     let cgroup_id = unsafe { bpf_get_current_cgroup_id() };
 
-    let fd: u32 = unsafe { ctx.read_at(16).map_err(|_| 0u32)? };
-    let bytes: u64 = unsafe { ctx.read_at(32).map_err(|_| 0u32)? };
-
-    let ret: i64 = match dir {
-        SyscallDir::Enter => 0,
+    let (fd, bytes, ret) = match dir {
+        SyscallDir::Enter => {
+            let args: SysEnterArgs = unsafe { ctx.read_at(0).map_err(|_| 0u32)? };
+            (args.args[0] as u32, args.args[2] as u64, 0)
+        }
         SyscallDir::Exit => {
-            let raw: i64 = match unsafe { ctx.read_at(48) } {
-                Ok(v) => v,
-                Err(_) => 0i64,
-            };
-            raw
+            let args: SysExitArgs = unsafe { ctx.read_at(0).map_err(|_| 0u32)? };
+            (0, 0, args.ret)
         }
     };
 
@@ -79,6 +92,5 @@ fn try_syscall(ctx: TracePointContext, op: SyscallOp, dir: SyscallDir) -> Result
     } else if let Some(counter) = DROP_COUNTERS.get_ptr_mut(1) {
         unsafe { *counter += 1 };
     }
-
     Ok(0)
 }
