@@ -1,10 +1,12 @@
 export type EventType =
-  | "tcp_sendmsg"
-  | "tcp_recvmsg"
+  | "tcp_send"
+  | "tcp_recv"
+  | "tcp_retransmit"
   | "sys_write"
   | "sys_read"
   | "sched_switch"
-  | "mm_page_fault";
+  | "page_fault"
+  | "block_io";
 
 export type ConnectionStatus = "connected" | "connecting" | "disconnected" | "mock";
 

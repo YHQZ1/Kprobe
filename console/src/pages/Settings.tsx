@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 
 interface Settings {
+  version: number;
   apiHost: string;
   apiPort: string;
   wsReconnect: boolean;
@@ -15,6 +16,7 @@ interface Settings {
 }
 
 const DEFAULTS: Settings = {
+  version: 1,
   apiHost: "localhost",
   apiPort: "8080",
   wsReconnect: true,
@@ -35,7 +37,9 @@ function loadFromStorage(): Settings {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return DEFAULTS;
-    return { ...DEFAULTS, ...JSON.parse(raw) };
+    const parsed = JSON.parse(raw);
+    if (parsed.version !== DEFAULTS.version) return DEFAULTS;
+    return { ...DEFAULTS, ...parsed };
   } catch {
     return DEFAULTS;
   }
