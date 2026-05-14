@@ -494,7 +494,7 @@ export default function SettingsPage() {
           <div style={s.aboutGrid}>
             <AboutRow k="version" v="0.1.0-dev" />
             <AboutRow k="build" v="phase-4-console" />
-            <AboutRow k="go version" v="1.22" />
+            <AboutRow k="go version" v="1.24.1" />
             <AboutRow k="rust" v="1.77 (aya)" />
             <AboutRow k="node" v="20.x" />
             <AboutRow k="repository" v="github.com/YHQZ1/kprobe" link />

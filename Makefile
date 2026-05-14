@@ -1,4 +1,4 @@
-.PHONY: all infra infra-down infra-logs engine api replay probe probe-run web build test fmt clean help
+.PHONY: all infra infra-down infra-logs engine api replay probe probe-run console www build test fmt clean help
 
 API_PORT        := 8080
 ENGINE_PORT     := 8081
@@ -45,9 +45,13 @@ probe-run:
 	@echo "running eBPF probe (requires sudo)..."
 	cd probe && RUST_LOG=info cargo run --release
 
-web:
+console:
 	@echo "starting frontend on :$(WEB_PORT)..."
-	cd web && npm run dev
+	cd console && pnpm dev
+
+www:
+	@echo "starting public site..."
+	cd www && pnpm dev
 
 build: build-engine build-api build-replay build-probe
 
@@ -101,7 +105,8 @@ help:
 	@echo "    make replay         start replay engine"
 	@echo "    make probe          build eBPF probe"
 	@echo "    make probe-run      run eBPF probe"
-	@echo "    make web            start frontend dev server"
+	@echo "    make console        start React console dev server"
+	@echo "    make www            start Astro public site"
 	@echo ""
 	@echo "  build:"
 	@echo "    make build          build all services"
