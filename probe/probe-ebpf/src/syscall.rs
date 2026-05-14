@@ -1,10 +1,10 @@
 use aya_ebpf::{
-    helpers::{bpf_get_current_pid_tgid, bpf_get_smp_processor_id, bpf_ktime_get_ns},
+    helpers::{bpf_get_current_cgroup_id, bpf_get_current_pid_tgid, bpf_get_smp_processor_id, bpf_ktime_get_ns},
     macros::tracepoint,
     programs::TracePointContext,
 };
 use probe_common::{SyscallDir, SyscallEvent, SyscallOp};
-use crate::EVENTS_SYSCALL;
+use crate::{DROP_COUNTERS, EVENTS_SYSCALL};
 
 #[tracepoint]
 pub fn probe_sys_enter_read(ctx: TracePointContext) -> u32 {
@@ -44,6 +44,7 @@ fn try_syscall(ctx: TracePointContext, op: SyscallOp, dir: SyscallDir) -> Result
     let tid = pid_tgid as u32;
     let timestamp_ns = unsafe { bpf_ktime_get_ns() };
     let cpu = unsafe { bpf_get_smp_processor_id() };
+    let cgroup_id = unsafe { bpf_get_current_cgroup_id() };
 
     let fd: u32 = unsafe { ctx.read_at(16).map_err(|_| 0u32)? };
     let bytes: u64 = unsafe { ctx.read_at(32).map_err(|_| 0u32)? };
@@ -63,6 +64,7 @@ fn try_syscall(ctx: TracePointContext, op: SyscallOp, dir: SyscallDir) -> Result
         pid,
         tid,
         cpu,
+        cgroup_id,
         timestamp_ns,
         op,
         dir,
@@ -74,6 +76,8 @@ fn try_syscall(ctx: TracePointContext, op: SyscallOp, dir: SyscallDir) -> Result
     if let Some(mut entry) = EVENTS_SYSCALL.reserve::<SyscallEvent>(0) {
         unsafe { (*entry.as_mut_ptr()) = event };
         entry.submit(0);
+    } else if let Some(counter) = DROP_COUNTERS.get_ptr_mut(1) {
+        unsafe { *counter += 1 };
     }
 
     Ok(0)

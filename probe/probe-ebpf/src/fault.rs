@@ -1,10 +1,10 @@
 use aya_ebpf::{
-    helpers::{bpf_get_current_pid_tgid, bpf_get_smp_processor_id, bpf_ktime_get_ns},
+    helpers::{bpf_get_current_cgroup_id, bpf_get_current_pid_tgid, bpf_get_smp_processor_id, bpf_ktime_get_ns},
     macros::tracepoint,
     programs::TracePointContext,
 };
 use probe_common::PageFaultEvent;
-use crate::EVENTS_PAGE_FAULT;
+use crate::{DROP_COUNTERS, EVENTS_PAGE_FAULT};
 
 #[tracepoint]
 pub fn probe_mm_page_fault(ctx: TracePointContext) -> u32 {
@@ -20,6 +20,7 @@ fn try_mm_page_fault(ctx: TracePointContext) -> Result<u32, u32> {
     let tid = pid_tgid as u32;
     let timestamp_ns = unsafe { bpf_ktime_get_ns() };
     let cpu = unsafe { bpf_get_smp_processor_id() };
+    let cgroup_id = unsafe { bpf_get_current_cgroup_id() };
 
     let address: u64 = unsafe { ctx.read_at(8).map_err(|_| 0u32)? };
     let flags: u64 = unsafe { ctx.read_at(16).map_err(|_| 0u32)? };
@@ -28,6 +29,7 @@ fn try_mm_page_fault(ctx: TracePointContext) -> Result<u32, u32> {
         pid,
         tid,
         cpu,
+        cgroup_id,
         timestamp_ns,
         address,
         flags,
@@ -36,6 +38,8 @@ fn try_mm_page_fault(ctx: TracePointContext) -> Result<u32, u32> {
     if let Some(mut entry) = EVENTS_PAGE_FAULT.reserve::<PageFaultEvent>(0) {
         unsafe { (*entry.as_mut_ptr()) = event };
         entry.submit(0);
+    } else if let Some(counter) = DROP_COUNTERS.get_ptr_mut(3) {
+        unsafe { *counter += 1 };
     }
 
     Ok(0)

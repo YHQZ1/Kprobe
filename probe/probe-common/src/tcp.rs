@@ -17,6 +17,7 @@ pub struct TcpEvent {
     pub pid: u32,
     pub tid: u32,
     pub cpu: u32,
+    pub cgroup_id: u64,
     pub timestamp_ns: u64,
     pub event_type: TcpEventType,
     pub data_len: u32,
