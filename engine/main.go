@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/YHQZ1/kprobe/engine/consumer"
 	"github.com/YHQZ1/kprobe/engine/enrich"
@@ -106,7 +107,7 @@ func main() {
 	log.Println("shutting down...")
 	cancel()
 
-	shutCtx, shutCancel := context.WithCancel(context.Background())
+	shutCtx, shutCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer shutCancel()
 	metricsSrv.Shutdown(shutCtx)
 
