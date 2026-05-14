@@ -35,12 +35,12 @@ services:
     image: clickhouse/clickhouse-server:24.3
     container_name: kprobe-clickhouse
     ports:
-      - "8123:8123"
-      - "9000:9000"
+      - "127.0.0.1:8123:8123"
+      - "127.0.0.1:9000:9000"
     environment:
       CLICKHOUSE_DB: kprobe
       CLICKHOUSE_USER: kprobe
-      CLICKHOUSE_PASSWORD: kprobe
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASS:-kprobe}
       CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
     volumes:
       - clickhouse-data:/var/lib/clickhouse
@@ -55,10 +55,10 @@ services:
     image: neo4j:5.19
     container_name: kprobe-neo4j
     ports:
-      - "7474:7474"
-      - "7687:7687"
+      - "127.0.0.1:7474:7474"
+      - "127.0.0.1:7687:7687"
     environment:
-      NEO4J_AUTH: neo4j/kprobe_secret
+      NEO4J_AUTH: neo4j/${NEO4J_PASS:-kprobe_secret}
       NEO4J_PLUGINS: '["apoc"]'
       NEO4J_dbms_security_procedures_unrestricted: apoc.*
     volumes:
