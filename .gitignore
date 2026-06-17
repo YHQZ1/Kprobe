@@ -1,8 +1,10 @@
 # ─── Rust ────────────────────────────────────────────────────────────────────
 target/
 **/*.rs.bk
-Cargo.lock
 *.pdb
+
+# Keep the probe workspace lockfile for reproducible application builds.
+!probe/Cargo.lock
 
 # eBPF build artifacts
 probe/target/
@@ -31,6 +33,7 @@ node_modules/
 dist/
 build/
 .vite/
+.pnpm-store/
 *.local
 
 # Astro
