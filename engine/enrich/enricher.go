@@ -11,6 +11,7 @@ const (
 	infightTTL     = 5 * time.Second
 	spanTTL        = 30 * time.Second
 	evictThreshold = 100
+	numShards      = 32
 )
 
 type SpanEntry struct {
@@ -35,52 +36,75 @@ type inflight struct {
 	arrivedAt time.Time
 }
 
-type Enricher struct {
+type enricherShard struct {
 	mu              sync.Mutex
 	syscallInFlight map[pairKey]inflight
 	blockInFlight   map[pairKey]inflight
 	otelSpans       map[uint32][]SpanEntry
 }
 
+type Enricher struct {
+	shards [numShards]*enricherShard
+}
+
 func NewEnricher() *Enricher {
-	return &Enricher{
-		syscallInFlight: make(map[pairKey]inflight),
-		blockInFlight:   make(map[pairKey]inflight),
-		otelSpans:       make(map[uint32][]SpanEntry),
+	e := &Enricher{}
+	for i := 0; i < numShards; i++ {
+		e.shards[i] = &enricherShard{
+			syscallInFlight: make(map[pairKey]inflight),
+			blockInFlight:   make(map[pairKey]inflight),
+			otelSpans:       make(map[uint32][]SpanEntry),
+		}
 	}
+
+	go func() {
+		ticker := time.NewTicker(5 * time.Second)
+		for range ticker.C {
+			for i := 0; i < numShards; i++ {
+				e.shards[i].evictStale()
+			}
+		}
+	}()
+
+	return e
+}
+
+func (e *Enricher) getShard(pid uint32) *enricherShard {
+	return e.shards[pid%numShards]
 }
 
 func (e *Enricher) AddSpan(s SpanEntry) {
 	s.ArrivedAt = time.Now()
-	e.mu.Lock()
-	defer e.mu.Unlock()
+	shard := e.getShard(s.PID)
+	shard.mu.Lock()
+	defer shard.mu.Unlock()
 
-	e.otelSpans[s.PID] = append(e.otelSpans[s.PID], s)
+	shard.otelSpans[s.PID] = append(shard.otelSpans[s.PID], s)
 
-	if len(e.otelSpans[s.PID]) > 1000 {
-		e.otelSpans[s.PID] = e.otelSpans[s.PID][100:]
+	if len(shard.otelSpans[s.PID]) > 1000 {
+		shard.otelSpans[s.PID] = shard.otelSpans[s.PID][100:]
 	}
 }
 
 func (e *Enricher) Process(event types.KernelEvent) []types.KernelEvent {
-	e.mu.Lock()
-	defer e.mu.Unlock()
+	shard := e.getShard(event.PID)
+	shard.mu.Lock()
+	defer shard.mu.Unlock()
 
-	event = e.enrichTrace(event)
-	e.evictStale()
+	event = shard.enrichTrace(event)
 
 	switch event.EventType {
 	case types.EventTypeSysRead, types.EventTypeSysWrite:
-		return e.pairSyscall(event)
+		return shard.pairSyscall(event)
 	case types.EventTypeBlockIO:
-		return e.pairBlock(event)
+		return shard.pairBlock(event)
 	default:
 		return []types.KernelEvent{event}
 	}
 }
 
-func (e *Enricher) enrichTrace(event types.KernelEvent) types.KernelEvent {
-	spans, ok := e.otelSpans[event.PID]
+func (s *enricherShard) enrichTrace(event types.KernelEvent) types.KernelEvent {
+	spans, ok := s.otelSpans[event.PID]
 	if !ok {
 		return event
 	}
@@ -98,25 +122,25 @@ func (e *Enricher) enrichTrace(event types.KernelEvent) types.KernelEvent {
 	return event
 }
 
-func (e *Enricher) pairSyscall(event types.KernelEvent) []types.KernelEvent {
+func (s *enricherShard) pairSyscall(event types.KernelEvent) []types.KernelEvent {
 	key := pairKey{CgroupID: event.CgroupID, PID: event.PID, TID: event.TID}
-	existing, ok := e.syscallInFlight[key]
+	existing, ok := s.syscallInFlight[key]
 	if !ok {
-		e.syscallInFlight[key] = inflight{event: event, arrivedAt: time.Now()}
+		s.syscallInFlight[key] = inflight{event: event, arrivedAt: time.Now()}
 		return nil
 	}
-	delete(e.syscallInFlight, key)
+	delete(s.syscallInFlight, key)
 	return completePair(existing.event, event)
 }
 
-func (e *Enricher) pairBlock(event types.KernelEvent) []types.KernelEvent {
+func (s *enricherShard) pairBlock(event types.KernelEvent) []types.KernelEvent {
 	key := pairKey{CgroupID: event.CgroupID, PID: event.PID, TID: event.TID}
-	existing, ok := e.blockInFlight[key]
+	existing, ok := s.blockInFlight[key]
 	if !ok {
-		e.blockInFlight[key] = inflight{event: event, arrivedAt: time.Now()}
+		s.blockInFlight[key] = inflight{event: event, arrivedAt: time.Now()}
 		return nil
 	}
-	delete(e.blockInFlight, key)
+	delete(s.blockInFlight, key)
 	return completePair(existing.event, event)
 }
 
@@ -131,8 +155,11 @@ func completePair(a, b types.KernelEvent) []types.KernelEvent {
 	return []types.KernelEvent{b}
 }
 
-func (e *Enricher) evictStale() {
-	if len(e.syscallInFlight) < evictThreshold && len(e.blockInFlight) < evictThreshold && len(e.otelSpans) < evictThreshold {
+func (s *enricherShard) evictStale() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if len(s.syscallInFlight) < evictThreshold && len(s.blockInFlight) < evictThreshold && len(s.otelSpans) < evictThreshold {
 		return
 	}
 
@@ -140,29 +167,29 @@ func (e *Enricher) evictStale() {
 	cutoffInflight := now.Add(-infightTTL)
 	cutoffSpan := now.Add(-spanTTL)
 
-	for key, v := range e.syscallInFlight {
+	for key, v := range s.syscallInFlight {
 		if v.arrivedAt.Before(cutoffInflight) {
-			delete(e.syscallInFlight, key)
+			delete(s.syscallInFlight, key)
 		}
 	}
 
-	for key, v := range e.blockInFlight {
+	for key, v := range s.blockInFlight {
 		if v.arrivedAt.Before(cutoffInflight) {
-			delete(e.blockInFlight, key)
+			delete(s.blockInFlight, key)
 		}
 	}
 
-	for pid, spans := range e.otelSpans {
+	for pid, spans := range s.otelSpans {
 		var active []SpanEntry
-		for _, s := range spans {
-			if s.ArrivedAt.After(cutoffSpan) {
-				active = append(active, s)
+		for _, sp := range spans {
+			if sp.ArrivedAt.After(cutoffSpan) {
+				active = append(active, sp)
 			}
 		}
 		if len(active) == 0 {
-			delete(e.otelSpans, pid)
+			delete(s.otelSpans, pid)
 		} else {
-			e.otelSpans[pid] = active
+			s.otelSpans[pid] = active
 		}
 	}
 }

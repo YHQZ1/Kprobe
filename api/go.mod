@@ -2,8 +2,6 @@ module github.com/YHQZ1/kprobe/api
 
 go 1.24.1
 
-toolchain go1.24.1
-
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.23.0
 	github.com/YHQZ1/kprobe/replay v0.0.0
@@ -24,6 +22,7 @@ require (
 	github.com/go-faster/city v1.0.1 // indirect
 	github.com/go-faster/errors v0.7.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
+	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/klauspost/compress v1.17.7 // indirect
 	github.com/paulmach/orb v0.11.1 // indirect
 	github.com/pierrec/lz4/v4 v4.1.21 // indirect

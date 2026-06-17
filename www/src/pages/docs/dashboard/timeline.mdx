@@ -6,13 +6,13 @@ description: Using the nanosecond precision timeline view in kprobe.
 
 # Timeline View
 
-The timeline view shows all kernel events and financial events on a single horizontal timeline, across all services and nodes simultaneously. It is the best view for understanding the exact sequence and timing of events.
+The timeline view shows all kernel events and application events on a single horizontal timeline, across all services and nodes simultaneously. It is the best view for understanding the exact sequence and timing of events.
 
 ## Layout
 
 The timeline is organized into horizontal swimlanes, one per service or kernel component:
 
-- Each **service** gets its own swimlane showing its financial events (payments received, writes initiated, responses sent)
+- Each **service** gets its own swimlane showing its application events (requests received, writes initiated, responses sent)
 - **Kernel** swimlanes show raw eBPF events per node, broken down by event type
 
 Events appear as blocks on the timeline. The width of each block represents its duration. Hover over any block to see full event details.
@@ -51,4 +51,4 @@ Live mode is useful during active incident investigation — you can watch the k
 
 ## Exporting timeline data
 
-The selected time range can be exported as a CSV of all events for offline analysis. The CSV includes all fields: timestamp (nanoseconds), PID, TID, CPU, event type, duration, and financial context.
+The selected time range can be exported as a CSV of all events for offline analysis. The CSV includes all fields: timestamp (nanoseconds), PID, TID, CPU, event type, duration, and application context.

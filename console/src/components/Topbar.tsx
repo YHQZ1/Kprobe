@@ -28,7 +28,8 @@ function statusLabel(status: ConnectionStatus): string {
 
 function endpointLabel(status: ConnectionStatus): string {
   if (status === "mock") return "no backend · mock data";
-  return "ws://localhost:8080";
+  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  return `${protocol}//${window.location.host}/ws`;
 }
 
 export default function Topbar({

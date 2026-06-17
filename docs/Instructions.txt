@@ -2,14 +2,14 @@
 
 ## What is kprobe
 
-kprobe is a deep kernel observability tool for distributed financial systems. It sits at the Linux kernel level using eBPF and captures everything — network packet timing, CPU scheduling decisions, memory pressure events, database write latency — without touching a single line of application code.
+kprobe is a kernel-level flight recorder for production systems. It sits at the Linux kernel level using eBPF and captures runtime events — network packet timing, CPU scheduling decisions, memory pressure events, database write latency — without touching a single line of application code.
 
 When an incident occurs, it constructs a full causal graph of exactly what caused what, down to the kernel-level event that triggered the failure. It then lets you replay the entire incident deterministically, on a dev machine, hours after it happened.
 
-It is not a monitoring tool. It is not a tracing tool. It is a flight recorder and a debugger for distributed financial systems.
+It is not a monitoring tool. It is not a tracing tool. It is a flight recorder and a debugger for distributed production systems.
 
 **One-liner for technical context:**
-> An eBPF-based causal profiler with deterministic replay, built specifically for distributed financial systems — zero instrumentation overhead, kernel-level visibility, financial domain primitives baked in.
+> An eBPF-based causal profiler with deterministic replay for production systems — zero application instrumentation, kernel-level visibility, and application context from traces.
 
 ---
 
@@ -21,8 +21,8 @@ It is not a monitoring tool. It is not a tracing tool. It is a flight recorder a
 - **Split dev model** — infrastructure (Kafka, ClickHouse, Neo4j) runs in Docker Compose. Go services and the frontend run natively. No Docker rebuilds during development.
 - **Kafka in KRaft mode** — no Zookeeper dependency.
 - **ClickHouse for raw event storage** — columnar, handles billions of timestamped rows, sub-second queries.
-- **Neo4j for causal graph storage** — graph traversal from any financial event back to root kernel cause.
-- **Vector for correlation** — joins raw eBPF events with OpenTelemetry traces on PID + timestamp before the causal engine sees them.
+- **Neo4j for causal graph storage** — graph traversal from any service-level event back to root kernel cause.
+- **Vector for parsing and forwarding** — reads raw eBPF JSON from Kafka and publishes parsed events to `kernel.enriched`. OpenTelemetry span correlation is planned next.
 
 ---
 
@@ -40,7 +40,7 @@ kprobe/
 │   ├── inference/            # Causal graph construction
 │   ├── graph/                # Neo4j interaction
 │   ├── store/                # ClickHouse interaction
-│   └── domain/               # Financial primitives
+│   └── domain/               # Optional domain/context primitives
 │
 ├── replay/                   # Deterministic replay engine — Go
 │   ├── ptrace/               # Syscall interception
@@ -55,7 +55,7 @@ kprobe/
 │
 ├── shared/                   # Shared Go module
 │   ├── types/                # KernelEvent, EventType
-│   └── domain/               # Settlement, Order, LedgerEntry
+│   └── domain/               # Optional domain-specific types
 │
 ├── web/                      # React + TypeScript dashboard
 │   └── src/
@@ -136,13 +136,9 @@ make help           # show all commands
 
 ---
 
-## Financial Domain Primitives (shared/domain)
+## Domain Context Primitives
 
-- `Settlement` — trade settlement with state machine (Pending → Clearing → Settled → Failed)
-- `Order` — financial order (symbol, side, qty, price)
-- `LedgerEntry` — append-only financial record
-- `SettlementState` — enum for settlement lifecycle
-- `OrderSide` — Buy / Sell
+kprobe should treat finance, commerce, storage, AI serving, and other verticals as optional context layered on top of the common kernel event model. Keep the core product generic: traces, services, transaction/request IDs, operations, and kernel events.
 
 ---
 

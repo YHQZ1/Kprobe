@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"crypto/subtle"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -35,7 +36,9 @@ func LoginHandler(username, password, jwtSecret string) http.Handler {
 			return
 		}
 
-		if req.Username != username || req.Password != password {
+		userMatch := subtle.ConstantTimeCompare([]byte(req.Username), []byte(username))
+		passMatch := subtle.ConstantTimeCompare([]byte(req.Password), []byte(password))
+		if userMatch != 1 || passMatch != 1 {
 			writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "invalid credentials"})
 			return
 		}

@@ -16,6 +16,9 @@ import {
 } from "../components/ui/icons";
 import { KV } from "../components/ui/KV";
 
+import { useConnection } from "../hooks/useConnection";
+import { mapWireEvent } from "../lib/wireEvent";
+
 const MAX_EVENTS = 500;
 const TICK_MS = 680;
 
@@ -37,7 +40,10 @@ export default function StreamPage() {
   );
   const [eps, setEps] = useState(0);
 
+  const { status, messages, clearMessages } = useConnection();
+
   const pausedRef = useRef(paused);
+  const processedMessageRef = useRef(0);
   const eventCountRef = useRef(0);
   const tableRef = useRef<HTMLDivElement>(null);
   const atBottomRef = useRef(true);
@@ -55,10 +61,27 @@ export default function StreamPage() {
   }, []);
 
   useEffect(() => {
-    setEvents(Array.from({ length: 28 }, generateEvent));
-  }, []);
+    if (pausedRef.current) return;
+    const pending = messages.filter(
+      (message) => message.id > processedMessageRef.current,
+    );
+    for (const message of pending) {
+      try {
+        handleNewEvent(mapWireEvent(JSON.parse(message.data), message.id));
+      } catch {}
+      processedMessageRef.current = message.id;
+    }
+    if (pending.length > 0 && atBottomRef.current && tableRef.current) {
+      requestAnimationFrame(() => {
+        if (tableRef.current) {
+          tableRef.current.scrollTop = tableRef.current.scrollHeight;
+        }
+      });
+    }
+  }, [messages, paused, handleNewEvent]);
 
   useEffect(() => {
+    if (status !== "mock") return;
     const iv = setInterval(() => {
       if (pausedRef.current) return;
 
@@ -73,7 +96,7 @@ export default function StreamPage() {
       }
     }, TICK_MS);
     return () => clearInterval(iv);
-  }, [handleNewEvent]);
+  }, [status, handleNewEvent]);
 
   useEffect(() => {
     const iv = setInterval(() => {
@@ -127,6 +150,7 @@ export default function StreamPage() {
   }
 
   function clearEvents() {
+    clearMessages();
     setEvents([]);
     setExpandedId(null);
   }
@@ -208,7 +232,11 @@ export default function StreamPage() {
 
       <div ref={tableRef} style={s.tbody} onScroll={handleScroll}>
         {filtered.length === 0 && (
-          <div style={s.empty}>no events match current filters</div>
+          <div style={s.empty}>
+            {status === "connected"
+              ? "waiting for kernel events"
+              : "event stream is disconnected"}
+          </div>
         )}
 
         {filtered.map((evt) => {

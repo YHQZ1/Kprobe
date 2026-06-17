@@ -36,6 +36,9 @@ func (h *CausalHandler) QueryCausalChain(ctx context.Context, req *pb.QueryCausa
 	if req.TransactionId == "" {
 		return nil, status.Error(codes.InvalidArgument, "transaction_id is required")
 	}
+	if h.neo4j == nil {
+		return nil, status.Error(codes.Unavailable, "neo4j is not configured")
+	}
 
 	session := h.neo4j.NewSession(ctx, neo4j.SessionConfig{})
 	defer session.Close(ctx)
@@ -100,6 +103,9 @@ func (h *CausalHandler) QueryEvents(ctx context.Context, req *pb.QueryEventsRequ
 	if req.TransactionId == "" {
 		return nil, status.Error(codes.InvalidArgument, "transaction_id is required")
 	}
+	if h.ch == nil {
+		return nil, status.Error(codes.Unavailable, "clickhouse is not configured")
+	}
 
 	rows, err := h.ch.Query(ctx, `
 		SELECT event_id, event_type, timestamp_ns, pid, tid, cpu,
@@ -108,6 +114,7 @@ func (h *CausalHandler) QueryEvents(ctx context.Context, req *pb.QueryEventsRequ
 		FROM kprobe.kernel_events
 		WHERE transaction_id = ?
 		ORDER BY timestamp_ns ASC
+		LIMIT 10000
 	`, req.TransactionId)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "clickhouse query failed: %v", err)
@@ -135,6 +142,9 @@ func (h *CausalHandler) QueryTimeRange(ctx context.Context, req *pb.QueryTimeRan
 	if req.FromNs == 0 || req.ToNs == 0 {
 		return nil, status.Error(codes.InvalidArgument, "from_ns and to_ns are required")
 	}
+	if h.ch == nil {
+		return nil, status.Error(codes.Unavailable, "clickhouse is not configured")
+	}
 
 	rows, err := h.ch.Query(ctx, `
 		SELECT event_id, event_type, timestamp_ns, pid, tid, cpu,
@@ -143,6 +153,7 @@ func (h *CausalHandler) QueryTimeRange(ctx context.Context, req *pb.QueryTimeRan
 		FROM kprobe.kernel_events
 		WHERE timestamp_ns BETWEEN ? AND ?
 		ORDER BY timestamp_ns ASC
+		LIMIT 10000
 	`, req.FromNs, req.ToNs)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "clickhouse query failed: %v", err)

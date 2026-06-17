@@ -17,28 +17,24 @@ export default function Login({ onAuth }: LoginProps) {
     setLoading(true);
 
     try {
-      const res = await fetch("/auth/login", {
+      const response = await fetch("/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
       });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setError(data.error ?? "Invalid credentials.");
+      const body = await response.json();
+      if (!response.ok || !body.token) {
+        setError(body.error || "Invalid credentials.");
         return;
       }
-
-      const data = await res.json();
-      setToken(data.token);
+      setToken(body.token);
       onAuth();
     } catch {
-      setError("Unable to reach the server. Check your connection.");
+      setError("API unavailable. Start the stack with `make dev`.");
     } finally {
       setLoading(false);
     }
   }
-
   return (
     <div style={s.root}>
       <div style={s.left}>
@@ -50,7 +46,7 @@ export default function Login({ onAuth }: LoginProps) {
           <p style={s.leftTagline}>
             Kernel-level observability
             <br />
-            for financial systems.
+            for production systems.
           </p>
           <div style={s.leftMeta}>
             <div style={s.metaRow}>
@@ -494,21 +490,21 @@ const s: Record<string, React.CSSProperties> = {
 const MOCK_EVENTS = [
   {
     ts: "03:47:12.004",
-    type: "tcp_sendmsg",
-    detail: "payment-handler → settlement-svc",
+    type: "tcp_send",
+    detail: "api-worker → checkout-service",
     highlight: false,
     muted: false,
   },
   {
     ts: "03:47:12.005",
     type: "sys_write",
-    detail: "fd=7 · ledger write initiated",
+    detail: "fd=7 · database write initiated",
     highlight: false,
     muted: false,
   },
   {
     ts: "03:47:12.821",
-    type: "mm_page_fault",
+    type: "page_fault",
     detail: "PID 4721 · batch-job memory pressure",
     highlight: false,
     muted: false,
@@ -536,8 +532,8 @@ const MOCK_EVENTS = [
   },
   {
     ts: "03:47:13.622",
-    type: "tcp_recvmsg",
-    detail: "timeout — payment-handler · ERR",
+    type: "tcp_recv",
+    detail: "timeout — api-worker · ERR",
     highlight: false,
     muted: true,
   },

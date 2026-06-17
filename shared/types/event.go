@@ -31,10 +31,15 @@ func (e EventType) Valid() bool {
 }
 
 type KernelEventPayload struct {
-	TCPDataLen  *uint32 `json:"tcp_data_len,omitempty"`
-	BlockBytes  *uint32 `json:"block_bytes,omitempty"`
-	SyscallFD   *int32  `json:"syscall_fd,omitempty"`
-	BlockSector *uint64 `json:"block_sector,omitempty"`
+	TCPDataLen   *uint32 `json:"tcp_data_len,omitempty"`
+	BlockBytes   *uint64 `json:"block_bytes,omitempty"`
+	BlockSector  *uint64 `json:"block_sector,omitempty"`
+	BlockOp      string  `json:"block_op,omitempty"`
+	BlockPhase   string  `json:"block_phase,omitempty"`
+	SyscallFD    *int32  `json:"syscall_fd,omitempty"`
+	SyscallBytes *uint64 `json:"syscall_bytes,omitempty"`
+	FaultAddress *uint64 `json:"fault_address,omitempty"`
+	FaultFlags   *uint64 `json:"fault_flags,omitempty"`
 }
 
 type KernelEvent struct {

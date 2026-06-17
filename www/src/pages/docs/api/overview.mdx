@@ -10,13 +10,13 @@ kprobe exposes a gRPC API for querying the causal graph, retrieving timeline dat
 
 ## Transport
 
-The API server runs on port `8080` by default. It speaks gRPC over HTTP/2.
+The API server exposes gRPC on port `8080` by default. It speaks gRPC over HTTP/2.
 
-For browser clients (the dashboard), the API also exposes a WebSocket endpoint at `ws://localhost:8080/stream` for live event streaming. gRPC-Web is supported for browser-based gRPC calls.
+For browser clients (the dashboard), the API also exposes an HTTP/WebSocket server on port `8081`. Live event streaming is available at `ws://localhost:8081/ws`. During console development, Vite proxies `/ws`, `/auth`, and `/api` to `localhost:8081`.
 
 ## Authentication
 
-In local development, no authentication is required.
+In local development, the HTTP login endpoint accepts the configured development credentials, defaulting to `admin` / `admin`. gRPC requests require an `authorization: Bearer ...` metadata value; the default development token is `dev-token`.
 
 In production Kubernetes deployments, the API server is not exposed externally by default. It is accessed via `kubectl port-forward` or through an internal service mesh. If you expose it externally, configure authentication via the Helm values:
 
@@ -30,9 +30,9 @@ api:
 
 ## Core concepts
 
-### Transactions
+### Requests and transactions
 
-The primary query unit. A transaction is a financial operation — a payment, a settlement, a ledger write — identified by a transaction ID. All causal graph queries, timeline queries, and replay sessions are anchored to a transaction.
+The primary query unit is an application operation identified by a request ID, transaction ID, trace ID, or other domain-specific identifier. Causal graph queries, timeline queries, and replay sessions are anchored to that identifier.
 
 ### Events
 
@@ -44,7 +44,7 @@ Every piece of data kprobe captures is an event. Events have:
 - `cpu` — CPU core
 - `event_type` — one of `TCPSend`, `TCPRecv`, `SyscallRead`, `SyscallWrite`, `SchedSwitch`, `PageFault`
 - `duration_ns` — event duration in nanoseconds
-- `financial_context` — correlated transaction ID, service name, operation (if available)
+- `application_context` — correlated request or transaction ID, service name, trace ID, and operation metadata when available
 
 ### Causal graph
 
@@ -52,29 +52,15 @@ A directed graph of events where edges represent causal relationships. Returned 
 
 ## gRPC services
 
-The API exposes four gRPC services:
+The current API exposes two gRPC services:
 
 | Service              | Purpose                                         |
 | -------------------- | ----------------------------------------------- |
-| `CausalGraphService` | Query causal graphs by transaction ID           |
-| `TimelineService`    | Retrieve event timelines and stream live events |
+| `KprobeService`      | Query causal graphs, retrieve event timelines, and stream live events |
 | `ReplayService`      | Create and manage replay sessions               |
-| `SearchService`      | Search transactions, events, and causal chains  |
 
 See the [gRPC Reference](/docs/api/reference) for full method documentation.
 
 ## WebSocket streaming
 
-The WebSocket endpoint streams live kernel events to the dashboard in real time. Connect to `ws://localhost:8080/stream` and send a subscription message:
-
-```json
-{
-  "type": "subscribe",
-  "filter": {
-    "event_types": ["TCPSend", "SchedSwitch"],
-    "services": ["payment-handler", "settlement-svc"]
-  }
-}
-```
-
-Events are pushed as JSON messages as they arrive from the causal engine.
+The WebSocket endpoint streams live kernel events to the dashboard in real time. Connect to `ws://localhost:8081/ws`. Events are pushed as JSON messages as they arrive from the API broadcast hub.

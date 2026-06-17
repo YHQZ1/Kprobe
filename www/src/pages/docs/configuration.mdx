@@ -61,15 +61,15 @@ helm install kprobe kprobe/kprobe \
 
 ## Kafka topics
 
-kprobe uses five Kafka topics:
+kprobe uses three Kafka topics in the current local pipeline, plus one planned OpenTelemetry topic:
 
 | Topic             | Content                             | Produced by | Consumed by   |
 | ----------------- | ----------------------------------- | ----------- | ------------- |
-| `kernel.tcp`      | TCP send/receive events             | eBPF probe  | Vector        |
-| `kernel.sched`    | CPU scheduling events               | eBPF probe  | Vector        |
-| `kernel.syscall`  | Read/write syscall events           | eBPF probe  | Vector        |
-| `kernel.fault`    | Memory page fault events            | eBPF probe  | Vector        |
-| `kernel.enriched` | Correlated events with OTel context | Vector      | Causal engine |
+| `kernel.raw`      | Raw kernel events as JSON           | eBPF probe  | Vector        |
+| `kernel.enriched` | Parsed kernel events                | Vector      | Causal engine, API stream |
+| `kernel.dlq`      | Invalid kernel event payloads       | Causal engine | Operators |
+
+`otel.spans` is planned for OpenTelemetry span payloads, but it is not produced by the current local Vector config yet.
 
 All topics are configured with `acks=all` and `min.insync.replicas=2` by default for durability.
 

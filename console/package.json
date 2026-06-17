@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "proto:generate": "protoc --ts_out=src/generated --proto_path=../api/proto ../api/proto/**/*.proto"
+    "proto:generate": "protoc --ts_out=src/generated --proto_path=../api/proto ../api/proto/*.proto"
   },
   "dependencies": {
     "@grpc/grpc-js": "^1.11.2",

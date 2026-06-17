@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS kprobe.kernel_events
     duration_ns     UInt64,
     return_value    Int64,
 
-    payload         JSON,
+    payload         String,
     ingested_at     DateTime64(3) DEFAULT now64(3)
 )
 ENGINE = MergeTree()

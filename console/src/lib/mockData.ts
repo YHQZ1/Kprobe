@@ -1,56 +1,68 @@
 import type { EventType, KernelEvent } from "../types/events";
 
 export const SERVICES = [
-  "payment-handler",
-  "settlement-svc",
-  "risk-engine",
-  "ledger-writer",
-  "order-router",
+  "api-worker",
+  "checkout-service",
+  "auth-service",
+  "database-writer",
+  "queue-consumer",
   "batch-job",
 ] as const;
 
 export const EVENT_TYPES: EventType[] = [
-  "tcp_sendmsg",
-  "tcp_recvmsg",
+  "tcp_send",
+  "tcp_recv",
+  "tcp_retransmit",
   "sys_write",
   "sys_read",
   "sched_switch",
-  "mm_page_fault",
+  "page_fault",
+  "block_io",
 ];
 
 export const TYPE_LABELS: Record<EventType, string> = {
-  tcp_sendmsg: "tcp_send",
-  tcp_recvmsg: "tcp_recv",
+  tcp_send: "tcp_send",
+  tcp_recv: "tcp_recv",
+  tcp_retransmit: "tcp_retransmit",
   sys_write: "sys_write",
   sys_read: "sys_read",
   sched_switch: "sched",
-  mm_page_fault: "page_fault",
+  page_fault: "page_fault",
+  block_io: "block_io",
 };
 
 export const TYPE_SHORT: Record<EventType, string> = {
-  tcp_sendmsg: "TCP↑",
-  tcp_recvmsg: "TCP↓",
+  tcp_send: "TCP↑",
+  tcp_recv: "TCP↓",
+  tcp_retransmit: "RETX",
   sys_write: "WRITE",
   sys_read: "READ",
   sched_switch: "SCHED",
-  mm_page_fault: "PF",
+  page_fault: "PF",
+  block_io: "BLK",
 };
 
 export const TYPE_COLORS: Record<
   EventType,
   { bg: string; border: string; text: string; canvas: string }
 > = {
-  tcp_sendmsg: {
+  tcp_send: {
     bg: "rgba(59,130,246,0.12)",
     border: "rgba(59,130,246,0.25)",
     text: "#60a5fa",
     canvas: "rgba(59,130,246,0.75)",
   },
-  tcp_recvmsg: {
+  tcp_recv: {
     bg: "rgba(99,102,241,0.12)",
     border: "rgba(99,102,241,0.25)",
     text: "#818cf8",
     canvas: "rgba(99,102,241,0.75)",
+  },
+  tcp_retransmit: {
+    bg: "rgba(244,63,94,0.12)",
+    border: "rgba(244,63,94,0.25)",
+    text: "#fb7185",
+    canvas: "rgba(244,63,94,0.75)",
   },
   sys_write: {
     bg: "rgba(16,185,129,0.12)",
@@ -70,11 +82,17 @@ export const TYPE_COLORS: Record<
     text: "#f59e0b",
     canvas: "rgba(245,158,11,0.80)",
   },
-  mm_page_fault: {
+  page_fault: {
     bg: "rgba(239,68,68,0.12)",
     border: "rgba(239,68,68,0.25)",
     text: "#f87171",
     canvas: "rgba(239,68,68,0.80)",
+  },
+  block_io: {
+    bg: "rgba(168,85,247,0.12)",
+    border: "rgba(168,85,247,0.25)",
+    text: "#c084fc",
+    canvas: "rgba(168,85,247,0.75)",
   },
 };
 
@@ -88,7 +106,7 @@ type EventTemplate = (
 };
 
 const EVENT_TEMPLATES: Record<EventType, EventTemplate> = {
-  tcp_sendmsg: (_pid, svc) => {
+  tcp_send: (_pid, svc) => {
     const dest = SERVICES[Math.floor(Math.random() * SERVICES.length)];
     const bytes = Math.floor(Math.random() * 8192 + 512);
     return {
@@ -103,7 +121,7 @@ const EVENT_TEMPLATES: Record<EventType, EventTemplate> = {
       durationUs: Math.floor(Math.random() * 800 + 50),
     };
   },
-  tcp_recvmsg: (_pid, svc) => {
+  tcp_recv: (_pid, svc) => {
     const bytes = Math.floor(Math.random() * 4096 + 256);
     return {
       detail: `${svc} ← inbound · ${(bytes / 1024).toFixed(1)}kb`,
@@ -117,8 +135,20 @@ const EVENT_TEMPLATES: Record<EventType, EventTemplate> = {
       durationUs: Math.floor(Math.random() * 400 + 20),
     };
   },
+  tcp_retransmit: (_pid, svc) => {
+    const dest = SERVICES[Math.floor(Math.random() * SERVICES.length)];
+    return {
+      detail: `${svc} → ${dest} · retransmit`,
+      meta: {
+        protocol: "TCP",
+        direction: "egress",
+        reason: "packet_loss",
+      },
+      durationUs: Math.floor(Math.random() * 1200 + 300),
+    };
+  },
   sys_write: () => {
-    const ops = ["ledger write", "journal flush", "WAL append", "index update"];
+    const ops = ["database write", "journal flush", "WAL append", "index update"];
     const fd = Math.floor(Math.random() * 10 + 3);
     return {
       detail: `fd=${fd} · ${ops[Math.floor(Math.random() * ops.length)]}`,
@@ -166,7 +196,7 @@ const EVENT_TEMPLATES: Record<EventType, EventTemplate> = {
       durationUs: delayMs * 1000,
     };
   },
-  mm_page_fault: () => {
+  page_fault: () => {
     const addr = Math.floor(Math.random() * 0xffffffffffff)
       .toString(16)
       .padStart(12, "0");
@@ -180,6 +210,18 @@ const EVENT_TEMPLATES: Record<EventType, EventTemplate> = {
         pgfault: String(Math.floor(Math.random() * 1000)),
       },
       durationUs: Math.floor(Math.random() * 2000 + 200),
+    };
+  },
+  block_io: () => {
+    const bytes = Math.floor(Math.random() * 32768 + 4096);
+    return {
+      detail: `block device · ${(bytes / 1024).toFixed(1)}kb`,
+      meta: {
+        bytes: String(bytes),
+        op: Math.random() > 0.5 ? "read" : "write",
+        sector: String(Math.floor(Math.random() * 10_000_000)),
+      },
+      durationUs: Math.floor(Math.random() * 1800 + 200),
     };
   },
 };

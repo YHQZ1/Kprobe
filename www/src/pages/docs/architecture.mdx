@@ -55,17 +55,19 @@ D3.js Graph ECharts Timeline
 
 ### Kafka (KRaft)
 
-- Four topics: `kernel.tcp`, `kernel.sched`, `kernel.syscall`, `kernel.fault`
-- One enriched topic: `kernel.enriched` (Vector output)
+- Raw topic: `kernel.raw` from the probe
+- Enriched topic: `kernel.enriched` from Vector
+- Dead-letter topic: `kernel.dlq` for invalid event payloads
+- Planned OTel topic: `otel.spans` for trace context enrichment
 - KRaft mode — no Zookeeper dependency
 - Configured for durability: `acks=all`, replication factor 3 in production
 
 ### Vector
 
 - Deployed as a sidecar or standalone deployment
-- Subscribes to all four raw Kafka topics
-- Joins eBPF events with OpenTelemetry traces on PID and timestamp
-- Routes enriched events to both ClickHouse and `kernel.enriched`
+- Subscribes to `kernel.raw`
+- Parses raw eBPF JSON and forwards it to `kernel.enriched`
+- OpenTelemetry span forwarding is planned, but not yet active in the current Vector config
 
 ### ClickHouse
 
@@ -77,8 +79,10 @@ D3.js Graph ECharts Timeline
 ### Go Causal Engine
 
 - Consumes `kernel.enriched` topic
+- Uses trace, span, service, and transaction fields already present on enriched events
+- Planned: consume `otel.spans` for trace context enrichment
 - Sliding window causal inference — 100ms default window
-- Writes nodes and edges to Neo4j via Bolt protocol
+- Writes raw/enriched events to ClickHouse and nodes/edges to Neo4j
 - Streams live causal updates to the API layer via gRPC
 
 ### Neo4j
@@ -112,7 +116,7 @@ Kernel events arrive at millions per second. Kafka provides back-pressure handli
 
 ### Why Neo4j over a relational database?
 
-Causal relationships are inherently graph-shaped. Traversing from a failed payment to its root kernel cause in a relational database requires recursive CTEs across multiple joins. In Neo4j, the same traversal is a 2-line Cypher query that runs in milliseconds on graphs with millions of edges.
+Causal relationships are inherently graph-shaped. Traversing from a failed request to its root kernel cause in a relational database requires recursive CTEs across multiple joins. In Neo4j, the same traversal is a 2-line Cypher query that runs in milliseconds on graphs with millions of edges.
 
 ### Why ClickHouse for raw events?
 

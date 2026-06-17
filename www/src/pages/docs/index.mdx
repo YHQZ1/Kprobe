@@ -6,9 +6,9 @@ description: What kprobe is, what it does, and when to use it.
 
 # Introduction
 
-kprobe is a kernel-level observability tool for distributed financial systems. It uses eBPF to attach directly to the Linux kernel and capture everything that happens in your system — network packet timing, CPU scheduling decisions, memory pressure events, database write latency — without touching a single line of your application code.
+kprobe is a kernel-level flight recorder for production systems. It uses eBPF to attach directly to the Linux kernel and capture runtime events — network packet timing, CPU scheduling decisions, memory pressure events, database write latency — without touching a single line of your application code.
 
-When something breaks in a financial system, kprobe constructs a full causal graph of exactly what caused what, down to the kernel-level event that triggered the failure. It then lets you replay the entire incident deterministically on a development machine, hours after it happened.
+When something breaks in production, kprobe constructs a causal graph of what happened, down to the kernel-level event that triggered the failure. It then helps you replay the incident on a development machine, hours after it happened.
 
 ## What kprobe is not
 
@@ -16,15 +16,15 @@ kprobe is not a monitoring tool. It does not alert on thresholds or aggregate me
 
 kprobe is not a tracing tool. It does not replace Jaeger or OpenTelemetry. It augments them — correlating their traces with kernel-level events to give you the full picture.
 
-kprobe is a **flight recorder and a debugger** for your entire distributed financial system.
+kprobe is a **flight recorder and a debugger** for your distributed production system.
 
 ## The problem it solves
 
-Every popular observability tool operates above your application code. They see only what you explicitly instrument. The most dangerous failures in financial systems happen below your code, at the operating system level:
+Every popular observability tool operates above your application code. They see only what you explicitly instrument. The hardest production failures often happen below your code, at the operating system level:
 
-- A kernel scheduler delays a critical ledger write by 50ms
+- A kernel scheduler delays a critical database write by 50ms
 - Memory pressure from a background job causes a GC pause at exactly the wrong moment
-- A TCP retransmit pushes a settlement past its clearing window
+- A TCP retransmit pushes a request past its timeout budget
 
 None of this is visible to Datadog, Jaeger, or OpenTelemetry. kprobe sees all of it.
 
@@ -34,15 +34,15 @@ kprobe has three components that work together continuously from the moment of d
 
 **The Recorder** — An eBPF probe deployed as a Kubernetes DaemonSet on every node. It attaches to kernel tracepoints and captures every relevant event with nanosecond precision. No application code changes required.
 
-**The Causal Engine** — Consumes the raw kernel event stream, correlates it with your existing OpenTelemetry traces, and builds a directed causal graph that answers not just what happened but why. Stored in Neo4j and traversable in milliseconds.
+**The Causal Engine** — Consumes the enriched kernel event stream and builds a directed causal graph that answers not just what happened but why. It uses request, service, trace, and transaction context when present, with native OpenTelemetry span correlation planned next. Stored in Neo4j and traversable in milliseconds.
 
 **The Replay Engine** — Uses Linux `ptrace` to intercept system calls of a sandboxed process and serve them from the recorded event log. Any production incident can be reproduced exactly on a development machine.
 
 ## When to use kprobe
 
-kprobe is designed for teams running distributed financial systems on Kubernetes where:
+kprobe is designed for teams running distributed systems on Kubernetes where:
 
-- Incidents involve ambiguous intermediate states (money in limbo, failed settlements, stuck transactions)
+- Incidents involve ambiguous intermediate states, stuck requests, delayed writes, or cascading retries
 - Root cause analysis takes hours and never fully confirms the cause
 - Failures happen at the OS level — GC pauses, network retransmits, scheduler delays — not in application code
 - You need to verify a fix works against the exact production incident before deploying

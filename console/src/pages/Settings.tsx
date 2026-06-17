@@ -18,7 +18,7 @@ interface Settings {
 const DEFAULTS: Settings = {
   version: 1,
   apiHost: "localhost",
-  apiPort: "8080",
+  apiPort: "8081",
   wsReconnect: true,
   theme: "dark",
   timestampFormat: "absolute",
@@ -31,8 +31,6 @@ const DEFAULTS: Settings = {
 };
 
 const STORAGE_KEY = "kprobe_settings";
-const IS_DEV = import.meta.env.DEV;
-
 function loadFromStorage(): Settings {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -68,17 +66,17 @@ const SHORTCUTS = [
 ];
 
 export default function SettingsPage() {
-  const [settings, setSettings] = useState<Settings>(
-    IS_DEV ? loadFromStorage() : DEFAULTS,
-  );
+  const [settings, setSettings] = useState<Settings>(loadFromStorage);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    if (IS_DEV) return; // localStorage already loaded in useState initialiser
     fetch("/api/settings")
       .then((res) => res.json())
-      .then((data) => setSettings(data))
-      .catch(() => {}); // backend not running — stay on defaults
+      .then((data) => {
+        setSettings(data);
+        saveToStorage(data);
+      })
+      .catch(() => {});
   }, []);
 
   function set<K extends keyof Settings>(key: K, value: Settings[K]) {
@@ -87,12 +85,7 @@ export default function SettingsPage() {
   }
 
   async function handleSave() {
-    if (IS_DEV) {
-      saveToStorage(settings);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
-      return;
-    }
+    saveToStorage(settings);
     try {
       await fetch("/api/settings", {
         method: "PUT",
@@ -102,24 +95,18 @@ export default function SettingsPage() {
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch {
-      // backend not available
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
     }
   }
 
   async function handleReset() {
-    if (IS_DEV) {
-      localStorage.removeItem(STORAGE_KEY);
-      setSettings(DEFAULTS);
-      setSaved(false);
-      return;
-    }
+    localStorage.removeItem(STORAGE_KEY);
+    setSettings(DEFAULTS);
+    setSaved(false);
     try {
       await fetch("/api/settings/reset", { method: "POST" });
-      setSettings(DEFAULTS);
-      setSaved(false);
-    } catch {
-      // backend not available
-    }
+    } catch {}
   }
 
   const isDirty = JSON.stringify(settings) !== JSON.stringify(DEFAULTS);
@@ -230,9 +217,7 @@ export default function SettingsPage() {
         <div>
           <div style={s.headerTitle}>settings</div>
           <div style={s.headerSub}>
-            {IS_DEV
-              ? "mock mode · changes saved to localStorage"
-              : "console configuration — changes apply immediately"}
+            console configuration · local fallback enabled
           </div>
         </div>
         <div style={s.headerActions}>
@@ -270,7 +255,7 @@ export default function SettingsPage() {
               spellCheck={false}
             />
           </Row>
-          <Row label="API port" sub="Default: 8080">
+          <Row label="API port" sub="HTTP/WebSocket default: 8081">
             <input
               className="settings-input"
               style={{ width: "80px" }}
@@ -514,8 +499,8 @@ export default function SettingsPage() {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function getActiveHooks(mode: Settings["probeOverhead"]): string[] {
-  const minimal = ["tcp_sendmsg", "tcp_recvmsg", "sys_write"];
-  const standard = [...minimal, "sys_read", "sched_switch", "mm_page_fault"];
+  const minimal = ["tcp_send", "tcp_recv", "sys_write"];
+  const standard = [...minimal, "sys_read", "sched_switch", "page_fault"];
   const verbose = [
     ...standard,
     "sys_open",

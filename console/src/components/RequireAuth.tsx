@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { Outlet } from "react-router-dom";
 import Login from "../pages/Login";
 import Shell from "./Shell";
+import { ConnectionProvider } from "../hooks/useConnection";
 
 interface RequireAuthProps {
   authed: boolean;
@@ -42,10 +43,12 @@ export default function RequireAuth({
   }
 
   return (
-    <Shell onLogout={onLogout} theme={theme} onThemeToggle={onThemeToggle}>
-      <Suspense fallback={<PageLoader />}>
-        <Outlet />
-      </Suspense>
-    </Shell>
+    <ConnectionProvider>
+      <Shell onLogout={onLogout} theme={theme} onThemeToggle={onThemeToggle}>
+        <Suspense fallback={<PageLoader />}>
+          <Outlet />
+        </Suspense>
+      </Shell>
+    </ConnectionProvider>
   );
 }

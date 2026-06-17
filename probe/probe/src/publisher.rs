@@ -1,15 +1,23 @@
 use aya::maps::AsyncRingBuf;
 use log::{info, warn};
 use probe_common::{
-    BlockEvent, PageFaultEvent, SchedEvent, SyscallDir, SyscallEvent, SyscallOp,
-    TcpEvent, TcpEventType,
+    BlockEvent, PageFaultEvent, SchedEvent, SyscallDir, SyscallEvent, SyscallOp, TcpEvent,
+    TcpEventType,
 };
 use rdkafka::producer::{FutureProducer, FutureRecord};
 use std::collections::VecDeque;
 use std::time::Duration;
 
-pub async fn drain_tcp(mut buf: AsyncRingBuf<aya::maps::MapData>, producer: FutureProducer) {
-    let mut fallback: VecDeque<(String, String)> = VecDeque::with_capacity(100_000);
+fn unix_timestamp_ns(monotonic_ns: u64, offset_ns: u64) -> u64 {
+    monotonic_ns.saturating_add(offset_ns)
+}
+
+pub async fn drain_tcp(
+    mut buf: AsyncRingBuf<aya::maps::MapData>,
+    producer: FutureProducer,
+    timestamp_offset_ns: u64,
+) {
+    let mut fallback: VecDeque<(String, String)> = VecDeque::with_capacity(5000);
     while let Some(item) = buf.next().await {
         let event = unsafe { &*(item.as_ptr() as *const TcpEvent) };
         let event_type = match event.event_type {
@@ -20,7 +28,7 @@ pub async fn drain_tcp(mut buf: AsyncRingBuf<aya::maps::MapData>, producer: Futu
         let payload = serde_json::json!({
             "event_id": "",
             "event_type": event_type,
-            "timestamp_ns": event.timestamp_ns,
+            "timestamp_ns": unix_timestamp_ns(event.timestamp_ns, timestamp_offset_ns),
             "pid": event.pid,
             "tid": event.tid,
             "cpu": event.cpu,
@@ -41,17 +49,21 @@ pub async fn drain_tcp(mut buf: AsyncRingBuf<aya::maps::MapData>, producer: Futu
         while let Some((k, p)) = fallback.front() {
             let rec = FutureRecord::to("kernel.raw").payload(p).key(k);
             match producer.send(rec, Duration::from_secs(0)).await {
-                Ok(_) => { fallback.pop_front(); },
+                Ok(_) => {
+                    fallback.pop_front();
+                }
                 Err(_) => break,
             }
         }
 
-        let record = FutureRecord::to("kernel.raw").payload(&payload_str).key(&key);
+        let record = FutureRecord::to("kernel.raw")
+            .payload(&payload_str)
+            .key(&key);
         match producer.send(record, Duration::from_secs(0)).await {
             Ok(_) => info!("tcp event pid={} type={}", event.pid, event_type),
             Err((e, _)) => {
                 warn!("kafka publish failed: {e}");
-                if fallback.len() < 100_000 {
+                if fallback.len() < 5000 {
                     fallback.push_back((key, payload_str));
                 }
             }
@@ -59,14 +71,18 @@ pub async fn drain_tcp(mut buf: AsyncRingBuf<aya::maps::MapData>, producer: Futu
     }
 }
 
-pub async fn drain_sched(mut buf: AsyncRingBuf<aya::maps::MapData>, producer: FutureProducer) {
-    let mut fallback: VecDeque<(String, String)> = VecDeque::with_capacity(100_000);
+pub async fn drain_sched(
+    mut buf: AsyncRingBuf<aya::maps::MapData>,
+    producer: FutureProducer,
+    timestamp_offset_ns: u64,
+) {
+    let mut fallback: VecDeque<(String, String)> = VecDeque::with_capacity(5000);
     while let Some(item) = buf.next().await {
         let event = unsafe { &*(item.as_ptr() as *const SchedEvent) };
         let payload = serde_json::json!({
             "event_id": "",
             "event_type": "sched_switch",
-            "timestamp_ns": event.timestamp_ns,
+            "timestamp_ns": unix_timestamp_ns(event.timestamp_ns, timestamp_offset_ns),
             "pid": event.prev_pid,
             "tid": event.prev_pid,
             "cpu": event.cpu,
@@ -86,17 +102,24 @@ pub async fn drain_sched(mut buf: AsyncRingBuf<aya::maps::MapData>, producer: Fu
         while let Some((k, p)) = fallback.front() {
             let rec = FutureRecord::to("kernel.raw").payload(p).key(k);
             match producer.send(rec, Duration::from_secs(0)).await {
-                Ok(_) => { fallback.pop_front(); },
+                Ok(_) => {
+                    fallback.pop_front();
+                }
                 Err(_) => break,
             }
         }
 
-        let record = FutureRecord::to("kernel.raw").payload(&payload_str).key(&key);
+        let record = FutureRecord::to("kernel.raw")
+            .payload(&payload_str)
+            .key(&key);
         match producer.send(record, Duration::from_secs(0)).await {
-            Ok(_) => info!("sched event prev_pid={} next_pid={}", event.prev_pid, event.next_pid),
+            Ok(_) => info!(
+                "sched event prev_pid={} next_pid={}",
+                event.prev_pid, event.next_pid
+            ),
             Err((e, _)) => {
                 warn!("kafka publish failed: {e}");
-                if fallback.len() < 100_000 {
+                if fallback.len() < 5000 {
                     fallback.push_back((key, payload_str));
                 }
             }
@@ -104,8 +127,12 @@ pub async fn drain_sched(mut buf: AsyncRingBuf<aya::maps::MapData>, producer: Fu
     }
 }
 
-pub async fn drain_syscall(mut buf: AsyncRingBuf<aya::maps::MapData>, producer: FutureProducer) {
-    let mut fallback: VecDeque<(String, String)> = VecDeque::with_capacity(100_000);
+pub async fn drain_syscall(
+    mut buf: AsyncRingBuf<aya::maps::MapData>,
+    producer: FutureProducer,
+    timestamp_offset_ns: u64,
+) {
+    let mut fallback: VecDeque<(String, String)> = VecDeque::with_capacity(5000);
     while let Some(item) = buf.next().await {
         let event = unsafe { &*(item.as_ptr() as *const SyscallEvent) };
         let event_type = match event.op {
@@ -115,7 +142,7 @@ pub async fn drain_syscall(mut buf: AsyncRingBuf<aya::maps::MapData>, producer: 
         let payload = serde_json::json!({
             "event_id": "",
             "event_type": event_type,
-            "timestamp_ns": event.timestamp_ns,
+            "timestamp_ns": unix_timestamp_ns(event.timestamp_ns, timestamp_offset_ns),
             "pid": event.pid,
             "tid": event.tid,
             "cpu": event.cpu,
@@ -137,12 +164,16 @@ pub async fn drain_syscall(mut buf: AsyncRingBuf<aya::maps::MapData>, producer: 
         while let Some((k, p)) = fallback.front() {
             let rec = FutureRecord::to("kernel.raw").payload(p).key(k);
             match producer.send(rec, Duration::from_secs(0)).await {
-                Ok(_) => { fallback.pop_front(); },
+                Ok(_) => {
+                    fallback.pop_front();
+                }
                 Err(_) => break,
             }
         }
 
-        let record = FutureRecord::to("kernel.raw").payload(&payload_str).key(&key);
+        let record = FutureRecord::to("kernel.raw")
+            .payload(&payload_str)
+            .key(&key);
         match producer.send(record, Duration::from_secs(0)).await {
             Ok(_) => info!(
                 "syscall event pid={} op={:?} dir={:?}",
@@ -150,7 +181,7 @@ pub async fn drain_syscall(mut buf: AsyncRingBuf<aya::maps::MapData>, producer: 
             ),
             Err((e, _)) => {
                 warn!("kafka publish failed: {e}");
-                if fallback.len() < 100_000 {
+                if fallback.len() < 5000 {
                     fallback.push_back((key, payload_str));
                 }
             }
@@ -158,14 +189,18 @@ pub async fn drain_syscall(mut buf: AsyncRingBuf<aya::maps::MapData>, producer: 
     }
 }
 
-pub async fn drain_page_fault(mut buf: AsyncRingBuf<aya::maps::MapData>, producer: FutureProducer) {
-    let mut fallback: VecDeque<(String, String)> = VecDeque::with_capacity(100_000);
+pub async fn drain_page_fault(
+    mut buf: AsyncRingBuf<aya::maps::MapData>,
+    producer: FutureProducer,
+    timestamp_offset_ns: u64,
+) {
+    let mut fallback: VecDeque<(String, String)> = VecDeque::with_capacity(5000);
     while let Some(item) = buf.next().await {
         let event = unsafe { &*(item.as_ptr() as *const PageFaultEvent) };
         let payload = serde_json::json!({
             "event_id": "",
             "event_type": "page_fault",
-            "timestamp_ns": event.timestamp_ns,
+            "timestamp_ns": unix_timestamp_ns(event.timestamp_ns, timestamp_offset_ns),
             "pid": event.pid,
             "tid": event.tid,
             "cpu": event.cpu,
@@ -187,17 +222,21 @@ pub async fn drain_page_fault(mut buf: AsyncRingBuf<aya::maps::MapData>, produce
         while let Some((k, p)) = fallback.front() {
             let rec = FutureRecord::to("kernel.raw").payload(p).key(k);
             match producer.send(rec, Duration::from_secs(0)).await {
-                Ok(_) => { fallback.pop_front(); },
+                Ok(_) => {
+                    fallback.pop_front();
+                }
                 Err(_) => break,
             }
         }
 
-        let record = FutureRecord::to("kernel.raw").payload(&payload_str).key(&key);
+        let record = FutureRecord::to("kernel.raw")
+            .payload(&payload_str)
+            .key(&key);
         match producer.send(record, Duration::from_secs(0)).await {
             Ok(_) => info!("page fault pid={} addr={:#x}", event.pid, event.address),
             Err((e, _)) => {
                 warn!("kafka publish failed: {e}");
-                if fallback.len() < 100_000 {
+                if fallback.len() < 5000 {
                     fallback.push_back((key, payload_str));
                 }
             }
@@ -205,14 +244,18 @@ pub async fn drain_page_fault(mut buf: AsyncRingBuf<aya::maps::MapData>, produce
     }
 }
 
-pub async fn drain_block(mut buf: AsyncRingBuf<aya::maps::MapData>, producer: FutureProducer) {
-    let mut fallback: VecDeque<(String, String)> = VecDeque::with_capacity(100_000);
+pub async fn drain_block(
+    mut buf: AsyncRingBuf<aya::maps::MapData>,
+    producer: FutureProducer,
+    timestamp_offset_ns: u64,
+) {
+    let mut fallback: VecDeque<(String, String)> = VecDeque::with_capacity(5000);
     while let Some(item) = buf.next().await {
         let event = unsafe { &*(item.as_ptr() as *const BlockEvent) };
         let payload = serde_json::json!({
             "event_id": "",
             "event_type": "block_io",
-            "timestamp_ns": event.timestamp_ns,
+            "timestamp_ns": unix_timestamp_ns(event.timestamp_ns, timestamp_offset_ns),
             "pid": event.pid,
             "tid": event.tid,
             "cpu": event.cpu,
@@ -227,6 +270,10 @@ pub async fn drain_block(mut buf: AsyncRingBuf<aya::maps::MapData>, producer: Fu
                 "block_sector": event.sector,
                 "block_bytes": event.bytes,
                 "block_op": if event.op == 0 { "read" } else { "write" },
+                "block_phase": match event.dir {
+                    probe_common::BlockDir::Issue => "issue",
+                    probe_common::BlockDir::Complete => "complete",
+                },
             }
         });
         let key = event.pid.to_string();
@@ -235,17 +282,21 @@ pub async fn drain_block(mut buf: AsyncRingBuf<aya::maps::MapData>, producer: Fu
         while let Some((k, p)) = fallback.front() {
             let rec = FutureRecord::to("kernel.raw").payload(p).key(k);
             match producer.send(rec, Duration::from_secs(0)).await {
-                Ok(_) => { fallback.pop_front(); },
+                Ok(_) => {
+                    fallback.pop_front();
+                }
                 Err(_) => break,
             }
         }
 
-        let record = FutureRecord::to("kernel.raw").payload(&payload_str).key(&key);
+        let record = FutureRecord::to("kernel.raw")
+            .payload(&payload_str)
+            .key(&key);
         match producer.send(record, Duration::from_secs(0)).await {
             Ok(_) => info!("block event pid={} sector={}", event.pid, event.sector),
             Err((e, _)) => {
                 warn!("kafka publish failed: {e}");
-                if fallback.len() < 100_000 {
+                if fallback.len() < 5000 {
                     fallback.push_back((key, payload_str));
                 }
             }

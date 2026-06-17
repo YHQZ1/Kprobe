@@ -3,8 +3,8 @@ import Layout from "../layouts/Layout.astro";
 ---
 
 <Layout
-  title="Kernel-level observability for financial systems"
-  description="Deep kernel observability for financial systems. eBPF-powered causal graphs and deterministic replay."
+  title="Kernel-level observability for production systems"
+  description="Kernel-level flight recorder for production systems. eBPF-powered causal graphs and deterministic replay."
 >
   <div class="page">
     <section class="hero">
@@ -14,7 +14,7 @@ import Layout from "../layouts/Layout.astro";
           eBPF · Causal Graphs · Deterministic Replay
         </div>
         <h1 class="hero-title">
-          Kernel-level visibility<br />for financial systems.
+          Kernel-level visibility<br />for production systems.
         </h1>
         <p class="hero-sub">
           kprobe attaches to the Linux kernel using eBPF and captures everything
@@ -85,14 +85,14 @@ import Layout from "../layouts/Layout.astro";
               <span class="stream-type">tcp_sendmsg</span>
               <span class="stream-pid">PID 2841</span>
               <span class="stream-detail"
-                >payment-handler → settlement-svc · 1.2kb</span
+                >api-worker → checkout-service · 1.2kb</span
               >
             </div>
             <div class="stream-row">
               <span class="stream-ts">03:47:12.005</span>
               <span class="stream-type">sys_write</span>
               <span class="stream-pid">PID 2841</span>
-              <span class="stream-detail">fd=7 · ledger write initiated</span>
+              <span class="stream-detail">fd=7 · database write initiated</span>
             </div>
             <div class="stream-row">
               <span class="stream-ts">03:47:12.821</span>
@@ -126,7 +126,7 @@ import Layout from "../layouts/Layout.astro";
               <span class="stream-ts">03:47:13.622</span>
               <span class="stream-type">tcp_recvmsg</span>
               <span class="stream-pid">PID 2841</span>
-              <span class="stream-detail">timeout — payment-handler · ERR</span>
+              <span class="stream-detail">timeout — api-worker · ERR</span>
             </div>
           </div>
           <div class="visual-footer">
@@ -212,7 +212,7 @@ import Layout from "../layouts/Layout.astro";
               </div>
               <div class="cap-card-body">
                 Correlates kernel events with OTel traces on PID + timestamp.
-                Builds a directed causal graph in Neo4j. Any financial event to
+                Builds a directed causal graph in Neo4j. Any service event to
                 root kernel cause in milliseconds.
               </div>
             </div>
@@ -299,10 +299,10 @@ import Layout from "../layouts/Layout.astro";
                   opacity="0.5"></path>
               </svg>
             </div>
-            <div class="cap-card-title">Financial domain primitives</div>
+            <div class="cap-card-title">Application context</div>
             <div class="cap-card-body">
-              Settlement boundaries, clearing windows, ledger writes, order book
-              ops — kprobe maps kernel events to your financial domain natively.
+              Requests, jobs, database writes, queue consumers, RPC calls —
+              kprobe maps kernel events to application operations.
             </div>
           </div>
         </div>
@@ -319,8 +319,8 @@ import Layout from "../layouts/Layout.astro";
               <div class="tnode-line"></div>
             </div>
             <div class="tnode-body">
-              <div class="tnode-title">Payment #98721 received</div>
-              <div class="tnode-meta">payment-handler · 03:47:12.004</div>
+              <div class="tnode-title">Request req-9f21 received</div>
+              <div class="tnode-meta">api-worker · 03:47:12.004</div>
             </div>
             <div class="tnode-time">—</div>
           </div>
@@ -330,8 +330,8 @@ import Layout from "../layouts/Layout.astro";
               <div class="tnode-line"></div>
             </div>
             <div class="tnode-body">
-              <div class="tnode-title">Risk check passed</div>
-              <div class="tnode-meta">risk-engine · 03:47:12.408</div>
+              <div class="tnode-title">Validation passed</div>
+              <div class="tnode-meta">checkout-service · 03:47:12.408</div>
             </div>
             <div class="tnode-time">0.4ms</div>
           </div>
@@ -341,8 +341,8 @@ import Layout from "../layouts/Layout.astro";
               <div class="tnode-line"></div>
             </div>
             <div class="tnode-body">
-              <div class="tnode-title">Settlement write initiated</div>
-              <div class="tnode-meta">settlement-svc · 03:47:12.819</div>
+              <div class="tnode-title">Database write initiated</div>
+              <div class="tnode-meta">checkout-service · 03:47:12.819</div>
             </div>
             <div class="tnode-time">1.2ms</div>
           </div>
@@ -367,8 +367,8 @@ import Layout from "../layouts/Layout.astro";
               <div class="tnode-line tnode-line-dim"></div>
             </div>
             <div class="tnode-body">
-              <div class="tnode-title">Settlement write completed</div>
-              <div class="tnode-meta">settlement-svc · 03:47:13.621</div>
+              <div class="tnode-title">Database write completed</div>
+              <div class="tnode-meta">checkout-service · 03:47:13.621</div>
             </div>
             <div class="tnode-time tnode-time-slow">800ms</div>
           </div>
@@ -378,9 +378,9 @@ import Layout from "../layouts/Layout.astro";
             </div>
             <div class="tnode-body">
               <div class="tnode-title tnode-title-dim">
-                Payment failed — timeout exceeded 750ms
+                Request failed — timeout exceeded 750ms
               </div>
-              <div class="tnode-meta">payment-handler · 03:47:13.622</div>
+              <div class="tnode-meta">api-worker · 03:47:13.622</div>
             </div>
             <div class="tnode-time tnode-time-dim">+52ms</div>
           </div>
@@ -617,7 +617,7 @@ import Layout from "../layouts/Layout.astro";
           <div class="stack-info">
             <div class="stack-name">Apache Kafka</div>
             <div class="stack-desc">
-              KRaft mode, topic-per-event-type. Handles millions of kernel
+              KRaft mode, raw and enriched topics. Handles millions of kernel
               events per second. Durable and replayable, no Zookeeper.
             </div>
           </div>
@@ -650,7 +650,7 @@ import Layout from "../layouts/Layout.astro";
             <div class="stack-name">Neo4j</div>
             <div class="stack-desc">
               Graph database for causal relationships. Cypher queries traverse
-              from any financial event to root kernel cause in milliseconds.
+              from any service event to root kernel cause in milliseconds.
             </div>
           </div>
         </div>

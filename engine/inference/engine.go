@@ -103,8 +103,12 @@ func (e *Engine) processWindow(ctx context.Context, events []types.KernelEvent) 
 		if len(indices) < 2 {
 			continue
 		}
-		for x := 0; x < len(indices); x++ {
-			for y := x + 1; y < len(indices); y++ {
+		for y := 1; y < len(indices); y++ {
+			limit := y - 10
+			if limit < 0 {
+				limit = 0
+			}
+			for x := y - 1; x >= limit; x-- {
 				i, j := indices[x], indices[y]
 				if edge, ok := e.tryCreateEdge(events, i, j, false); ok {
 					edges = append(edges, edge)
@@ -117,8 +121,12 @@ func (e *Engine) processWindow(ctx context.Context, events []types.KernelEvent) 
 		if len(indices) < 2 {
 			continue
 		}
-		for x := 0; x < len(indices); x++ {
-			for y := x + 1; y < len(indices); y++ {
+		for y := 1; y < len(indices); y++ {
+			limit := y - 10
+			if limit < 0 {
+				limit = 0
+			}
+			for x := y - 1; x >= limit; x-- {
 				i, j := indices[x], indices[y]
 				if events[i].TID == events[j].TID {
 					continue

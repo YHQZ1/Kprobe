@@ -16,20 +16,29 @@ import (
 
 type ReplayHandler struct {
 	pb.UnimplementedReplayServiceServer
-	mgr *session.Manager
+	mgr       *session.Manager
+	available bool
 
 	mu         sync.RWMutex
 	watchChans map[string][]chan *pb.ReplayEventProto
 }
 
 func NewReplayHandler(ch *store.Client) *ReplayHandler {
+	var mgr *session.Manager
+	if ch != nil {
+		mgr = session.NewManager(ch)
+	}
 	return &ReplayHandler{
-		mgr:        session.NewManager(ch),
+		mgr:        mgr,
+		available:  ch != nil,
 		watchChans: make(map[string][]chan *pb.ReplayEventProto),
 	}
 }
 
 func (h *ReplayHandler) StartReplay(ctx context.Context, req *pb.StartReplayRequest) (*pb.StartReplayResponse, error) {
+	if !h.available {
+		return nil, status.Error(codes.Unavailable, "clickhouse replay store is not configured")
+	}
 	if req.TransactionId == "" {
 		return nil, status.Error(codes.InvalidArgument, "transaction_id is required")
 	}
@@ -79,6 +88,9 @@ func (h *ReplayHandler) StartReplay(ctx context.Context, req *pb.StartReplayRequ
 }
 
 func (h *ReplayHandler) Control(ctx context.Context, req *pb.ReplayControlRequest) (*pb.ReplayControlResponse, error) {
+	if !h.available {
+		return nil, status.Error(codes.Unavailable, "clickhouse replay store is not configured")
+	}
 	if req.SessionId == "" {
 		return nil, status.Error(codes.InvalidArgument, "session_id is required")
 	}
@@ -115,6 +127,9 @@ func (h *ReplayHandler) Control(ctx context.Context, req *pb.ReplayControlReques
 }
 
 func (h *ReplayHandler) Status(ctx context.Context, req *pb.ReplayStatusRequest) (*pb.ReplayStatusResponse, error) {
+	if !h.available {
+		return nil, status.Error(codes.Unavailable, "clickhouse replay store is not configured")
+	}
 	if req.SessionId == "" {
 		return nil, status.Error(codes.InvalidArgument, "session_id is required")
 	}
@@ -136,6 +151,9 @@ func (h *ReplayHandler) Status(ctx context.Context, req *pb.ReplayStatusRequest)
 }
 
 func (h *ReplayHandler) WatchReplay(req *pb.WatchReplayRequest, stream pb.ReplayService_WatchReplayServer) error {
+	if !h.available {
+		return status.Error(codes.Unavailable, "clickhouse replay store is not configured")
+	}
 	if req.SessionId == "" {
 		return status.Error(codes.InvalidArgument, "session_id is required")
 	}
@@ -175,10 +193,9 @@ func (h *ReplayHandler) WatchReplay(req *pb.WatchReplayRequest, stream pb.Replay
 
 func (h *ReplayHandler) fanOut(sessionID string, event *pb.ReplayEventProto) {
 	h.mu.RLock()
-	chans := h.watchChans[sessionID]
-	h.mu.RUnlock()
+	defer h.mu.RUnlock()
 
-	for _, ch := range chans {
+	for _, ch := range h.watchChans[sessionID] {
 		select {
 		case ch <- event:
 		default:
@@ -202,7 +219,6 @@ func (h *ReplayHandler) removeWatcher(sessionID string, target chan *pb.ReplayEv
 	for i, ch := range chans {
 		if ch == target {
 			h.watchChans[sessionID] = append(chans[:i], chans[i+1:]...)
-			close(ch)
 			return
 		}
 	}

@@ -10,6 +10,8 @@ import {
   fmtDur,
   isSlow,
 } from "../lib/mockData";
+import { useConnection } from "../hooks/useConnection";
+import { mapWireEvent } from "../lib/wireEvent";
 import {
   PauseIcon,
   PlayIcon,
@@ -46,16 +48,14 @@ export default function TimelinePage() {
   const containerRef = useRef<HTMLDivElement>(null);
 
   const eventsRef = useRef<KernelEvent[]>([]);
-  const initialized = useRef(false);
-
-  if (!initialized.current) {
-    eventsRef.current = Array.from({ length: 80 }, generateEvent);
-    initialized.current = true;
-  }
+  const [eventCount, setEventCount] = useState(0);
 
   const [paused, setPaused] = useState(false);
   const pausedRef = useRef(false);
   pausedRef.current = paused;
+
+  const { status, messages, clearMessages } = useConnection();
+  const processedMessageRef = useRef(0);
 
   const [timeWindow, setTimeWindow] = useState<TimeWindow>(5);
   const timeWindowRef = useRef<TimeWindow>(5);
@@ -348,6 +348,26 @@ export default function TimelinePage() {
   }, []);
 
   useEffect(() => {
+    if (pausedRef.current || themeSwitchingRef.current) return;
+    const pending = messages.filter(
+      (message) => message.id > processedMessageRef.current,
+    );
+    const events: KernelEvent[] = [];
+    for (const message of pending) {
+      try {
+        events.push(mapWireEvent(JSON.parse(message.data), message.id));
+      } catch {}
+      processedMessageRef.current = message.id;
+    }
+    if (events.length > 0) {
+      eventsRef.current = [...eventsRef.current, ...events].slice(-MAX_EVENTS);
+      setEventCount(eventsRef.current.length);
+      draw();
+    }
+  }, [messages, paused, draw]);
+
+  useEffect(() => {
+    if (status !== "mock") return;
     const iv = setInterval(() => {
       if (pausedRef.current) return;
       if (themeSwitchingRef.current) return;
@@ -356,10 +376,11 @@ export default function TimelinePage() {
         generateEvent,
       );
       eventsRef.current = [...eventsRef.current, ...batch].slice(-MAX_EVENTS);
+      setEventCount(eventsRef.current.length);
       draw();
     }, TICK_MS);
     return () => clearInterval(iv);
-  }, [draw]);
+  }, [status, draw]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -547,7 +568,9 @@ export default function TimelinePage() {
           <button
             style={s.ctrlBtn}
             onClick={() => {
+              clearMessages();
               eventsRef.current = [];
+              setEventCount(0);
               setSelectedEvent(null);
               draw();
             }}
@@ -585,7 +608,7 @@ export default function TimelinePage() {
 
       <div ref={containerRef} style={s.canvasWrap}>
         <canvas ref={canvasRef} style={s.canvas} onClick={handleCanvasClick} />
-        {eventsRef.current.length === 0 && (
+        {eventCount === 0 && (
           <div style={s.empty}>
             <span style={s.emptyText}>awaiting kernel events</span>
           </div>

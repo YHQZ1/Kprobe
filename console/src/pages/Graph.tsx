@@ -9,6 +9,8 @@ import {
   fmtDur,
   isSlow,
 } from "../lib/mockData";
+import { useConnection } from "../hooks/useConnection";
+import { mapWireEvent } from "../lib/wireEvent";
 import {
   PauseIcon,
   PlayIcon,
@@ -17,7 +19,7 @@ import {
 } from "../components/ui/icons";
 import { KV } from "../components/ui/KV";
 
-type NodeLayer = "financial" | "kernel" | "application";
+type NodeLayer = "domain" | "kernel" | "application";
 
 interface GraphNode extends d3.SimulationNodeDatum {
   id: string;
@@ -37,12 +39,12 @@ interface GraphEdge {
   latencyMs: number;
 }
 
-const KERNEL_TYPES: EventType[] = ["mm_page_fault", "sched_switch"];
-const FINANCIAL_SERVICES = [
-  "payment-handler",
-  "settlement-svc",
-  "risk-engine",
-  "ledger-writer",
+const KERNEL_TYPES: EventType[] = ["page_fault", "sched_switch"];
+const DOMAIN_SERVICES = [
+  "api-worker",
+  "checkout-service",
+  "auth-service",
+  "database-writer",
 ];
 
 const MAX_NODES = 40;
@@ -53,7 +55,7 @@ const CAUSAL_WINDOW_NS = 5_000_000;
 
 function getLayer(evt: KernelEvent): NodeLayer {
   if (KERNEL_TYPES.includes(evt.type)) return "kernel";
-  if (FINANCIAL_SERVICES.includes(evt.service)) return "financial";
+  if (DOMAIN_SERVICES.includes(evt.service)) return "domain";
   return "application";
 }
 
@@ -68,12 +70,12 @@ function shouldPromote(evt: KernelEvent): boolean {
   if (KERNEL_TYPES.includes(evt.type)) return true;
   if (isSlow(evt.durationUs)) return true;
   if (
-    FINANCIAL_SERVICES.includes(evt.service) &&
+    DOMAIN_SERVICES.includes(evt.service) &&
     evt.durationUs !== null &&
     evt.durationUs > 200_000
   )
     return true;
-  return Math.random() < 0.08;
+  return true;
 }
 
 function inferEdges(nodes: GraphNode[]): GraphEdge[] {
@@ -93,7 +95,7 @@ function inferEdges(nodes: GraphNode[]): GraphEdge[] {
         src.event.service === tgt.event.service ||
         src.event.pid === tgt.event.pid ||
         (src.layer === "kernel" && tgt.layer !== "kernel") ||
-        (src.layer === "application" && tgt.layer === "financial");
+        (src.layer === "application" && tgt.layer === "domain");
 
       if (
         linked &&
@@ -177,6 +179,9 @@ export default function GraphPage() {
   const [edgeCount, setEdgeCount] = useState(0);
   const [paused, setPaused] = useState(false);
   const pausedRef = useRef(false);
+
+  const { status, messages } = useConnection();
+  const processedMessageRef = useRef(0);
 
   pausedRef.current = paused;
 
@@ -397,6 +402,47 @@ export default function GraphPage() {
   }, []);
 
   useEffect(() => {
+    if (pausedRef.current) return;
+    const pending = messages.filter(
+      (message) => message.id > processedMessageRef.current,
+    );
+    let newNodes = [...nodesRef.current];
+    for (const message of pending) {
+      try {
+        const evt = mapWireEvent(JSON.parse(message.data), message.id);
+        if (shouldPromote(evt)) {
+          newNodes.push({
+            id: evt.id,
+            event: evt,
+            layer: getLayer(evt),
+            severity: getSeverity(evt),
+            x: 0,
+            y: 0,
+          });
+        }
+      } catch {}
+      processedMessageRef.current = message.id;
+    }
+    if (newNodes.length === nodesRef.current.length) return;
+    if (newNodes.length > MAX_NODES) newNodes = newNodes.slice(-MAX_NODES);
+
+    const newEdges = inferEdges(newNodes);
+    const laid = layoutDAG(newNodes, newEdges);
+
+    nodesRef.current = laid;
+    edgesRef.current = newEdges;
+    setNodeCount(laid.length);
+    setEdgeCount(newEdges.length);
+
+    setSelectedNode((sel) => {
+      if (sel && !laid.find((n) => n.id === sel.id)) return null;
+      renderGraph(laid, newEdges, sel);
+      return sel;
+    });
+  }, [messages, paused, renderGraph]);
+
+  useEffect(() => {
+    if (status !== "mock") return;
     const iv = setInterval(() => {
       if (pausedRef.current) return;
       const evt = generateEvent();
@@ -430,7 +476,7 @@ export default function GraphPage() {
     }, TICK_MS);
 
     return () => clearInterval(iv);
-  }, [renderGraph]);
+  }, [status, renderGraph]);
 
   useEffect(() => {
     if (nodesRef.current.length > 0) {

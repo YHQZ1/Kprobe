@@ -6,13 +6,13 @@ description: How to read and navigate the kprobe causal graph.
 
 # Causal Graph View
 
-The causal graph view is the primary investigation surface in kprobe. It renders a directed graph of cause and effect across your entire system, from the financial event at the top to the kernel decision at the bottom.
+The causal graph view is the primary investigation surface in kprobe. It renders a directed graph of cause and effect across your entire system, from the service-level symptom at the top to the kernel decision at the bottom.
 
 ## Reading the graph
 
 Each **node** represents an event. Nodes are grouped into two categories:
 
-- **Financial events** — payments, settlements, ledger writes, risk checks. These are derived from your OpenTelemetry traces and kprobe's financial domain primitives.
+- **Application events** — requests, jobs, database writes, queue operations, RPC calls, and domain-specific operations derived from your OpenTelemetry traces.
 - **Kernel events** — raw eBPF events: `tcp_sendmsg`, `sched_switch`, `mm_page_fault`, and so on. These are captured directly from the kernel with no instrumentation required.
 
 Each **edge** represents a causal relationship — the source event caused or triggered the destination event. Edges are weighted by latency impact: thicker, more prominent edges represent relationships with higher latency contribution.
@@ -34,7 +34,7 @@ Each **edge** represents a causal relationship — the source event caused or tr
 - Process ID and thread ID
 - CPU core
 - Event type and raw data
-- Financial context (transaction ID, service, operation)
+- Application context (request or transaction ID, service, operation)
 - Latency contribution
 
 **Scroll to zoom** — zoom in to see individual kernel events, zoom out to see the full transaction flow.
@@ -61,7 +61,7 @@ Use the search bar at the top of the graph view to find a specific transaction b
 
 You can filter the graph by:
 
-- **Event type** — show only kernel events, financial events, or both
+- **Event type** — show only kernel events, application events, or both
 - **Latency threshold** — hide events below a latency contribution threshold
 - **Time range** — narrow the graph to a specific time window
 - **Service** — show only events from a specific service or PID

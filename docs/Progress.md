@@ -23,7 +23,7 @@
 - [x] Go workspace (`go.work`) with four modules: `shared`, `engine`, `replay`, `api`
 - [x] Each Go service has `go.mod` with correct module path (`github.com/YHQZ1/kprobe/*`)
 - [x] `shared/types/event.go` — `KernelEvent` and `EventType` types
-- [x] `shared/domain/financial.go` — `Settlement`, `Order`, `LedgerEntry` types
+- [x] Shared event model — kernel event types plus request/transaction/service context fields
 - [x] Stub `main.go` in `engine/`, `api/`, `replay/`
 - [x] eBPF probe scaffolded via `cargo generate` with Aya template
 - [x] Infrastructure folder structure (`infrastructure/docker/`, `helm/`, `k8s/`, `observability/`)
@@ -42,12 +42,12 @@
 - [x] Rust userspace loader — load eBPF programs via Aya
 - [x] Rust ring buffer management — read events from kernel
 - [x] Kafka producer — batch and stream events from userspace to Kafka
-- [x] Kafka topic schema — topic-per-event-type (`kernel.tcp`, `kernel.sched`, `kernel.syscall`, `kernel.fault`)
+- [x] Kafka topic schema — `kernel.raw`, `kernel.enriched`, plus `kernel.dlq`
 - [x] `probe-common` split into per-type modules (`tcp.rs`, `sched.rs`, `syscall.rs`, `fault.rs`)
 - [x] `probe-ebpf` split into per-hook modules (`tcp.rs`, `sched.rs`, `syscall.rs`, `fault.rs`)
 - [x] Userspace agent split into `main.rs` (startup + attach) and `publisher.rs` (drain + publish)
-- [x] Vector config — joins eBPF events with OTel traces on PID + timestamp
-- [x] Vector pipeline — routes enriched events to ClickHouse and `kernel.enriched` Kafka topic
+- [x] Vector config — parses raw eBPF JSON and forwards kernel events to `kernel.enriched`
+- [ ] OTel span ingestion — convert OTel traces into log/JSON events consumable by the Go enricher
 - [x] ClickHouse schema — `kprobe.kernel_events` time series table with bloom filter indexes
 - [x] Docker Compose — Kafka (KRaft), ClickHouse, Neo4j, Vector all wired together
 
@@ -57,7 +57,7 @@
 - [x] Causal inference — draw edges between causally related events
 - [x] Neo4j graph model — node and edge schema
 - [x] Cypher query library — traverse causal chain from any event
-- [x] Financial domain primitives in engine — settlement boundaries, clearing windows
+- [x] Application context in engine — transaction IDs, service names, trace/span IDs
 - [x] gRPC API server — proto definitions
 - [x] gRPC handlers — query causal graph, stream live events
 
@@ -172,8 +172,7 @@
 - `probe-run` requires `sudo` — eBPF programs need elevated privileges to load into the kernel.
 - Neo4j password is `kprobe_secret` — change before any real deployment.
 - `go.work` is committed — makes local development easier. CI builds ignore it and use the `replace` directives in individual `go.mod` files.
-- Kafka topics: `kernel.tcp`, `kernel.sched`, `kernel.syscall`, `kernel.fault` — one topic per event category.
-- `kernel.enriched` — Vector output topic consumed by the Go causal engine.
+- Kafka topics: `kernel.raw` from the probe, `kernel.enriched` from Vector, and `kernel.dlq` for invalid event payloads. `otel.spans` is planned but not currently produced by Vector.
 - Codespaces used for Rust/eBPF development — all other work done locally on Mac.
 - `www/` runs on port 4321 in dev (Astro default). Deploy target: Vercel, root directory `www/`.
 - `console/` runs on port 5173 in dev (Vite default).

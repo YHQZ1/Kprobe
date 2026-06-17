@@ -3,7 +3,7 @@
 # kprobe
 
 <p align="center">
-  Deep kernel observability for financial systems.<br/>
+  Kernel-level flight recorder for production systems.<br/>
   eBPF-powered causal graphs and deterministic replay — see what every other tool can't.
 </p>
 
@@ -32,26 +32,26 @@
 
 ## Overview
 
-Every observability tool in existence sits at the application layer. They only see what your code explicitly tells them. When something breaks in a financial system at 3am — a stuck transaction, a failed settlement, money in limbo — engineers are left hunting through incomplete logs, misaligned timestamps, and a system state that has already changed by the time anyone investigates.
+Every observability tool in existence sits at the application layer. They only see what your code explicitly tells them. When something breaks in production at 3am — a stuck request, a delayed write, a service timeout, a workload that only fails under pressure — engineers are left hunting through incomplete logs, misaligned timestamps, and a system state that has already changed by the time anyone investigates.
 
 kprobe sits at the Linux kernel level using eBPF. It attaches silently to kernel hooks and captures everything — network packet timing, CPU scheduling decisions, memory pressure events, database write latency — without touching a single line of your application code. When an incident occurs, it constructs a full causal graph of exactly what caused what, down to the kernel-level event that triggered the failure. And it lets you replay the entire incident deterministically, on your laptop, hours after it happened.
 
-It is not a monitoring tool. It is not a tracing tool. It is a flight recorder and a debugger for your entire distributed financial system.
+It is not a monitoring tool. It is not a tracing tool. It is a flight recorder and a debugger for distributed production systems.
 
 ---
 
 ## The Problem
 
-When a payment fails in production, the typical investigation looks like this:
+When a critical production request fails, the typical investigation looks like this:
 
 - Check Datadog. See a latency spike. No root cause.
 - Scan logs across 6 microservices. Timestamps don't align across nodes.
-- Query the database. The transaction is in an ambiguous intermediate state.
+- Query the database. The operation is in an ambiguous intermediate state.
 - Page the on-call engineer at 3am.
 - Spend 4 hours reconstructing what happened from incomplete, after-the-fact evidence.
 - Never fully confirm the root cause. Ship a guess as a fix.
 
-This happens because of a structural gap in observability. Every popular tool — Datadog, New Relic, Jaeger, Honeycomb, OpenTelemetry — operates above your application code. They see only what you explicitly instrument. The most dangerous bugs in financial systems happen below your code, at the operating system level: a kernel scheduler delaying a critical write by 50ms, memory pressure from a background job causing a GC pause at exactly the wrong moment, a TCP retransmit that pushed a settlement past its clearing window.
+This happens because of a structural gap in observability. Every popular tool — Datadog, New Relic, Jaeger, Honeycomb, OpenTelemetry — operates above your application code. They see only what you explicitly instrument. The most dangerous production bugs often happen below your code, at the operating system level: a kernel scheduler delaying a critical write by 50ms, memory pressure from a background job causing a GC pause at exactly the wrong moment, a TCP retransmit pushing a request past its timeout budget.
 
 Nobody logs that. No existing tool sees it. kprobe does.
 
@@ -81,16 +81,16 @@ Every captured event includes:
 
 Raw kernel events alone are noise. The causal engine, written in Go, consumes the enriched event stream from Kafka and builds a directed causal graph that answers not just what happened but why it happened.
 
-Before analysis, Vector correlates the raw eBPF event stream with existing OpenTelemetry traces from your services by matching process IDs and timestamps. This gives every kernel event full financial context — it is no longer `PID 2847 made a write syscall`, it is `settlement #4821 ledger write, triggered by payment #98721`.
+The current pipeline carries request, trace, service, and transaction fields when they are present in the kernel event stream. The next integration step is to ingest OpenTelemetry spans and join them with kernel events by process ID and timestamp, so a low-level event like `PID 2847 made a write syscall` can be shown as `checkout request req-9f21 database write, triggered by trace 4d8c`.
 
 The engine then performs causal inference across the enriched stream:
 
 - Groups events into time windows and identifies shared resources
 - Draws causal edges between events where one demonstrably triggered the other
-- Maps kernel primitives to financial domain concepts — settlement boundaries, ledger writes, clearing windows, order book operations
+- Maps kernel primitives to service-level operations — request handlers, database writes, queue consumers, storage flushes, and RPC calls
 - Writes the resulting graph to Neo4j as a live, queryable causal structure
 
-The output is not a log. It is a precise, traversable graph of cause and effect across your entire system, from the financial event at the top to the kernel decision at the bottom.
+The output is not a log. It is a precise, traversable graph of cause and effect across your entire system, from the service-level symptom at the top to the kernel decision at the bottom.
 
 ### The Replay Engine
 
@@ -164,7 +164,7 @@ kprobe/
 │   ├── inference/            # Causal graph construction
 │   ├── graph/                # Neo4j interaction
 │   ├── store/                # ClickHouse interaction
-│   └── domain/               # Financial primitives (settlement, order, ledger)
+│   └── domain/               # Optional domain primitives for higher-level context
 │
 ├── replay/                   # Deterministic replay engine — Go
 │   ├── ptrace/               # Syscall interception via ptrace
@@ -179,7 +179,7 @@ kprobe/
 │
 ├── shared/                   # Shared Go module — types and domain primitives
 │   ├── types/                # Common event types (KernelEvent, EventType)
-│   └── domain/               # Financial domain types (Settlement, Order, LedgerEntry)
+│   └── domain/               # Optional domain types for higher-level context
 │
 ├── www/                      # Public website — Astro + MDX
 │   └── src/
@@ -212,21 +212,21 @@ kprobe/
 | Component                 | Technology      | Details                                                                                                                                                                                     |
 | ------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Kernel-side eBPF programs | Rust + Aya      | Attached to tracepoints — `tcp_sendmsg`, `tcp_recvmsg`, `sys_read`, `sys_write`, `sched_switch`, `mm_page_fault`. Compiled to eBPF bytecode via Aya — no C, memory-safe from the kernel up. |
-| Userspace probe agent     | Rust 1.77 + Aya | Loads eBPF programs, manages perf ring buffers, batches and streams events to Kafka.                                                                                                        |
+| Userspace probe agent     | Rust 1.85+ + Aya | Loads eBPF programs, manages perf ring buffers, batches and streams events to Kafka.                                                                                                       |
 
 ### Event Pipeline
 
 | Component         | Technology           | Details                                                                                                                                                                                  |
 | ----------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Event transport   | Apache Kafka (KRaft) | High-throughput kernel event streaming. Topic-per-event-type, durable, replayable. Handles millions of events per second. Runs in KRaft mode — no Zookeeper dependency.                  |
-| Correlation layer | Vector               | Joins raw eBPF events with OpenTelemetry traces on PID and timestamp. Enriches every kernel event with financial transaction context before routing to ClickHouse and the causal engine. |
+| Event transport   | Apache Kafka (KRaft) | High-throughput kernel event streaming. Uses `kernel.raw`, `kernel.enriched`, and `kernel.dlq` topics. Durable, replayable, and runs in KRaft mode — no Zookeeper dependency.             |
+| Correlation layer | Vector + Go enrichment | Parses raw eBPF events and preserves request, trace, service, and transaction context when present. OpenTelemetry span correlation is the next planned integration. |
 
 ### Storage
 
 | Component          | Technology | Details                                                                                                                                                                                 |
 | ------------------ | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Raw event store    | ClickHouse | Columnar storage for billions of timestamped kernel events. Used for timeline queries, replay event retrieval, and analytical aggregations. Sub-second queries on billion-row datasets. |
-| Causal graph store | Neo4j 5    | Graph database for causal relationships. Cypher queries traverse the causal chain from any financial event back to the root kernel cause in milliseconds.                               |
+| Causal graph store | Neo4j 5    | Graph database for causal relationships. Cypher queries traverse the causal chain from any service event back to the root kernel cause in milliseconds.                               |
 
 ### Analysis and API
 
@@ -278,37 +278,37 @@ kprobe/
 | Cross-process causal chain    | No      | No      | No                 | Yes                        |
 | Root cause to kernel level    | No      | No      | No                 | Yes                        |
 | Deterministic incident replay | No      | No      | No                 | Yes                        |
-| Financial domain context      | No      | No      | No                 | Yes                        |
+| Application/domain context    | Partial | Partial | Via instrumentation | Yes                        |
 
 ---
 
 ## A Real Incident, End to End
 
-A payment of ₹50,000 fails to settle at 2:47am. The user receives an error. Money is in limbo.
+A checkout request fails at 2:47am after a database write exceeds its timeout budget. The user receives an error, retries pile up, and the system has already moved on by the time anyone investigates.
 
 **Without kprobe:** engineers wake up, spend hours correlating logs across services, never isolate the kernel-level cause, and ship a guess.
 
 **With kprobe:** the engineer opens the dashboard at 10am. kprobe was recording the entire time. She searches for the transaction. The causal graph renders immediately:
 
 ```
-[Payment #98721 Received]
+[Request req-9f21 Received]
          |  0.4ms
-[Risk Check Passed]
+[Auth + Validation Passed]
          |  1.2ms
-[Settlement Write Initiated]
+[Database Write Initiated]
          |
 [KERNEL: Memory Pressure Event]  <── batch job PID 4721 competing for RAM
          |  800ms delay
-[Settlement Write Completed]
+[Database Write Completed]
          |
-[TIMEOUT: payment-handler exceeded 750ms threshold]  <── root cause
+[TIMEOUT: api-worker exceeded 750ms threshold]  <── root cause
          |
-[Payment Failed]
+[Request Failed]
 ```
 
-The settlement write took 800ms because a background batch job caused kernel memory pressure at exactly that moment. The payment handler timeout was 750ms. The write completed 50ms too late.
+The write took 800ms because a background batch job caused kernel memory pressure at exactly that moment. The request timeout was 750ms. The write completed 50ms too late.
 
-She clicks Replay. Increases the timeout to 1500ms. Replays the exact incident. The payment succeeds. She ships the fix with confidence.
+She clicks Replay. Increases the timeout to 1500ms. Replays the exact incident. The request succeeds. She ships the fix with confidence.
 
 Total investigation time: under 5 minutes.
 
@@ -321,7 +321,9 @@ kprobe uses a split dev model — infrastructure runs in Docker, services run na
 ### Prerequisites
 
 - Go 1.22+
-- Rust 1.77+ with `cargo`
+- Rust 1.85+ with stable and nightly toolchains
+- Nightly `rust-src`: `rustup toolchain install nightly --component rust-src`
+- `bpf-linker`: `cargo install bpf-linker` (`--no-default-features` on macOS)
 - Node.js 20+
 - pnpm 9+
 - Docker + Docker Compose
@@ -342,7 +344,19 @@ Start infrastructure (Kafka, ClickHouse, Neo4j):
 make infra
 ```
 
-Run services natively in separate terminals:
+For the complete local stack:
+
+```bash
+make dev
+```
+
+On macOS, publish a representative event sequence because eBPF capture requires Linux:
+
+```bash
+make demo
+```
+
+You can also run services natively in separate terminals:
 
 ```bash
 make engine    # terminal 1 — causal engine
@@ -407,15 +421,16 @@ kubectl port-forward svc/kprobe-dashboard 3000:3000 -n monitoring
 
 - [x] eBPF probe: TCP, database write, CPU scheduling, and memory pressure hooks
 - [x] Rust/Aya userspace loader with ring buffer management
-- [x] Kafka pipeline with topic-per-event-type schema
-- [x] Vector correlation layer joining eBPF events with OpenTelemetry traces
+- [x] Kafka pipeline with `kernel.raw`, `kernel.enriched`, and `kernel.dlq` topics
+- [x] Vector parse/forward layer for raw kernel events
+- [ ] OpenTelemetry span ingestion and correlation with kernel events
 - [x] ClickHouse ingestion pipeline and time series schema
 
 ### Phase 2 — Causal Intelligence
 
 - [x] Causal graph engine v1 — event windowing and causal inference
 - [x] Neo4j graph model and Cypher query library
-- [x] Financial domain primitives — settlement boundaries, clearing windows, ledger writes
+- [x] Domain context hooks — transaction IDs, service names, trace IDs, operation metadata
 - [x] gRPC API server with streaming support
 
 ### Phase 3 — Public Website
@@ -454,4 +469,4 @@ kubectl port-forward svc/kprobe-dashboard 3000:3000 -n monitoring
 
 ## Contributing
 
-kprobe is in active early development. If you work on financial infrastructure, observability tooling, or low-level systems and want to contribute or share feedback, open an issue.
+kprobe is in active early development. If you work on infrastructure, observability tooling, distributed systems, or low-level production debugging and want to contribute or share feedback, open an issue.

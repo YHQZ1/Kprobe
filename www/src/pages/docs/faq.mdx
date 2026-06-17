@@ -22,7 +22,7 @@ The probe can be tuned to reduce overhead by disabling specific hooks. See [Conf
 
 No. kprobe attaches to the kernel and captures events without any application code changes, library imports, or redeployment. It works with any language, any framework, and any existing observability setup.
 
-If you have OpenTelemetry traces set up, kprobe will automatically correlate kernel events with your trace context. If you do not, kprobe still works — it just has less financial context to attach to kernel events.
+If your kernel event stream already carries trace context, kprobe will attach it to events. Native OpenTelemetry span correlation is planned next. Without trace context, kprobe still works — it just has less application context to attach to kernel events.
 
 ## Does it work with any Kubernetes distribution?
 
@@ -33,11 +33,11 @@ kprobe works with any Kubernetes distribution running on Linux kernel 5.15+ with
 - AKS (Ubuntu node pools)
 - Self-managed clusters on Ubuntu 22.04+
 
-## How does kprobe know which kernel event belongs to which payment?
+## How does kprobe know which kernel event belongs to which request?
 
-kprobe correlates kernel events with financial events using process ID and timestamp. The Vector correlation layer joins the raw eBPF event stream with your OpenTelemetry traces — every trace has a PID associated with it, which kprobe uses to link the kernel event to the financial transaction.
+kprobe links kernel events using transaction ID, trace ID, service name, process ID, and timestamp when those fields are present. The planned OpenTelemetry integration will join spans to kernel events using process ID and timestamp so kprobe can link the kernel event to the request, transaction, or job.
 
-If you do not use OpenTelemetry, kprobe can still group events by PID and timestamp but will not have named financial context.
+If you do not use OpenTelemetry, kprobe can still group events by PID and timestamp but will not have named application context.
 
 ## What happens if the causal engine falls behind?
 

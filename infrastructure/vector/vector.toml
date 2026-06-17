@@ -1,13 +1,13 @@
+[api]
+enabled = true
+address = "0.0.0.0:8686"
+
 [sources.kernel_raw]
 type = "kafka"
-bootstrap_servers = "localhost:9092"
+bootstrap_servers = "kafka:29092"
 topics = ["kernel.raw"]
 group_id = "vector-kprobe"
 auto_offset_reset = "latest"
-
-[sources.otel_traces]
-type = "opentelemetry"
-grpc.address = "0.0.0.0:4317"
 
 [transforms.parse_raw]
 type = "remap"
@@ -20,19 +20,9 @@ source = '''
 [sinks.kafka_enriched]
 type = "kafka"
 inputs = ["parse_raw"]
-bootstrap_servers = "localhost:9092"
+bootstrap_servers = "kafka:29092"
 topic = "kernel.enriched"
 compression = "none"
 
 [sinks.kafka_enriched.encoding]
-codec = "json"
-
-[sinks.kafka_otel_spans]
-type = "kafka"
-inputs = ["otel_traces"]
-bootstrap_servers = "localhost:9092"
-topic = "otel.spans"
-compression = "none"
-
-[sinks.kafka_otel_spans.encoding]
 codec = "json"

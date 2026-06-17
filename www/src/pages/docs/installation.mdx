@@ -90,7 +90,9 @@ For local development, kprobe uses a split model — infrastructure runs in Dock
 ### Prerequisites
 
 - Go 1.22+
-- Rust 1.77+ with `cargo`
+- Rust 1.85+ with stable and nightly toolchains
+- Nightly `rust-src`: `rustup toolchain install nightly --component rust-src`
+- `bpf-linker`: `cargo install bpf-linker` (`--no-default-features` on macOS)
 - Node.js 20+
 - Docker + Docker Compose
 - Linux kernel 5.15+ (required on the target system for the eBPF probe — not your dev machine)
@@ -110,7 +112,19 @@ Start infrastructure (Kafka, ClickHouse, Neo4j, Vector):
 make infra
 ```
 
-Run each service in a separate terminal:
+Start the complete local stack:
+
+```bash
+make dev
+```
+
+On macOS, publish demo events through the real Kafka pipeline because eBPF capture requires Linux:
+
+```bash
+make demo
+```
+
+You can also run each service in a separate terminal:
 
 ```bash
 make engine   # causal engine

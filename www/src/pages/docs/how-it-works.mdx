@@ -35,7 +35,7 @@ Every event includes: nanosecond timestamp, process ID, thread ID, CPU core, eve
 
 ### Ring buffer management
 
-The userspace agent loads the eBPF programs into the kernel and manages perf ring buffers. Events are batched and streamed to Kafka topic-per-event-type: `kernel.tcp`, `kernel.sched`, `kernel.syscall`, `kernel.fault`.
+The userspace agent loads the eBPF programs into the kernel and manages ring buffers. Events are batched and streamed to the `kernel.raw` Kafka topic, where Vector parses and forwards them to `kernel.enriched`.
 
 The probe is designed to have minimal overhead — typically under 1% CPU on active nodes.
 
@@ -43,14 +43,14 @@ The probe is designed to have minimal overhead — typically under 1% CPU on act
 
 Raw kernel events alone are noise. The Causal Engine, written in Go, transforms them into a structured understanding of cause and effect.
 
-### Correlation with OpenTelemetry
+### Application and trace context
 
-Before causal analysis, Vector correlates the raw eBPF event stream with your existing OpenTelemetry traces. It matches events by process ID and timestamp. This gives every kernel event full financial context:
+Before causal analysis, the enrichment layer carries application context when it exists on the incoming event: transaction ID, service name, trace ID, and span ID. OpenTelemetry span ingestion is the next planned integration, where spans will be matched to kernel events by process ID and timestamp. That gives every kernel event service context:
 
 - Not `PID 2847 made a write syscall`
-- But `settlement #4821 ledger write, triggered by payment #98721`
+- But `checkout request req-9f21 database write, triggered by trace 4d8c`
 
-This correlation happens on the `kernel.enriched` Kafka topic, which the causal engine consumes.
+The causal engine consumes this context from the `kernel.enriched` Kafka topic.
 
 ### Causal inference
 
@@ -59,13 +59,13 @@ The engine performs causal inference across the enriched stream:
 1. Groups events into time windows
 2. Identifies shared resources between events (same PID, same fd, same CPU core)
 3. Draws causal edges where one event demonstrably triggered another
-4. Maps kernel primitives to financial domain concepts — settlement boundaries, clearing windows, order book operations
+4. Maps kernel primitives to service-level operations — request handlers, database writes, queue consumers, storage flushes, and RPC calls
 
 ### Graph storage
 
-The resulting causal graph is written to Neo4j. Each financial event becomes a node. Each causal relationship becomes a directed edge with a weight representing latency impact.
+The resulting causal graph is written to Neo4j. Each service or kernel event becomes a node. Each causal relationship becomes a directed edge with a weight representing latency impact.
 
-Cypher queries can traverse from any financial event to its root kernel cause in milliseconds, even across graphs with hundreds of thousands of edges.
+Cypher queries can traverse from any service-level event to its root kernel cause in milliseconds, even across graphs with hundreds of thousands of edges.
 
 ## The Replay Engine
 
@@ -91,7 +91,7 @@ This makes it possible to verify a proposed fix works against the exact producti
 
 │
 ├── eBPF probe (Rust/Aya)
-│ └── Kafka: kernel.tcp, kernel.sched, kernel.syscall, kernel.fault
+│ └── Kafka: kernel.raw
 │
 └── OpenTelemetry (existing)
 │

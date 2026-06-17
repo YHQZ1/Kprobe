@@ -14,7 +14,7 @@ import Layout from "../layouts/Layout.astro";
       </h1>
       <p class="hero-sub">
         kprobe exists because there is a class of failure in distributed
-        financial systems that the entire observability industry cannot see. Not
+        production systems that the entire observability industry cannot see. Not
         because the tools are bad — they are excellent at what they do. But
         because they sit in the wrong place in the stack.
       </p>
@@ -25,8 +25,8 @@ import Layout from "../layouts/Layout.astro";
       <h2 class="section-heading">Where this comes from</h2>
       <div class="prose">
         <p>
-          The pattern is familiar to anyone who has operated a financial system
-          at scale. A payment fails at 3am. The on-call engineer wakes up, opens
+          The pattern is familiar to anyone who has operated a distributed system
+          at scale. A request fails at 3am. The on-call engineer wakes up, opens
           Datadog, sees a latency spike. Opens Jaeger, finds a slow span. Spends
           four hours correlating logs across six microservices, working
           backwards from an error to something that might have caused it.
@@ -45,8 +45,8 @@ import Layout from "../layouts/Layout.astro";
         </p>
         <p>
           kprobe was built to close that gap. Not to replace the existing stack,
-          but to extend it downward into the layer where the hardest financial
-          system failures actually originate.
+          but to extend it downward into the layer where the hardest production
+          failures actually originate.
         </p>
       </div>
     </section>
@@ -73,7 +73,7 @@ import Layout from "../layouts/Layout.astro";
               on development machines
             </li>
             <li>
-              A tool for financial systems engineering teams investigating
+              A tool for infrastructure and systems engineering teams investigating
               complex, low-level failures
             </li>
             <li>Complementary to your existing observability stack</li>
@@ -149,17 +149,17 @@ import Layout from "../layouts/Layout.astro";
         <div class="decision">
           <div class="decision-header">
             <div class="decision-title">
-              Financial domain as first-class concept
+              Application context as first-class concept
             </div>
           </div>
           <div class="decision-body">
-            Generic observability tools produce generic outputs. kprobe is built
-            for financial systems. Settlement boundaries, clearing windows,
-            ledger writes, order book operations — these are native concepts in
-            kprobe's domain model. A kernel event is not just "PID 2841 made a
-            write syscall." It is "settlement #4821 ledger write, triggered by
-            payment #98721, delayed by kernel memory pressure." The financial
-            context is preserved end-to-end.
+            Generic observability tools often lose the system context that makes
+            incidents understandable. kprobe keeps request IDs, trace IDs,
+            service names, operations, and optional domain metadata attached to
+            kernel events. A kernel event is not just "PID 2841 made a write
+            syscall." It is "checkout request req-9f21 database write, delayed
+            by kernel memory pressure." The application context is preserved
+            end-to-end.
           </div>
         </div>
       </div>
@@ -223,7 +223,7 @@ import Layout from "../layouts/Layout.astro";
           </div>
           <div class="tech-body">
             Causal relationships are inherently graph-shaped. Traversing from a
-            failed payment to its root kernel cause in a relational database
+            failed request to its root kernel cause in a relational database
             requires recursive CTEs across multiple joins — slow and complex. In
             Neo4j, the same traversal is a short Cypher query that runs in
             milliseconds on graphs with millions of edges. The choice of storage
@@ -244,7 +244,7 @@ import Layout from "../layouts/Layout.astro";
           </div>
           <div class="tech-body">
             The replay engine needs to retrieve all events for a specific
-            transaction in time order, from a table containing billions of rows.
+            request, transaction, or trace in time order, from a table containing billions of rows.
             ClickHouse is purpose-built for this — columnar storage, vectorized
             execution, bloom filter indexes on transaction ID and PID. The same
             query that would take minutes in Postgres takes under a second in
@@ -303,8 +303,8 @@ import Layout from "../layouts/Layout.astro";
           complete. The dashboard and replay panel are in progress.
         </p>
         <p>
-          If you work on financial infrastructure, observability tooling, or
-          low-level systems and want to contribute or share feedback, the
+          If you work on infrastructure, observability tooling, distributed
+          systems, or low-level production debugging and want to contribute or share feedback, the
           repository is open.
         </p>
       </div>

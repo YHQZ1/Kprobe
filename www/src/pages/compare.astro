@@ -13,8 +13,8 @@ import Layout from "../layouts/Layout.astro";
       <p class="hero-sub">
         Every tool in the modern observability stack — Datadog, Jaeger,
         Honeycomb, OpenTelemetry — operates at the application layer. They see
-        what your code tells them. The failures that cost the most in financial
-        systems happen where none of them can see.
+        what your code tells them. The failures that cost the most in
+        production systems often happen where none of them can see.
       </p>
     </section>
 
@@ -40,13 +40,13 @@ import Layout from "../layouts/Layout.astro";
         </p>
         <p>
           Below the application layer, the kernel is making decisions that
-          directly affect your financial system's behaviour:
+          directly affect your production system's behaviour:
         </p>
         <div class="gap-examples">
           <div class="gap-example">
             <div class="gap-example-title">CPU scheduler preemption</div>
             <div class="gap-example-body">
-              The kernel can preempt your settlement write process mid-operation
+              The kernel can preempt your database write process mid-operation
               and schedule a background batch job on the same CPU core. Your
               application sees a slow write. OpenTelemetry records a slow span.
               Neither tells you a batch job caused it.
@@ -57,17 +57,17 @@ import Layout from "../layouts/Layout.astro";
             <div class="gap-example-body">
               A service on the same node consuming excess memory triggers kernel
               memory pressure. The kernel begins reclaiming pages from other
-              processes. Your ledger write, which normally takes 10ms, takes
+              processes. Your database write, which normally takes 10ms, takes
               800ms. Datadog sees a latency spike. It cannot tell you why.
             </div>
           </div>
           <div class="gap-example">
             <div class="gap-example-title">TCP retransmission</div>
             <div class="gap-example-body">
-              A network packet is dropped between your payment handler and
-              settlement service. The kernel retransmits it. The retransmit adds
-              200ms. That 200ms pushes your transaction past its clearing
-              window. Jaeger shows a slow span. It cannot distinguish a slow
+              A network packet is dropped between your API worker and checkout
+              service. The kernel retransmits it. The retransmit adds 200ms.
+              That 200ms pushes your request past its timeout budget. Jaeger
+              shows a slow span. It cannot distinguish a slow
               service from a retransmit.
             </div>
           </div>
@@ -83,10 +83,10 @@ import Layout from "../layouts/Layout.astro";
           </div>
         </div>
         <p>
-          These are not edge cases. In distributed financial systems running on
+          These are not edge cases. In distributed systems running on
           shared Kubernetes infrastructure, kernel-level interference between
-          workloads is a routine cause of latency spikes, failed settlements,
-          and ambiguous transaction states.
+          workloads is a routine cause of latency spikes, failed requests,
+          cascading retries, and ambiguous system states.
         </p>
       </div>
     </section>
@@ -131,7 +131,7 @@ import Layout from "../layouts/Layout.astro";
           </div>
           <div class="tool-verdict">
             Datadog is excellent for operational monitoring and alerting. It
-            tells you something is wrong. For financial systems experiencing
+            tells you something is wrong. For production systems experiencing
             kernel-level failures, it cannot tell you why.
           </div>
         </div>
@@ -251,7 +251,7 @@ import Layout from "../layouts/Layout.astro";
           <div class="tool-verdict">
             Prometheus tells you that latency increased at 3:47am. kprobe tells
             you that a batch job caused a kernel scheduler preemption at
-            3:47:12.822 that delayed your settlement write by 800ms.
+            3:47:12.822 that delayed your database write by 800ms.
           </div>
         </div>
 
@@ -294,8 +294,9 @@ import Layout from "../layouts/Layout.astro";
       <div class="section-label">real scenario</div>
       <h2 class="section-heading">The same incident through every tool</h2>
       <p class="scenario-intro">
-        A payment of ₹50,000 fails to settle at 03:47am. Money is in limbo. Here
-        is what each tool shows the on-call engineer.
+        A checkout request fails at 03:47am after a database write exceeds its
+        timeout budget. Retries begin to pile up. Here is what each tool shows
+        the on-call engineer.
       </p>
 
       <div class="scenario-grid">
@@ -303,9 +304,9 @@ import Layout from "../layouts/Layout.astro";
           <div class="scenario-tool">Datadog</div>
           <div class="scenario-body">
             <p>
-              Shows a latency spike in <code>settlement-svc</code> at 03:47. The p99
+              Shows a latency spike in <code>checkout-service</code> at 03:47. The p99
               latency metric crossed the alert threshold. An alert fired. The APM
-              trace shows <code>settlement-svc</code> took 812ms on a request that
+              trace shows <code>checkout-service</code> took 812ms on a request that
               normally takes 200ms.
             </p>
             <p>No further information is available about why it was slow.</p>
@@ -319,9 +320,9 @@ import Layout from "../layouts/Layout.astro";
           <div class="scenario-tool">Jaeger</div>
           <div class="scenario-body">
             <p>
-              Shows the distributed trace for the payment. The span tree shows <code
-                >payment-handler</code
-              > called <code>settlement-svc</code>, which made a database write.
+              Shows the distributed trace for the request. The span tree shows <code
+                >api-worker</code
+              > called <code>checkout-service</code>, which made a database write.
               The write span took 802ms. The overall trace took 812ms and timed
               out.
             </p>
@@ -341,7 +342,7 @@ import Layout from "../layouts/Layout.astro";
             <p>
               Shows CPU utilisation on the node spiked to 94% at 03:47. Memory
               usage was elevated. No connection between the node metrics and the
-              specific payment failure is possible from metrics alone.
+              specific request failure is possible from metrics alone.
             </p>
           </div>
           <div class="scenario-outcome scenario-outcome-partial">
@@ -353,21 +354,21 @@ import Layout from "../layouts/Layout.astro";
           <div class="scenario-tool scenario-tool-kp">kprobe</div>
           <div class="scenario-body">
             <p>
-              Shows the full causal graph for payment #98721. The root cause
+              Shows the full causal graph for request req-9f21. The root cause
               node is a <code>sched_switch</code> event at 03:47:12.822 — the kernel
-              preempted PID 2841 (settlement-svc) and scheduled PID 4721 (a batch
+              preempted PID 2841 (checkout-service) and scheduled PID 4721 (a batch
               job) on CPU 3.
             </p>
             <p>
-              PID 2841 was mid-write to the ledger when it was preempted. It
+              PID 2841 was mid-write to the database when it was preempted. It
               waited 388ms on the scheduler queue before resuming. The write
-              completed at 03:47:13.621 — 802ms total, 52ms past the payment
-              handler's 750ms timeout.
+              completed at 03:47:13.621 — 802ms total, 52ms past the API
+              worker's 750ms timeout.
             </p>
             <p>
-              The fix: increase the payment handler timeout to 1500ms. The
+              The fix: increase the API worker timeout to 1500ms. The
               engineer replays the incident with the modified timeout. The
-              payment succeeds. The fix ships.
+              request succeeds. The fix ships.
             </p>
           </div>
           <div class="scenario-outcome scenario-outcome-full">
@@ -485,7 +486,7 @@ import Layout from "../layouts/Layout.astro";
               <td class="c-kp">Yes</td>
             </tr>
             <tr>
-              <td>Financial domain primitives</td>
+              <td>Application/domain context</td>
               <td class="c-no">—</td>
               <td class="c-no">—</td>
               <td class="c-no">—</td>
