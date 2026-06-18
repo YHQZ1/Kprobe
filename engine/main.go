@@ -14,6 +14,7 @@ import (
 	"github.com/YHQZ1/kprobe/engine/enrich"
 	"github.com/YHQZ1/kprobe/engine/graph"
 	"github.com/YHQZ1/kprobe/engine/inference"
+	"github.com/YHQZ1/kprobe/engine/publisher"
 	"github.com/YHQZ1/kprobe/engine/store"
 	"github.com/YHQZ1/kprobe/shared/config"
 	"github.com/YHQZ1/kprobe/shared/types"
@@ -58,6 +59,12 @@ func main() {
 	log.Println("causal engine running")
 
 	kafkaBrokers := strings.Split(mustEnv("KAFKA_BROKERS"), ",")
+	processedPublisher := publisher.NewProcessedEventPublisher(kafkaBrokers, "kernel.processed")
+	defer func() {
+		if err := processedPublisher.Close(); err != nil {
+			log.Printf("processed event publisher close: %v", err)
+		}
+	}()
 
 	otelConsumer := consumer.NewOTelConsumer(kafkaBrokers, "otel.spans", "kprobe-otel", enricher)
 	defer otelConsumer.Close()
@@ -80,6 +87,9 @@ func main() {
 				enriched[i].EventID = uuid.New().String()
 				ch.InsertEvent(ctx, enriched[i])
 				engine.Ingest(enriched[i])
+				if err := processedPublisher.Publish(ctx, enriched[i]); err != nil {
+					log.Printf("publish processed event: %v", err)
+				}
 			}
 		}); err != nil {
 			log.Printf("kafka consumer: %v", err)

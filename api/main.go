@@ -120,7 +120,7 @@ func main() {
 		kafkaBrokers := strings.Split(os.Getenv("KAFKA_BROKERS"), ",")
 		broadcastConsumer := apiconsumer.NewBroadcastConsumer(
 			kafkaBrokers,
-			"kernel.enriched",
+			"kernel.processed",
 			"kprobe-api-stream",
 			hub,
 		)
