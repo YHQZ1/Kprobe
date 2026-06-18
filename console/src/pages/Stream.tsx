@@ -68,7 +68,9 @@ export default function StreamPage() {
     for (const message of pending) {
       try {
         handleNewEvent(mapWireEvent(JSON.parse(message.data), message.id));
-      } catch {}
+      } catch {
+        // Ignore malformed live messages; the connection remains usable.
+      }
       processedMessageRef.current = message.id;
     }
     if (pending.length > 0 && atBottomRef.current && tableRef.current) {

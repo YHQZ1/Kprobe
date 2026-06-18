@@ -356,7 +356,9 @@ export default function TimelinePage() {
     for (const message of pending) {
       try {
         events.push(mapWireEvent(JSON.parse(message.data), message.id));
-      } catch {}
+      } catch {
+        // Ignore malformed live messages; the connection remains usable.
+      }
       processedMessageRef.current = message.id;
     }
     if (events.length > 0) {

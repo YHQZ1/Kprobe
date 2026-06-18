@@ -86,72 +86,6 @@ export function ConnectionProvider({
     setMessages([]);
   }, []);
 
-  const scheduleReconnect = useCallback(() => {
-    if (!mountedRef.current) return;
-    const delay = backoffRef.current;
-    backoffRef.current = Math.min(
-      backoffRef.current * BACKOFF_FACTOR,
-      MAX_BACKOFF,
-    );
-    timerRef.current = setTimeout(() => {
-      if (mountedRef.current) connect();
-    }, delay);
-  }, []);
-
-  const connect = useCallback(() => {
-    if (!mountedRef.current) return;
-    setStatus("connecting");
-
-    try {
-      const ws = new WebSocket(getWsUrl());
-      wsRef.current = ws;
-
-      ws.onopen = () => {
-        if (!mountedRef.current) return;
-        setStatus("connected");
-        backoffRef.current = INITIAL_BACKOFF;
-      };
-
-      ws.onmessage = (event) => {
-        if (!mountedRef.current) return;
-        const data = String(event.data);
-        if (!hydratedRef.current) {
-          bufferedLiveRef.current.push(data);
-          return;
-        }
-
-        const key = eventKey(data);
-        if (seenEventKeysRef.current.has(key)) return;
-        seenEventKeysRef.current.add(key);
-        setMessages((current) => {
-          const next = [
-            ...current,
-            { id: ++sequenceRef.current, data },
-          ].slice(-MAX_MESSAGES);
-          seenEventKeysRef.current = new Set(
-            next.map((message) => eventKey(message.data)),
-          );
-          return next;
-        });
-      };
-
-      ws.onclose = () => {
-        if (!mountedRef.current) return;
-        setStatus("disconnected");
-        wsRef.current = null;
-        scheduleReconnect();
-      };
-
-      ws.onerror = () => {
-        if (!mountedRef.current) return;
-        setStatus("disconnected");
-      };
-    } catch {
-      setStatus("disconnected");
-      scheduleReconnect();
-    }
-  }, [scheduleReconnect]);
-
   const hydrateHistory = useCallback(async (lifecycle: number) => {
     let historical: string[] = [];
     const token = getToken();
@@ -197,19 +131,84 @@ export function ConnectionProvider({
   useEffect(() => {
     const lifecycle = ++lifecycleRef.current;
     mountedRef.current = true;
+
+    function scheduleReconnect() {
+      if (!mountedRef.current) return;
+      const delay = backoffRef.current;
+      backoffRef.current = Math.min(
+        backoffRef.current * BACKOFF_FACTOR,
+        MAX_BACKOFF,
+      );
+      timerRef.current = setTimeout(connect, delay);
+    }
+
+    function connect() {
+      if (!mountedRef.current) return;
+      setStatus("connecting");
+
+      try {
+        const ws = new WebSocket(getWsUrl());
+        wsRef.current = ws;
+
+        ws.onopen = () => {
+          if (!mountedRef.current) return;
+          setStatus("connected");
+          backoffRef.current = INITIAL_BACKOFF;
+        };
+
+        ws.onmessage = (event) => {
+          if (!mountedRef.current) return;
+          const data = String(event.data);
+          if (!hydratedRef.current) {
+            bufferedLiveRef.current.push(data);
+            return;
+          }
+
+          const key = eventKey(data);
+          if (seenEventKeysRef.current.has(key)) return;
+          seenEventKeysRef.current.add(key);
+          setMessages((current) => {
+            const next = [
+              ...current,
+              { id: ++sequenceRef.current, data },
+            ].slice(-MAX_MESSAGES);
+            seenEventKeysRef.current = new Set(
+              next.map((message) => eventKey(message.data)),
+            );
+            return next;
+          });
+        };
+
+        ws.onclose = () => {
+          if (!mountedRef.current) return;
+          setStatus("disconnected");
+          wsRef.current = null;
+          scheduleReconnect();
+        };
+
+        ws.onerror = () => {
+          if (!mountedRef.current) return;
+          setStatus("disconnected");
+        };
+      } catch {
+        setStatus("disconnected");
+        scheduleReconnect();
+      }
+    }
+
     connect();
     void hydrateHistory(lifecycle);
 
     return () => {
       mountedRef.current = false;
-      lifecycleRef.current++;
+      lifecycleRef.current = lifecycle + 1;
       if (timerRef.current) clearTimeout(timerRef.current);
       if (wsRef.current) {
         wsRef.current.onclose = null;
         wsRef.current.close();
       }
     };
-  }, [connect, hydrateHistory]);
+  }, [hydrateHistory]);
 
   return (
     <ConnectionContext.Provider value={{ status, messages, clearMessages }}>

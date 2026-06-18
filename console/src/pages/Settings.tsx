@@ -106,7 +106,9 @@ export default function SettingsPage() {
     setSaved(false);
     try {
       await fetch("/api/settings/reset", { method: "POST" });
-    } catch {}
+    } catch {
+      // Local defaults are already restored when the API is unavailable.
+    }
   }
 
   const isDirty = JSON.stringify(settings) !== JSON.stringify(DEFAULTS);

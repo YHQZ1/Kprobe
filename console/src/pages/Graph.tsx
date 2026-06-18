@@ -420,7 +420,9 @@ export default function GraphPage() {
             y: 0,
           });
         }
-      } catch {}
+      } catch {
+        // Ignore malformed live messages; the connection remains usable.
+      }
       processedMessageRef.current = message.id;
     }
     if (newNodes.length === nodesRef.current.length) return;
