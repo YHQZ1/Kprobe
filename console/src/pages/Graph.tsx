@@ -393,7 +393,7 @@ export default function GraphPage() {
         const controller = new AbortController();
         void fetchCausalChain(transactionId, controller.signal)
           .then(({ nodes, edges }) => {
-            if (nodes.length === 0) {
+            if (nodes.length < 2 || edges.length === 0) {
               setChainState({ transactionId, status: "live" });
               requestedTransactionRef.current = "";
               return;

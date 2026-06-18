@@ -45,7 +45,14 @@ func (h *CausalHandler) QueryCausalChain(ctx context.Context, req *pb.QueryCausa
 
 	nodeResult, err := session.ExecuteRead(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
 		records, err := tx.Run(ctx, `
-			MATCH (n:KernelEvent {transaction_id: $transaction_id})
+			MATCH (n:KernelEvent)
+			WHERE n.transaction_id = $transaction_id
+			WITH collect(n) AS direct_nodes
+			OPTIONAL MATCH (from:KernelEvent)-[r:CAUSED {transaction_id: $transaction_id}]->(to:KernelEvent)
+			WITH direct_nodes + collect(from) + collect(to) AS all_nodes
+			UNWIND all_nodes AS n
+			WITH DISTINCT n
+			WHERE n IS NOT NULL
 			RETURN n
 			ORDER BY n.timestamp_ns ASC
 			LIMIT 10000
@@ -61,7 +68,7 @@ func (h *CausalHandler) QueryCausalChain(ctx context.Context, req *pb.QueryCausa
 
 	edgeResult, err := session.ExecuteRead(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
 		records, err := tx.Run(ctx, `
-			MATCH (from:KernelEvent {transaction_id: $transaction_id})-[r:CAUSED]->(to:KernelEvent {transaction_id: $transaction_id})
+			MATCH (from:KernelEvent)-[r:CAUSED {transaction_id: $transaction_id}]->(to:KernelEvent)
 			RETURN from.event_id AS from_event_id,
 			       to.event_id AS to_event_id,
 			       r.cause_type AS cause_type,
