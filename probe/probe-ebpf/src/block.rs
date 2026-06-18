@@ -12,9 +12,12 @@ use probe_common::{BlockDir, BlockEvent};
 #[repr(C)]
 struct BlockRqArgs {
     _pad: [u8; 8],
+    dev: u32,
+    _pad2: u32,
     sector: u64,
-    bytes: u64,
-    op: u32,
+    nr_sector: u32,
+    bytes_or_error: u32,
+    rwbs: [u8; 8],
 }
 
 #[tracepoint]
@@ -51,8 +54,8 @@ fn try_block(ctx: TracePointContext, dir: BlockDir) -> Result<u32, u32> {
         timestamp_ns,
         dir,
         sector: args.sector,
-        bytes: args.bytes,
-        op: args.op,
+        bytes: block_bytes(&args),
+        op: block_op(&args),
         _pad: 0,
     };
 
@@ -63,4 +66,20 @@ fn try_block(ctx: TracePointContext, dir: BlockDir) -> Result<u32, u32> {
         unsafe { *counter += 1 };
     }
     Ok(0)
+}
+
+fn block_bytes(args: &BlockRqArgs) -> u64 {
+    if args.bytes_or_error > 0 {
+        args.bytes_or_error as u64
+    } else {
+        (args.nr_sector as u64) * 512
+    }
+}
+
+fn block_op(args: &BlockRqArgs) -> u32 {
+    match args.rwbs[0] {
+        b'R' => 0,
+        b'W' | b'D' | b'F' => 1,
+        _ => 1,
+    }
 }
