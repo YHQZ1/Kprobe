@@ -5,7 +5,6 @@ import {
   EVENT_TYPES,
   TYPE_SHORT,
   TYPE_COLORS,
-  SERVICES,
   generateEvent,
   fmtDur,
   isSlow,
@@ -31,6 +30,16 @@ const BAR_H = 20;
 const BAR_Y_OFFSET = (LANE_H - BAR_H) / 2;
 const MIN_BAR_W = 3;
 const CAUSAL_WINDOW_NS = 8_000_000;
+const MAX_LANES = 12;
+
+function getTimelineLanes(events: KernelEvent[]): string[] {
+  const lanes: string[] = [];
+  for (const event of events) {
+    const service = event.service || "kernel";
+    if (!lanes.includes(service)) lanes.push(service);
+  }
+  return lanes.slice(-MAX_LANES);
+}
 
 function fmtNs(ns: number): string {
   if (ns < 1_000) return `${ns}ns`;
@@ -100,10 +109,19 @@ export default function TimelinePage() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
+    const rawEvents = eventsRef.current;
+    const activeEvents = rawEvents.filter((e) =>
+      activeTypesRef.current.has(e.type),
+    );
+    const lanes = getTimelineLanes(
+      activeEvents.length > 0 ? activeEvents : rawEvents,
+    );
+    const laneCount = Math.max(lanes.length, 1);
+
     const dpr = getDpr();
     const { w, h } = dimsRef.current;
     const cssW = w;
-    const totalLaneH = RULER_H + SERVICES.length * LANE_H;
+    const totalLaneH = RULER_H + laneCount * LANE_H;
     const cssH = Math.max(totalLaneH, h);
 
     if (canvas.width !== cssW * dpr || canvas.height !== cssH * dpr) {
@@ -114,26 +132,11 @@ export default function TimelinePage() {
       ctx.scale(dpr, dpr);
     }
 
-    const events = eventsRef.current.filter((e) =>
-      activeTypesRef.current.has(e.type),
-    );
+    const events = activeEvents;
 
     ctx.clearRect(0, 0, cssW, cssH);
 
-    if (events.length === 0) return;
-
-    const { visStartNs, visEndNs, visRangeNs, latestNs } = getVisRange(events);
     const plotW = cssW - LANE_LABEL_W;
-
-    function nsToX(ns: number): number {
-      return LANE_LABEL_W + ((ns - visStartNs) / visRangeNs) * plotW;
-    }
-
-    const visEvents = events.filter(
-      (e) =>
-        e.timestampNs >= visStartNs - 5_000_000 &&
-        e.timestampNs <= visEndNs + 5_000_000,
-    );
 
     const cs = getComputedStyle(document.documentElement);
     const v = (name: string) => cs.getPropertyValue(name).trim();
@@ -164,6 +167,49 @@ export default function TimelinePage() {
     ctx.moveTo(LANE_LABEL_W, RULER_H);
     ctx.lineTo(cssW, RULER_H);
     ctx.stroke();
+
+    lanes.forEach((_, i) => {
+      const y = RULER_H + i * LANE_H;
+      ctx.fillStyle = i % 2 === 0 ? laneEvenBg : laneOddBg;
+      ctx.fillRect(LANE_LABEL_W, y, plotW, LANE_H);
+      ctx.strokeStyle = laneSep;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, y + LANE_H);
+      ctx.lineTo(cssW, y + LANE_H);
+      ctx.stroke();
+    });
+
+    lanes.forEach((svc, i) => {
+      const y = RULER_H + i * LANE_H;
+      ctx.fillStyle = labelBg;
+      ctx.fillRect(0, y, LANE_LABEL_W, LANE_H);
+      ctx.font = "600 10px monospace";
+      ctx.textAlign = "left";
+      ctx.fillStyle = labelColor;
+      ctx.fillText(svc, 12, y + LANE_H / 2 + 4);
+      ctx.strokeStyle = labelSep;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(LANE_LABEL_W, y);
+      ctx.lineTo(LANE_LABEL_W, y + LANE_H);
+      ctx.stroke();
+    });
+
+    if (events.length === 0 || lanes.length === 0) return;
+
+    const { visStartNs, visEndNs, visRangeNs, latestNs } = getVisRange(events);
+    const laneByService = new Map(lanes.map((service, index) => [service, index]));
+
+    function nsToX(ns: number): number {
+      return LANE_LABEL_W + ((ns - visStartNs) / visRangeNs) * plotW;
+    }
+
+    const visEvents = events.filter(
+      (e) =>
+        e.timestampNs >= visStartNs - 5_000_000 &&
+        e.timestampNs <= visEndNs + 5_000_000,
+    );
 
     const targetTicks = 8;
     const rawTickNs = visRangeNs / targetTicks;
@@ -211,34 +257,6 @@ export default function TimelinePage() {
       ctx.setLineDash([]);
     }
 
-    SERVICES.forEach((_, i) => {
-      const y = RULER_H + i * LANE_H;
-      ctx.fillStyle = i % 2 === 0 ? laneEvenBg : laneOddBg;
-      ctx.fillRect(LANE_LABEL_W, y, plotW, LANE_H);
-      ctx.strokeStyle = laneSep;
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(0, y + LANE_H);
-      ctx.lineTo(cssW, y + LANE_H);
-      ctx.stroke();
-    });
-
-    SERVICES.forEach((svc, i) => {
-      const y = RULER_H + i * LANE_H;
-      ctx.fillStyle = labelBg;
-      ctx.fillRect(0, y, LANE_LABEL_W, LANE_H);
-      ctx.font = "600 10px monospace";
-      ctx.textAlign = "left";
-      ctx.fillStyle = labelColor;
-      ctx.fillText(svc, 12, y + LANE_H / 2 + 4);
-      ctx.strokeStyle = labelSep;
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(LANE_LABEL_W, y);
-      ctx.lineTo(LANE_LABEL_W, y + LANE_H);
-      ctx.stroke();
-    });
-
     const pidGroups = new Map<number, KernelEvent[]>();
     for (const e of visEvents) {
       if (!pidGroups.has(e.pid)) pidGroups.set(e.pid, []);
@@ -260,9 +278,9 @@ export default function TimelinePage() {
         if (a.service === b.service) continue;
         const ax = nsToX(a.timestampNs);
         const bx = nsToX(b.timestampNs);
-        const si = SERVICES.indexOf(a.service as (typeof SERVICES)[number]);
-        const di = SERVICES.indexOf(b.service as (typeof SERVICES)[number]);
-        if (si < 0 || di < 0) continue;
+        const si = laneByService.get(a.service);
+        const di = laneByService.get(b.service);
+        if (si === undefined || di === undefined) continue;
         const ay = RULER_H + si * LANE_H + LANE_H / 2;
         const by = RULER_H + di * LANE_H + LANE_H / 2;
         ctx.beginPath();
@@ -285,8 +303,8 @@ export default function TimelinePage() {
     const selected = selectedRef.current;
 
     for (const e of visEvents) {
-      const si = SERVICES.indexOf(e.service as (typeof SERVICES)[number]);
-      if (si < 0) continue;
+      const si = laneByService.get(e.service);
+      if (si === undefined) continue;
       const x = nsToX(e.timestampNs);
       if (x > cssW + 20 || x < LANE_LABEL_W - 20) continue;
 
@@ -456,11 +474,12 @@ export default function TimelinePage() {
 
       const clickNs = visStartNs + ((mx - LANE_LABEL_W) / plotW) * visRangeNs;
       const laneIdx = Math.floor((my - RULER_H) / LANE_H);
-      if (laneIdx < 0 || laneIdx >= SERVICES.length) {
+      const lanes = getTimelineLanes(events);
+      if (laneIdx < 0 || laneIdx >= lanes.length) {
         setSelectedEvent(null);
         return;
       }
-      const clickSvc = SERVICES[laneIdx];
+      const clickSvc = lanes[laneIdx];
 
       let best: KernelEvent | null = null;
       let bestDist = Infinity;
