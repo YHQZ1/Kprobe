@@ -71,9 +71,12 @@ func (s *Neo4jStore) WriteNodesBatch(ctx context.Context, events []types.KernelE
 			"event_type":     string(ev.EventType),
 			"timestamp_ns":   ev.TimestampNs,
 			"pid":            ev.PID,
+			"tid":            ev.TID,
+			"cpu":            ev.CPU,
 			"transaction_id": ev.TransactionID,
 			"service_name":   ev.ServiceName,
 			"trace_id":       ev.TraceID,
+			"span_id":        ev.SpanID,
 			"duration_ns":    ev.DurationNs,
 		}
 	}
@@ -88,9 +91,12 @@ func (s *Neo4jStore) WriteNodesBatch(ctx context.Context, events []types.KernelE
 			SET n.event_type = e.event_type,
 			    n.timestamp_ns = e.timestamp_ns,
 			    n.pid = e.pid,
+			    n.tid = e.tid,
+			    n.cpu = e.cpu,
 			    n.transaction_id = e.transaction_id,
 			    n.service_name = e.service_name,
 			    n.trace_id = e.trace_id,
+			    n.span_id = e.span_id,
 			    n.duration_ns = e.duration_ns
 		`, map[string]any{"batch": batch})
 		return nil, err

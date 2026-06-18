@@ -143,9 +143,11 @@ func main() {
 	mux := http.NewServeMux()
 	settingsHandler := handlers.NewSettingsHandler()
 	eventsHandler := handlers.NewEventsHTTPHandler(chConn)
+	causalHTTPHandler := handlers.NewCausalHTTPHandler(causalHandler)
 	mux.Handle("/api/settings", settingsHandler)
 	mux.HandleFunc("/api/settings/reset", settingsHandler.ResetHandler)
 	mux.Handle("/api/events", auth.HTTPMiddleware(apiToken, jwtSecret, eventsHandler))
+	mux.Handle("/api/transactions/", auth.HTTPMiddleware(apiToken, jwtSecret, causalHTTPHandler))
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]any{

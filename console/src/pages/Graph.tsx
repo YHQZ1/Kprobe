@@ -11,6 +11,7 @@ import {
 } from "../lib/mockData";
 import { useConnection } from "../hooks/useConnection";
 import { mapWireEvent } from "../lib/wireEvent";
+import { fetchCausalChain } from "../lib/api";
 import {
   PauseIcon,
   PlayIcon,
@@ -37,6 +38,7 @@ interface GraphEdge {
   source: string;
   target: string;
   latencyMs: number;
+  causeType?: string;
 }
 
 const KERNEL_TYPES: EventType[] = ["page_fault", "sched_switch"];
@@ -177,11 +179,17 @@ export default function GraphPage() {
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [nodeCount, setNodeCount] = useState(0);
   const [edgeCount, setEdgeCount] = useState(0);
+  const [chainState, setChainState] = useState<{
+    transactionId: string;
+    status: "live" | "loading" | "api" | "error";
+  }>({ transactionId: "", status: "live" });
   const [paused, setPaused] = useState(false);
   const pausedRef = useRef(false);
 
   const { status, messages } = useConnection();
   const processedMessageRef = useRef(0);
+  const requestedTransactionRef = useRef("");
+  const fetchTimerRef = useRef<number | null>(null);
 
   pausedRef.current = paused;
 
@@ -352,6 +360,86 @@ export default function GraphPage() {
     [],
   );
 
+  const applyGraph = useCallback(
+    (nodes: GraphNode[], edges: GraphEdge[], selected: GraphNode | null) => {
+      const laid = layoutDAG(nodes, edges);
+      nodesRef.current = laid;
+      edgesRef.current = edges;
+      setNodeCount(laid.length);
+      setEdgeCount(edges.length);
+
+      setSelectedNode((sel) => {
+        const nextSelected =
+          selected ?? (sel && laid.find((n) => n.id === sel.id) ? sel : null);
+        renderGraph(laid, edges, nextSelected);
+        return nextSelected;
+      });
+    },
+    [renderGraph],
+  );
+
+  const loadCausalChain = useCallback(
+    (transactionId: string) => {
+      if (!transactionId || requestedTransactionRef.current === transactionId) {
+        return;
+      }
+      requestedTransactionRef.current = transactionId;
+      setChainState({ transactionId, status: "loading" });
+
+      if (fetchTimerRef.current) {
+        window.clearTimeout(fetchTimerRef.current);
+      }
+      fetchTimerRef.current = window.setTimeout(() => {
+        const controller = new AbortController();
+        void fetchCausalChain(transactionId, controller.signal)
+          .then(({ nodes, edges }) => {
+            if (nodes.length === 0) {
+              setChainState({ transactionId, status: "live" });
+              requestedTransactionRef.current = "";
+              return;
+            }
+            const graphNodes: GraphNode[] = nodes.map((event) => ({
+              id: event.id,
+              event,
+              layer: getLayer(event),
+              severity: getSeverity(event),
+              x: 0,
+              y: 0,
+            }));
+            const visibleNodes = graphNodes.slice(-MAX_NODES);
+            const ids = new Set(visibleNodes.map((node) => node.id));
+            const graphEdges: GraphEdge[] = edges
+              .filter(
+                (edge) =>
+                  ids.has(edge.fromEventId) && ids.has(edge.toEventId),
+              )
+              .map((edge) => ({
+                id: edge.id,
+                source: edge.fromEventId,
+                target: edge.toEventId,
+                sourceId: edge.fromEventId,
+                targetId: edge.toEventId,
+                latencyMs: edge.latencyNs / 1_000_000,
+                causeType: edge.causeType,
+              }));
+            applyGraph(visibleNodes, graphEdges, null);
+            setChainState({ transactionId, status: "api" });
+          })
+          .catch(() => {
+            setChainState({ transactionId, status: "error" });
+            requestedTransactionRef.current = "";
+          });
+      }, 750);
+    },
+    [applyGraph],
+  );
+
+  useEffect(() => {
+    return () => {
+      if (fetchTimerRef.current) window.clearTimeout(fetchTimerRef.current);
+    };
+  }, []);
+
   useEffect(() => {
     const el = containerRef.current!;
     const w = el.clientWidth || 1000;
@@ -407,9 +495,13 @@ export default function GraphPage() {
       (message) => message.id > processedMessageRef.current,
     );
     let newNodes = [...nodesRef.current];
+    let latestTransactionId = "";
     for (const message of pending) {
       try {
         const evt = mapWireEvent(JSON.parse(message.data), message.id);
+        if (evt.meta.transaction_id) {
+          latestTransactionId = evt.meta.transaction_id;
+        }
         if (shouldPromote(evt)) {
           newNodes.push({
             id: evt.id,
@@ -425,23 +517,15 @@ export default function GraphPage() {
       }
       processedMessageRef.current = message.id;
     }
+    if (latestTransactionId) {
+      loadCausalChain(latestTransactionId);
+    }
     if (newNodes.length === nodesRef.current.length) return;
     if (newNodes.length > MAX_NODES) newNodes = newNodes.slice(-MAX_NODES);
 
     const newEdges = inferEdges(newNodes);
-    const laid = layoutDAG(newNodes, newEdges);
-
-    nodesRef.current = laid;
-    edgesRef.current = newEdges;
-    setNodeCount(laid.length);
-    setEdgeCount(newEdges.length);
-
-    setSelectedNode((sel) => {
-      if (sel && !laid.find((n) => n.id === sel.id)) return null;
-      renderGraph(laid, newEdges, sel);
-      return sel;
-    });
-  }, [messages, paused, renderGraph]);
+    applyGraph(newNodes, newEdges, null);
+  }, [messages, paused, applyGraph, loadCausalChain]);
 
   useEffect(() => {
     if (status !== "mock") return;
@@ -463,22 +547,11 @@ export default function GraphPage() {
       if (newNodes.length > MAX_NODES) newNodes = newNodes.slice(-MAX_NODES);
 
       const newEdges = inferEdges(newNodes);
-      const laid = layoutDAG(newNodes, newEdges);
-
-      nodesRef.current = laid;
-      edgesRef.current = newEdges;
-      setNodeCount(laid.length);
-      setEdgeCount(newEdges.length);
-
-      setSelectedNode((sel) => {
-        if (sel && !laid.find((n) => n.id === sel.id)) return null;
-        renderGraph(laid, newEdges, sel);
-        return sel;
-      });
+      applyGraph(newNodes, newEdges, null);
     }, TICK_MS);
 
     return () => clearInterval(iv);
-  }, [status, renderGraph]);
+  }, [status, applyGraph]);
 
   useEffect(() => {
     if (nodesRef.current.length > 0) {
@@ -509,6 +582,8 @@ export default function GraphPage() {
   function clearGraph() {
     nodesRef.current = [];
     edgesRef.current = [];
+    requestedTransactionRef.current = "";
+    setChainState({ transactionId: "", status: "live" });
     setSelectedNode(null);
     setNodeCount(0);
     setEdgeCount(0);
@@ -577,6 +652,15 @@ export default function GraphPage() {
         <div style={s.tlLeft}>
           <StatPill num={nodeCount} label="nodes" />
           <StatPill num={edgeCount} label="edges" />
+          <span style={s.chainState}>
+            {chainState.status === "api"
+              ? `api chain ${chainState.transactionId}`
+              : chainState.status === "loading"
+                ? `loading chain ${chainState.transactionId}`
+                : chainState.status === "error"
+                  ? `chain unavailable ${chainState.transactionId}`
+                  : "live inference"}
+          </span>
         </div>
         <div style={s.tlRight}>
           <button
@@ -687,6 +771,16 @@ const s: Record<string, React.CSSProperties> = {
   },
   tlLeft: { display: "flex", alignItems: "center", gap: "1rem" },
   tlRight: { display: "flex", alignItems: "center", gap: "0.625rem" },
+  chainState: {
+    fontFamily: "var(--font-mono)",
+    fontSize: "0.6rem",
+    color: "var(--text-muted)",
+    minWidth: 0,
+    maxWidth: "360px",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap" as const,
+  },
   ctrlBtn: {
     display: "flex",
     alignItems: "center",

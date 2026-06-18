@@ -86,10 +86,14 @@ func (h *CausalHandler) QueryCausalChain(ctx context.Context, req *pb.QueryCausa
 				EventId:       id,
 				TimestampNs:   propUint64(node.Props, "timestamp_ns"),
 				Pid:           propUint32(node.Props, "pid"),
+				Tid:           propUint32(node.Props, "tid"),
+				Cpu:           propUint32(node.Props, "cpu"),
 				EventType:     propString(node.Props, "event_type"),
 				TransactionId: propString(node.Props, "transaction_id"),
 				ServiceName:   propString(node.Props, "service_name"),
 				TraceId:       propString(node.Props, "trace_id"),
+				SpanId:        propString(node.Props, "span_id"),
+				DurationNs:    propUint64(node.Props, "duration_ns"),
 			})
 		}
 
