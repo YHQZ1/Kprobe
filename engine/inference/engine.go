@@ -240,7 +240,7 @@ func tryCreateCrossProcEdge(prior, ev types.KernelEvent) (graph.EdgeBatch, bool)
 
 func crossProcLatencyNs(prior, ev types.KernelEvent) (uint64, bool) {
 	if prior.EventType == types.EventTypeBlockIO {
-		return overlappingLatencyNs(prior, ev)
+		return intervalLatencyNs(prior, ev)
 	}
 
 	if ev.TimestampNs <= prior.TimestampNs {
@@ -253,9 +253,16 @@ func crossProcLatencyNs(prior, ev types.KernelEvent) (uint64, bool) {
 	return latencyNs, true
 }
 
-func overlappingLatencyNs(a, b types.KernelEvent) (uint64, bool) {
+func intervalLatencyNs(a, b types.KernelEvent) (uint64, bool) {
 	aStart, aEnd := eventIntervalNs(a)
 	bStart, bEnd := eventIntervalNs(b)
+	if latencyNs, ok := overlappingLatencyNs(aStart, aEnd, bStart, bEnd); ok {
+		return latencyNs, true
+	}
+	return adjacentLatencyNs(aStart, aEnd, bStart, bEnd)
+}
+
+func overlappingLatencyNs(aStart, aEnd, bStart, bEnd uint64) (uint64, bool) {
 	if aEnd < bStart || bEnd < aStart {
 		return 0, false
 	}
@@ -263,6 +270,22 @@ func overlappingLatencyNs(a, b types.KernelEvent) (uint64, bool) {
 		return aStart - bStart, true
 	}
 	return bStart - aStart, true
+}
+
+func adjacentLatencyNs(aStart, aEnd, bStart, bEnd uint64) (uint64, bool) {
+	var latencyNs uint64
+	switch {
+	case aEnd < bStart:
+		latencyNs = bStart - aEnd
+	case bEnd < aStart:
+		latencyNs = aStart - bEnd
+	default:
+		return 0, true
+	}
+	if latencyNs > causalThresholdNs {
+		return 0, false
+	}
+	return latencyNs, true
 }
 
 func eventIntervalNs(ev types.KernelEvent) (uint64, uint64) {

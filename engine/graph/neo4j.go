@@ -29,7 +29,30 @@ func NewNeo4jStore(driver neo4j.DriverWithContext) (*Neo4jStore, error) {
 	if err := driver.VerifyConnectivity(ctx); err != nil {
 		return nil, fmt.Errorf("neo4j connectivity: %w", err)
 	}
-	return &Neo4jStore{driver: driver}, nil
+	store := &Neo4jStore{driver: driver}
+	if err := store.ensureSchema(ctx); err != nil {
+		return nil, err
+	}
+	return store, nil
+}
+
+func (s *Neo4jStore) ensureSchema(ctx context.Context) error {
+	session := s.driver.NewSession(ctx, neo4j.SessionConfig{})
+	defer session.Close(ctx)
+
+	statements := []string{
+		`CREATE CONSTRAINT kernel_event_id IF NOT EXISTS
+		 FOR (n:KernelEvent) REQUIRE n.event_id IS UNIQUE`,
+		`CREATE INDEX kernel_event_transaction_id IF NOT EXISTS
+		 FOR (n:KernelEvent) ON (n.transaction_id)`,
+	}
+
+	for _, stmt := range statements {
+		if _, err := session.Run(ctx, stmt, nil); err != nil {
+			return fmt.Errorf("ensure neo4j schema: %w", err)
+		}
+	}
+	return nil
 }
 
 func (s *Neo4jStore) WriteNodesBatch(ctx context.Context, events []types.KernelEvent) error {

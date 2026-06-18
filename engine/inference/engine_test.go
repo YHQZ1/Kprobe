@@ -215,7 +215,7 @@ func TestTryCreateCrossProcEdgeRejectsNonOverlappingBlock(t *testing.T) {
 	block := types.KernelEvent{
 		EventID:     "block-1",
 		EventType:   types.EventTypeBlockIO,
-		TimestampNs: 2_000,
+		TimestampNs: 60_000_000,
 		DurationNs:  100,
 		PID:         44,
 	}
@@ -229,6 +229,34 @@ func TestTryCreateCrossProcEdgeRejectsNonOverlappingBlock(t *testing.T) {
 
 	if _, ok := tryCreateCrossProcEdge(block, read); ok {
 		t.Fatal("expected non-overlapping block I/O and syscall to be ignored")
+	}
+}
+
+func TestTryCreateCrossProcEdgeAllowsNearbyBlock(t *testing.T) {
+	block := types.KernelEvent{
+		EventID:     "block-1",
+		EventType:   types.EventTypeBlockIO,
+		TimestampNs: 1_600,
+		DurationNs:  100,
+		PID:         44,
+	}
+	read := types.KernelEvent{
+		EventID:     "read-1",
+		EventType:   types.EventTypeSysRead,
+		TimestampNs: 1_000,
+		DurationNs:  500,
+		PID:         55,
+	}
+
+	edge, ok := tryCreateCrossProcEdge(block, read)
+	if !ok {
+		t.Fatal("expected nearby block I/O and syscall to create an edge")
+	}
+	if edge.CauseType != "DISK_TO_SYSCALL" {
+		t.Fatalf("expected DISK_TO_SYSCALL, got %q", edge.CauseType)
+	}
+	if edge.LatencyNs != 100 {
+		t.Fatalf("expected latency 100, got %d", edge.LatencyNs)
 	}
 }
 
