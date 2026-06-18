@@ -31,6 +31,12 @@ type pairKey struct {
 	TID      uint32
 }
 
+type blockKey struct {
+	Sector uint64
+	Bytes  uint64
+	Op     string
+}
+
 type inflight struct {
 	event     types.KernelEvent
 	arrivedAt time.Time
@@ -39,7 +45,7 @@ type inflight struct {
 type enricherShard struct {
 	mu              sync.Mutex
 	syscallInFlight map[pairKey]inflight
-	blockInFlight   map[pairKey]inflight
+	blockInFlight   map[blockKey]inflight
 	otelSpans       map[uint32][]SpanEntry
 }
 
@@ -52,7 +58,7 @@ func NewEnricher() *Enricher {
 	for i := 0; i < numShards; i++ {
 		e.shards[i] = &enricherShard{
 			syscallInFlight: make(map[pairKey]inflight),
-			blockInFlight:   make(map[pairKey]inflight),
+			blockInFlight:   make(map[blockKey]inflight),
 			otelSpans:       make(map[uint32][]SpanEntry),
 		}
 	}
@@ -73,6 +79,10 @@ func (e *Enricher) getShard(pid uint32) *enricherShard {
 	return e.shards[pid%numShards]
 }
 
+func (e *Enricher) getBlockShard(key blockKey) *enricherShard {
+	return e.shards[(key.Sector^key.Bytes)%numShards]
+}
+
 func (e *Enricher) AddSpan(s SpanEntry) {
 	s.ArrivedAt = time.Now()
 	shard := e.getShard(s.PID)
@@ -87,18 +97,35 @@ func (e *Enricher) AddSpan(s SpanEntry) {
 }
 
 func (e *Enricher) Process(event types.KernelEvent) []types.KernelEvent {
-	shard := e.getShard(event.PID)
-	shard.mu.Lock()
-	defer shard.mu.Unlock()
-
-	event = shard.enrichTrace(event)
-
 	switch event.EventType {
 	case types.EventTypeSysRead, types.EventTypeSysWrite:
+		shard := e.getShard(event.PID)
+		shard.mu.Lock()
+		defer shard.mu.Unlock()
+
+		event = shard.enrichTrace(event)
 		return shard.pairSyscall(event)
 	case types.EventTypeBlockIO:
+		key, ok := makeBlockKey(event)
+		if !ok {
+			shard := e.getShard(event.PID)
+			shard.mu.Lock()
+			defer shard.mu.Unlock()
+			return []types.KernelEvent{shard.enrichTrace(event)}
+		}
+
+		shard := e.getBlockShard(key)
+		shard.mu.Lock()
+		defer shard.mu.Unlock()
+
+		event = shard.enrichTrace(event)
 		return shard.pairBlock(event)
 	default:
+		shard := e.getShard(event.PID)
+		shard.mu.Lock()
+		defer shard.mu.Unlock()
+
+		event = shard.enrichTrace(event)
 		return []types.KernelEvent{event}
 	}
 }
@@ -134,14 +161,39 @@ func (s *enricherShard) pairSyscall(event types.KernelEvent) []types.KernelEvent
 }
 
 func (s *enricherShard) pairBlock(event types.KernelEvent) []types.KernelEvent {
-	key := pairKey{CgroupID: event.CgroupID, PID: event.PID, TID: event.TID}
-	existing, ok := s.blockInFlight[key]
+	key, ok := makeBlockKey(event)
 	if !ok {
+		return []types.KernelEvent{event}
+	}
+
+	switch event.Payload.BlockPhase {
+	case "issue":
 		s.blockInFlight[key] = inflight{event: event, arrivedAt: time.Now()}
 		return nil
+	case "complete":
+		existing, ok := s.blockInFlight[key]
+		if !ok {
+			return []types.KernelEvent{event}
+		}
+		delete(s.blockInFlight, key)
+		return completePair(existing.event, event)
+	default:
+		return []types.KernelEvent{event}
 	}
-	delete(s.blockInFlight, key)
-	return completePair(existing.event, event)
+}
+
+func makeBlockKey(event types.KernelEvent) (blockKey, bool) {
+	if event.Payload.BlockSector == nil || event.Payload.BlockBytes == nil || event.Payload.BlockOp == "" {
+		return blockKey{}, false
+	}
+	if *event.Payload.BlockBytes == 0 || *event.Payload.BlockSector == ^uint64(0) {
+		return blockKey{}, false
+	}
+	return blockKey{
+		Sector: *event.Payload.BlockSector,
+		Bytes:  *event.Payload.BlockBytes,
+		Op:     event.Payload.BlockOp,
+	}, true
 }
 
 func completePair(a, b types.KernelEvent) []types.KernelEvent {
