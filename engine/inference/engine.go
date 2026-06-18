@@ -153,28 +153,9 @@ func (e *Engine) processWindow(ctx context.Context, events []types.KernelEvent) 
 			continue
 		}
 		for _, prior := range e.crossProcWindow {
-			if prior.PID == ev.PID {
-				continue
+			if edge, ok := tryCreateCrossProcEdge(prior, ev); ok {
+				edges = append(edges, edge)
 			}
-			if ev.TimestampNs <= prior.TimestampNs {
-				continue
-			}
-			if ev.TimestampNs-prior.TimestampNs > causalThresholdNs {
-				continue
-			}
-			causeType := crossProcCause(prior, ev)
-			if causeType == "" {
-				continue
-			}
-			latencyNs := ev.TimestampNs - prior.TimestampNs
-			edges = append(edges, graph.EdgeBatch{
-				FromID:        prior.EventID,
-				ToID:          ev.EventID,
-				CauseType:     causeType,
-				LatencyNs:     latencyNs,
-				TransactionID: prior.TransactionID,
-				ServiceName:   prior.ServiceName,
-			})
 		}
 	}
 
@@ -208,6 +189,66 @@ func (e *Engine) tryCreateEdge(events []types.KernelEvent, i, j int, crossThread
 		TransactionID: a.TransactionID,
 		ServiceName:   a.ServiceName,
 	}, true
+}
+
+func tryCreateCrossProcEdge(prior, ev types.KernelEvent) (graph.EdgeBatch, bool) {
+	if prior.PID == ev.PID && prior.EventType != types.EventTypeBlockIO {
+		return graph.EdgeBatch{}, false
+	}
+
+	causeType := crossProcCause(prior, ev)
+	if causeType == "" {
+		return graph.EdgeBatch{}, false
+	}
+
+	latencyNs, ok := crossProcLatencyNs(prior, ev)
+	if !ok {
+		return graph.EdgeBatch{}, false
+	}
+
+	return graph.EdgeBatch{
+		FromID:        prior.EventID,
+		ToID:          ev.EventID,
+		CauseType:     causeType,
+		LatencyNs:     latencyNs,
+		TransactionID: prior.TransactionID,
+		ServiceName:   prior.ServiceName,
+	}, true
+}
+
+func crossProcLatencyNs(prior, ev types.KernelEvent) (uint64, bool) {
+	if prior.EventType == types.EventTypeBlockIO {
+		return overlappingLatencyNs(prior, ev)
+	}
+
+	if ev.TimestampNs <= prior.TimestampNs {
+		return 0, false
+	}
+	latencyNs := ev.TimestampNs - prior.TimestampNs
+	if latencyNs > causalThresholdNs {
+		return 0, false
+	}
+	return latencyNs, true
+}
+
+func overlappingLatencyNs(a, b types.KernelEvent) (uint64, bool) {
+	aStart, aEnd := eventIntervalNs(a)
+	bStart, bEnd := eventIntervalNs(b)
+	if aEnd < bStart || bEnd < aStart {
+		return 0, false
+	}
+	if aStart > bStart {
+		return aStart - bStart, true
+	}
+	return bStart - aStart, true
+}
+
+func eventIntervalNs(ev types.KernelEvent) (uint64, uint64) {
+	end := ev.TimestampNs
+	if ev.DurationNs > 0 {
+		end += ev.DurationNs
+	}
+	return ev.TimestampNs, end
 }
 
 func eventPairToCause(from, to types.EventType, crossThread bool) string {

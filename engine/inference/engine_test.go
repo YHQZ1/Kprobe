@@ -139,3 +139,89 @@ func TestIsCrossProcCandidate(t *testing.T) {
 		})
 	}
 }
+
+func TestTryCreateCrossProcEdgeAllowsBlockOverlap(t *testing.T) {
+	block := types.KernelEvent{
+		EventID:     "block-1",
+		EventType:   types.EventTypeBlockIO,
+		TimestampNs: 1_050,
+		DurationNs:  100,
+		PID:         44,
+	}
+	read := types.KernelEvent{
+		EventID:     "read-1",
+		EventType:   types.EventTypeSysRead,
+		TimestampNs: 1_000,
+		DurationNs:  500,
+		PID:         55,
+	}
+
+	edge, ok := tryCreateCrossProcEdge(block, read)
+	if !ok {
+		t.Fatal("expected overlapping block I/O and syscall to create an edge")
+	}
+	if edge.CauseType != "DISK_TO_SYSCALL" {
+		t.Fatalf("expected DISK_TO_SYSCALL, got %q", edge.CauseType)
+	}
+	if edge.FromID != "block-1" || edge.ToID != "read-1" {
+		t.Fatalf("unexpected edge endpoints: %+v", edge)
+	}
+	if edge.LatencyNs != 50 {
+		t.Fatalf("expected latency 50, got %d", edge.LatencyNs)
+	}
+}
+
+func TestTryCreateCrossProcEdgeRejectsNonOverlappingBlock(t *testing.T) {
+	block := types.KernelEvent{
+		EventID:     "block-1",
+		EventType:   types.EventTypeBlockIO,
+		TimestampNs: 2_000,
+		DurationNs:  100,
+		PID:         44,
+	}
+	read := types.KernelEvent{
+		EventID:     "read-1",
+		EventType:   types.EventTypeSysRead,
+		TimestampNs: 1_000,
+		DurationNs:  500,
+		PID:         55,
+	}
+
+	if _, ok := tryCreateCrossProcEdge(block, read); ok {
+		t.Fatal("expected non-overlapping block I/O and syscall to be ignored")
+	}
+}
+
+func TestTryCreateCrossProcEdgeKeepsSchedOrdering(t *testing.T) {
+	sched := types.KernelEvent{
+		EventID:      "sched-1",
+		EventType:    types.EventTypeSchedSwitch,
+		TimestampNs:  1_000,
+		PID:          44,
+		CPU:          2,
+		SchedNextPID: 55,
+	}
+	read := types.KernelEvent{
+		EventID:     "read-1",
+		EventType:   types.EventTypeSysRead,
+		TimestampNs: 1_500,
+		PID:         55,
+		CPU:         2,
+	}
+
+	edge, ok := tryCreateCrossProcEdge(sched, read)
+	if !ok {
+		t.Fatal("expected sched switch before syscall to create an edge")
+	}
+	if edge.CauseType != "SCHED_DELAY" {
+		t.Fatalf("expected SCHED_DELAY, got %q", edge.CauseType)
+	}
+	if edge.LatencyNs != 500 {
+		t.Fatalf("expected latency 500, got %d", edge.LatencyNs)
+	}
+
+	sched.TimestampNs = 2_000
+	if _, ok := tryCreateCrossProcEdge(sched, read); ok {
+		t.Fatal("expected future sched switch to be ignored")
+	}
+}
