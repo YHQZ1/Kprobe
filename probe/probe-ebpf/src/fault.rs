@@ -13,7 +13,8 @@ use probe_common::PageFaultEvent;
 struct PageFaultArgs {
     _pad: [u8; 8],
     address: u64,
-    flags: u64,
+    ip: u64,
+    error_code: u64,
 }
 
 #[tracepoint]
@@ -41,7 +42,7 @@ fn try_mm_page_fault(ctx: TracePointContext) -> Result<u32, u32> {
         cgroup_id,
         timestamp_ns,
         address: args.address,
-        flags: args.flags,
+        flags: args.error_code,
     };
 
     if let Some(mut entry) = EVENTS_PAGE_FAULT.reserve::<PageFaultEvent>(0) {
