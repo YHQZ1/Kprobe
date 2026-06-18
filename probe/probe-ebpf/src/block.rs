@@ -54,7 +54,7 @@ fn try_block(ctx: TracePointContext, dir: BlockDir) -> Result<u32, u32> {
         timestamp_ns,
         dir,
         sector: args.sector,
-        bytes: block_bytes(&args),
+        bytes: block_bytes(&args, dir),
         op: block_op(&args),
         _pad: 0,
     };
@@ -68,8 +68,8 @@ fn try_block(ctx: TracePointContext, dir: BlockDir) -> Result<u32, u32> {
     Ok(0)
 }
 
-fn block_bytes(args: &BlockRqArgs) -> u64 {
-    if args.bytes_or_error > 0 {
+fn block_bytes(args: &BlockRqArgs, dir: BlockDir) -> u64 {
+    if matches!(dir, BlockDir::Issue) && args.bytes_or_error > 0 {
         args.bytes_or_error as u64
     } else {
         (args.nr_sector as u64) * 512

@@ -318,7 +318,17 @@ pub async fn drain_block(
             .payload(&payload_str)
             .key(&key);
         match producer.send(record, Duration::from_secs(0)).await {
-            Ok(_) => info!("block event pid={} sector={}", event.pid, event.sector),
+            Ok(_) => info!(
+                "block event pid={} phase={} op={} sector={} bytes={}",
+                event.pid,
+                match event.dir {
+                    probe_common::BlockDir::Issue => "issue",
+                    probe_common::BlockDir::Complete => "complete",
+                },
+                if event.op == 0 { "read" } else { "write" },
+                event.sector,
+                event.bytes
+            ),
             Err((e, _)) => {
                 warn!("kafka publish failed: {e}");
                 if fallback.len() < 5000 {
