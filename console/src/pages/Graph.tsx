@@ -13,6 +13,11 @@ import { useConnection } from "../hooks/useConnection";
 import { mapWireEvent } from "../lib/wireEvent";
 import { fetchCausalChain } from "../lib/api";
 import {
+  analyzeDebugGraph,
+  explainEvent,
+  type DebugSummary,
+} from "../lib/debugAnalysis";
+import {
   PauseIcon,
   PlayIcon,
   ClearIcon,
@@ -54,6 +59,19 @@ const TICK_MS = 1800;
 const NODE_W = 140;
 const NODE_H = 52;
 const CAUSAL_WINDOW_NS = 5_000_000;
+
+const EMPTY_SUMMARY: DebugSummary = {
+  status: "nominal",
+  title: "Awaiting evidence",
+  primaryCause: "unknown",
+  impact: "No events have been promoted into the graph yet.",
+  evidence: [],
+  nextStep: "Generate a transaction or keep the probe running until related events appear.",
+  slowestEvent: null,
+  transactionId: "",
+  services: [],
+  pids: [],
+};
 
 function getLayer(evt: KernelEvent): NodeLayer {
   if (KERNEL_TYPES.includes(evt.type)) return "kernel";
@@ -117,6 +135,50 @@ function inferEdges(nodes: GraphNode[]): GraphEdge[] {
   return edges;
 }
 
+function sanitizeGraph(
+  nodes: GraphNode[],
+  edges: GraphEdge[],
+): { nodes: GraphNode[]; edges: GraphEdge[] } {
+  const uniqueNodes = [...new Map(nodes.map((node) => [node.id, node])).values()];
+  const nodesById = new Map(uniqueNodes.map((node) => [node.id, node]));
+  const uniqueEdges = new Map<string, GraphEdge>();
+
+  for (const edge of edges) {
+    const source = nodesById.get(edge.sourceId);
+    const target = nodesById.get(edge.targetId);
+    if (!source || !target || source.id === target.id) continue;
+
+    const sourceOrder = source.event.timestampNs - target.event.timestampNs;
+    const pointsForward =
+      sourceOrder < 0 ||
+      (sourceOrder === 0 && source.id.localeCompare(target.id) < 0);
+    if (!pointsForward) continue;
+
+    const key = `${source.id}->${target.id}`;
+    if (!uniqueEdges.has(key)) {
+      uniqueEdges.set(key, { ...edge, id: key });
+    }
+  }
+
+  return { nodes: uniqueNodes, edges: [...uniqueEdges.values()] };
+}
+
+function fallbackLayout(nodes: GraphNode[]): GraphNode[] {
+  const sorted = [...nodes].sort(
+    (a, b) =>
+      a.event.timestampNs - b.event.timestampNs || a.id.localeCompare(b.id),
+  );
+  const columns = Math.max(1, Math.ceil(Math.sqrt(sorted.length)));
+  const columnGap = NODE_W + 90;
+  const rowGap = NODE_H + 90;
+
+  return sorted.map((node, index) => ({
+    ...node,
+    x: 90 + (index % columns) * columnGap,
+    y: 70 + Math.floor(index / columns) * rowGap,
+  }));
+}
+
 function getPathIds(nodeId: string, edges: GraphEdge[]): Set<string> {
   const ancestors = new Set<string>();
   const descendants = new Set<string>();
@@ -161,13 +223,23 @@ function layoutDAG(nodes: GraphNode[], edges: GraphEdge[]): GraphNode[] {
     g.setNode(n.id, { width: NODE_W + 40, height: NODE_H + 40 }),
   );
   edges.forEach((e) => g.setEdge(e.sourceId, e.targetId));
-  dagre.layout(g);
+  try {
+    dagre.layout(g);
+  } catch {
+    return fallbackLayout(nodes);
+  }
 
-  return nodes.map((node) => {
+  const laidOut = nodes.map((node) => {
     const dn = g.node(node.id);
     if (!dn) return node;
     return { ...node, x: dn.x, y: dn.y };
   });
+
+  return laidOut.every(
+    (node) => Number.isFinite(node.x) && Number.isFinite(node.y),
+  )
+    ? laidOut
+    : fallbackLayout(nodes);
 }
 
 export default function GraphPage() {
@@ -179,6 +251,7 @@ export default function GraphPage() {
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [nodeCount, setNodeCount] = useState(0);
   const [edgeCount, setEdgeCount] = useState(0);
+  const [debugSummary, setDebugSummary] = useState<DebugSummary>(EMPTY_SUMMARY);
   const [chainState, setChainState] = useState<{
     transactionId: string;
     status: "live" | "loading" | "api" | "error";
@@ -362,16 +435,28 @@ export default function GraphPage() {
 
   const applyGraph = useCallback(
     (nodes: GraphNode[], edges: GraphEdge[], selected: GraphNode | null) => {
-      const laid = layoutDAG(nodes, edges);
+      const safeGraph = sanitizeGraph(nodes, edges);
+      const laid = layoutDAG(safeGraph.nodes, safeGraph.edges);
       nodesRef.current = laid;
-      edgesRef.current = edges;
+      edgesRef.current = safeGraph.edges;
       setNodeCount(laid.length);
-      setEdgeCount(edges.length);
+      setEdgeCount(safeGraph.edges.length);
+      setDebugSummary(
+        analyzeDebugGraph(
+          laid.map((node) => node.event),
+          safeGraph.edges.map((edge) => ({
+            sourceId: edge.sourceId,
+            targetId: edge.targetId,
+            latencyMs: edge.latencyMs,
+            causeType: edge.causeType,
+          })),
+        ),
+      );
 
       setSelectedNode((sel) => {
         const nextSelected =
           selected ?? (sel && laid.find((n) => n.id === sel.id) ? sel : null);
-        renderGraph(laid, edges, nextSelected);
+        renderGraph(laid, safeGraph.edges, nextSelected);
         return nextSelected;
       });
     },
@@ -584,6 +669,7 @@ export default function GraphPage() {
     edgesRef.current = [];
     requestedTransactionRef.current = "";
     setChainState({ transactionId: "", status: "live" });
+    setDebugSummary(EMPTY_SUMMARY);
     setSelectedNode(null);
     setNodeCount(0);
     setEdgeCount(0);
@@ -647,6 +733,17 @@ export default function GraphPage() {
           fill: var(--text-muted);
           transition: fill 0ms ease;
         }
+        @media (max-width: 900px) {
+          .debug-summary {
+            position: absolute !important;
+            top: 14px;
+            right: 14px;
+            width: min(330px, calc(100% - 28px)) !important;
+            max-height: calc(100% - 28px);
+            overflow-y: auto;
+            box-shadow: 0 12px 34px rgba(0,0,0,0.16);
+          }
+        }
       `}</style>
       <div style={s.toolbar}>
         <div style={s.tlLeft}>
@@ -676,13 +773,16 @@ export default function GraphPage() {
         </div>
       </div>
 
-      <div style={s.canvasWrapper} ref={containerRef}>
-        <svg ref={svgRef} style={s.svg} />
-        {nodeCount === 0 && (
-          <div style={s.emptyState}>
-            <span style={s.emptyText}>awaiting promoted events</span>
-          </div>
-        )}
+      <div style={s.canvasWrapper}>
+        <div style={s.graphSurface} ref={containerRef}>
+          <svg ref={svgRef} style={s.svg} />
+          {nodeCount === 0 && (
+            <div style={s.emptyState}>
+              <span style={s.emptyText}>awaiting promoted events</span>
+            </div>
+          )}
+        </div>
+        {nodeCount > 0 && <DebugSummaryPanel summary={debugSummary} />}
       </div>
 
       {selectedNode && (
@@ -703,6 +803,7 @@ export default function GraphPage() {
             </button>
           </div>
           <div style={s.detailGrid}>
+            <KV k="meaning" v={explainEvent(selectedNode.event)} accent />
             <KV k="pid" v={String(selectedNode.event.pid)} />
             <KV k="tid" v={String(selectedNode.event.tid)} />
             <KV k="cpu" v={String(selectedNode.event.cpu)} />
@@ -721,6 +822,38 @@ export default function GraphPage() {
         </div>
       )}
     </div>
+  );
+}
+
+function DebugSummaryPanel({ summary }: { summary: DebugSummary }) {
+  const tone =
+    summary.status === "critical"
+      ? "var(--danger, #ef4444)"
+      : summary.status === "degraded"
+        ? "var(--accent)"
+        : "var(--text-secondary)";
+
+  return (
+    <aside className="debug-summary" style={s.summaryPanel}>
+      <div style={s.summaryHeader}>
+        <span style={{ ...s.summaryStatus, color: tone }}>
+          {summary.status}
+        </span>
+        <span style={s.summaryTitle}>{summary.title}</span>
+      </div>
+      <div style={s.summaryCause}>{summary.primaryCause}</div>
+      <div style={s.summaryImpact}>{summary.impact}</div>
+      {summary.evidence.length > 0 && (
+        <div style={s.summaryEvidence}>
+          {summary.evidence.map((item) => (
+            <div key={item} style={s.summaryEvidenceItem}>
+              {item}
+            </div>
+          ))}
+        </div>
+      )}
+      <div style={s.summaryNext}>{summary.nextStep}</div>
+    </aside>
   );
 }
 
@@ -801,8 +934,78 @@ const s: Record<string, React.CSSProperties> = {
     borderColor: "rgba(245,158,11,0.3)",
     color: "var(--accent)",
   },
-  canvasWrapper: { flex: 1, position: "relative", overflow: "hidden" },
+  canvasWrapper: {
+    flex: 1,
+    position: "relative",
+    display: "flex",
+    minHeight: 0,
+    overflow: "hidden",
+  },
+  graphSurface: {
+    flex: 1,
+    position: "relative",
+    minWidth: 0,
+    overflow: "hidden",
+  },
   svg: { position: "absolute", inset: 0, width: "100%", height: "100%" },
+  summaryPanel: {
+    position: "relative",
+    width: "330px",
+    flexShrink: 0,
+    zIndex: 2,
+    padding: "1rem",
+    borderLeft: "1px solid var(--border)",
+    backgroundColor: "var(--bg-subtle)",
+  },
+  summaryHeader: {
+    display: "flex",
+    alignItems: "center",
+    gap: "0.5rem",
+    marginBottom: "0.4rem",
+  },
+  summaryStatus: {
+    fontFamily: "var(--font-mono)",
+    fontSize: "0.58rem",
+    fontWeight: 800,
+    textTransform: "uppercase" as const,
+    letterSpacing: "0.08em",
+  },
+  summaryTitle: {
+    fontSize: "0.72rem",
+    fontWeight: 700,
+    color: "var(--text-primary)",
+  },
+  summaryCause: {
+    fontSize: "0.95rem",
+    fontWeight: 750,
+    color: "var(--text-primary)",
+    marginBottom: "0.35rem",
+  },
+  summaryImpact: {
+    fontSize: "0.68rem",
+    lineHeight: 1.45,
+    color: "var(--text-secondary)",
+    marginBottom: "0.55rem",
+  },
+  summaryEvidence: {
+    display: "grid",
+    gap: "0.28rem",
+    marginBottom: "0.55rem",
+  },
+  summaryEvidenceItem: {
+    fontFamily: "var(--font-mono)",
+    fontSize: "0.58rem",
+    lineHeight: 1.4,
+    color: "var(--text-muted)",
+  },
+  summaryNext: {
+    borderTop: "1px solid var(--border-subtle)",
+    paddingTop: "0.5rem",
+    fontSize: "0.66rem",
+    lineHeight: 1.45,
+    color: "var(--accent)",
+    fontWeight: 650,
+  },
   emptyState: {
     position: "absolute",
     inset: 0,
