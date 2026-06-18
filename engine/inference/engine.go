@@ -139,7 +139,7 @@ func (e *Engine) processWindow(ctx context.Context, events []types.KernelEvent) 
 	}
 
 	for _, ev := range events {
-		if ev.EventType == types.EventTypeSchedSwitch || ev.EventType == types.EventTypePageFault {
+		if isCrossProcCandidate(ev.EventType) {
 			e.crossProcWindow = append(e.crossProcWindow, ev)
 		}
 	}
@@ -246,6 +246,11 @@ func eventPairToCause(from, to types.EventType, crossThread bool) string {
 
 func crossProcCause(prior, ev types.KernelEvent) string {
 	switch prior.EventType {
+	case types.EventTypeBlockIO:
+		if !isBlocking(ev.EventType) {
+			return ""
+		}
+		return "DISK_TO_SYSCALL"
 	case types.EventTypeSchedSwitch:
 		if prior.SchedNextPID != ev.PID || prior.CPU != ev.CPU {
 			return ""
@@ -255,6 +260,12 @@ func crossProcCause(prior, ev types.KernelEvent) string {
 		return "MEMORY_PRESSURE"
 	}
 	return ""
+}
+
+func isCrossProcCandidate(t types.EventType) bool {
+	return t == types.EventTypeBlockIO ||
+		t == types.EventTypeSchedSwitch ||
+		t == types.EventTypePageFault
 }
 
 func isBlocking(t types.EventType) bool {
