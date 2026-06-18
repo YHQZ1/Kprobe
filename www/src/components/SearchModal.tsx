@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Search,
   X,
@@ -177,7 +178,7 @@ export default function SearchModal() {
 
   if (!open) return null;
 
-  return (
+  return createPortal(
     <div className="modal-overlay" onClick={onClose}>
       <div
         className="modal"
@@ -245,9 +246,10 @@ export default function SearchModal() {
         .modal-overlay {
           position: fixed;
           inset: 0;
-          z-index: 200;
+          z-index: 1000;
           background: var(--overlay);
           backdrop-filter: blur(4px);
+          -webkit-backdrop-filter: blur(4px);
           display: flex;
           align-items: flex-start;
           justify-content: center;
@@ -434,6 +436,7 @@ export default function SearchModal() {
           }
         }
       `}</style>
-    </div>
+    </div>,
+    document.body,
   );
 }

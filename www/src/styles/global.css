@@ -37,6 +37,13 @@
   --radius-sm: 4px;
   --radius-md: 8px;
   --radius-lg: 8px;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --motion-fast: 140ms;
+  --motion-medium: 240ms;
+  --theme-duration: 150ms;
+  --scrollbar-thumb: rgba(128, 128, 128, 0.28);
+  --scrollbar-thumb-hover: rgba(128, 128, 128, 0.46);
 }
 
 [data-theme="light"] {
@@ -71,6 +78,8 @@ html {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   scroll-behavior: smooth;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+  scrollbar-width: thin;
 }
 
 body {
@@ -78,6 +87,86 @@ body {
   line-height: 1.6;
   background-color: var(--bg);
   color: var(--text-primary);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html.theme-transitioning,
+  html.theme-transitioning *,
+  html.theme-transitioning *::before,
+  html.theme-transitioning *::after {
+    transition:
+      background-color var(--theme-duration) var(--ease-standard),
+      border-color var(--theme-duration) var(--ease-standard),
+      color var(--theme-duration) var(--ease-standard),
+      fill var(--theme-duration) var(--ease-standard),
+      stroke var(--theme-duration) var(--ease-standard),
+      box-shadow var(--theme-duration) var(--ease-standard),
+      opacity var(--theme-duration) var(--ease-standard) !important;
+  }
+
+  main {
+    animation: page-enter var(--motion-medium) var(--ease-out) both;
+  }
+
+  :where(
+      a,
+      button,
+      .nav-link,
+      .nav-item,
+      .search-btn,
+      .github-btn,
+      .icon-btn,
+      .btn-primary,
+      .btn-ghost,
+      .copy-code-btn,
+      .sidebar-mobile-toggle,
+      .contribute-link-primary,
+      .contribute-link-secondary,
+      .link-primary,
+      .link-ghost
+    ) {
+    transition:
+      color var(--motion-fast) var(--ease-standard),
+      background-color var(--motion-fast) var(--ease-standard),
+      border-color var(--motion-fast) var(--ease-standard),
+      box-shadow var(--motion-fast) var(--ease-standard),
+      opacity var(--motion-fast) var(--ease-standard),
+      transform var(--motion-fast) var(--ease-standard);
+  }
+
+  :where(
+      .search-btn,
+      .github-btn,
+      .icon-btn,
+      .btn-primary,
+      .copy-code-btn,
+      .sidebar-mobile-toggle,
+      .contribute-link-primary,
+      .link-primary
+    ):hover {
+    transform: translateY(-1px);
+  }
+
+  :where(.nav-link, .nav-item):hover {
+    transform: translateX(1px);
+  }
+
+  @keyframes page-enter {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
 }
 
 :focus-visible {
@@ -90,21 +179,30 @@ body {
   color: var(--accent);
 }
 
+* {
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+  scrollbar-width: thin;
+}
+
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 10px;
+  height: 10px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--bg);
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 3px;
+  min-height: 40px;
+  background-color: var(--scrollbar-thumb);
+  background-clip: content-box;
+  border: 3px solid transparent;
+  border-radius: 999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--text-muted);
+  background-color: var(--scrollbar-thumb-hover);
 }
 
 a {

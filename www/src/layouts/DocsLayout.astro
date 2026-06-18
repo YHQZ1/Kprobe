@@ -348,6 +348,37 @@ const description = frontmatter.description ?? "kprobe documentation";
     position: relative;
   }
 
+  @media (prefers-reduced-motion: no-preference) {
+    .docs-content :global(.code-block) {
+      animation: content-rise 260ms var(--ease-out) both;
+    }
+
+    .docs-content :global(pre),
+    .docs-content :global(blockquote),
+    .docs-content :global(table) {
+      transition:
+        border-color var(--motion-fast) var(--ease-standard),
+        box-shadow var(--motion-fast) var(--ease-standard),
+        transform var(--motion-fast) var(--ease-standard);
+    }
+
+    .docs-content :global(.code-block:hover pre) {
+      box-shadow: var(--shadow-lg);
+      transform: translateY(-1px);
+    }
+
+    @keyframes content-rise {
+      from {
+        opacity: 0;
+        transform: translateY(3px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+  }
+
   .docs-content :global(pre code) {
     background: transparent;
     border: none;

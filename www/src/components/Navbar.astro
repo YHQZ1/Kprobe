@@ -131,12 +131,25 @@ const currentPath = Astro.url.pathname;
   <SearchModal client:only="react" />
 
   <script>
-    function applyTheme(theme: string) {
+    let themeTransitionTimer: number | undefined;
+
+    function applyTheme(theme: string, animate = false) {
+      if (animate) {
+        window.clearTimeout(themeTransitionTimer);
+        document.documentElement.classList.add("theme-transitioning");
+      }
+
       document.documentElement.setAttribute("data-theme", theme);
       localStorage.setItem("kprobe-theme", theme);
       window.dispatchEvent(
         new CustomEvent("kprobe-theme-change", { detail: theme }),
       );
+
+      if (animate) {
+        themeTransitionTimer = window.setTimeout(() => {
+          document.documentElement.classList.remove("theme-transitioning");
+        }, 180);
+      }
     }
 
     function init() {
@@ -151,6 +164,7 @@ const currentPath = Astro.url.pathname;
       toggle?.addEventListener("click", () => {
         applyTheme(
           html.getAttribute("data-theme") === "dark" ? "light" : "dark",
+          true,
         );
       });
     }

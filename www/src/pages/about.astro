@@ -4,330 +4,119 @@ import Layout from "../layouts/Layout.astro";
 
 <Layout
   title="About"
-  description="What kprobe is, why it was built, and the design decisions behind it."
+  description="Why kprobe exists and where kernel-level forensics fits in production debugging."
 >
   <div class="page">
-    <section class="about-hero">
-      <div class="hero-label">about</div>
-      <h1 class="hero-title">
-        Built for the failures nobody else can explain.
-      </h1>
-      <p class="hero-sub">
-        kprobe exists because there is a class of failure in distributed
-        production systems that the entire observability industry cannot see. Not
-        because the tools are bad — they are excellent at what they do. But
-        because they sit in the wrong place in the stack.
-      </p>
-    </section>
+    <section class="hero">
+      <div class="hero-copy">
+        <div class="section-label">about</div>
+        <h1>kprobe is a flight recorder for the layer your APM cannot see.</h1>
+        <p>
+          Modern observability explains application behavior. kprobe explains
+          what the Linux kernel did underneath it: scheduling, syscalls, memory
+          pressure, TCP timing, and the causal chain that connects those events
+          to a failed request.
+        </p>
+        <div class="hero-actions">
+          <a href="/docs" class="btn-primary">Read the docs</a>
+          <a href="/compare" class="btn-secondary">Compare the gap</a>
+        </div>
+      </div>
 
-    <section class="origin-section">
-      <div class="section-label">origin</div>
-      <h2 class="section-heading">Where this comes from</h2>
-      <div class="prose">
-        <p>
-          The pattern is familiar to anyone who has operated a distributed system
-          at scale. A request fails at 3am. The on-call engineer wakes up, opens
-          Datadog, sees a latency spike. Opens Jaeger, finds a slow span. Spends
-          four hours correlating logs across six microservices, working
-          backwards from an error to something that might have caused it.
-        </p>
-        <p>
-          At the end of the investigation, nobody can fully confirm the root
-          cause. A hypothesis is formed. A fix is shipped. The fix might work.
-          It might not. If it does not, the incident repeats.
-        </p>
-        <p>
-          This is not a failure of the tools. Datadog recorded exactly what it
-          saw. Jaeger traced exactly what it was told to trace. The problem is
-          structural — the relevant events happened below where any of these
-          tools can see. In the kernel. In the scheduler. In the memory
-          subsystem.
-        </p>
-        <p>
-          kprobe was built to close that gap. Not to replace the existing stack,
-          but to extend it downward into the layer where the hardest production
-          failures actually originate.
-        </p>
+      <div class="signal-panel" aria-label="kprobe positioning summary">
+        <div class="signal-row">
+          <span>captures</span>
+          <strong>kernel events</strong>
+        </div>
+        <div class="signal-row">
+          <span>joins with</span>
+          <strong>trace context</strong>
+        </div>
+        <div class="signal-row">
+          <span>outputs</span>
+          <strong>causal graph + replay</strong>
+        </div>
       </div>
     </section>
 
-    <section class="positioning-section">
-      <div class="section-label">what kprobe is</div>
-      <h2 class="section-heading">
-        A flight recorder and a debugger. Nothing else.
-      </h2>
+    <section>
+      <div class="compact-grid">
+        <div class="story-card">
+          <div class="section-label">why it exists</div>
+          <h2>The hard incidents happen below your code.</h2>
+          <p>
+            A slow span can be a slow service, a scheduler delay, a memory
+            reclaim storm, or a TCP retransmit. Application tools see the
+            symptom. kprobe records the system events that explain the cause.
+          </p>
+        </div>
+
+        <div class="story-card muted">
+          <div class="section-label">where it fits</div>
+          <h2>It complements your observability stack.</h2>
+          <p>
+            Keep Datadog, Prometheus, Jaeger, and OpenTelemetry. kprobe extends
+            them downward into the host, then maps kernel events back to the
+            services, pods, traces, and transactions engineers already use.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-label">positioning</div>
       <div class="positioning-grid">
         <div class="pos-card pos-card-is">
-          <div class="pos-card-label">kprobe is</div>
+          <h2>kprobe is</h2>
           <ul>
-            <li>
-              A kernel-level event recorder deployed passively alongside your
-              services
-            </li>
-            <li>
-              A causal inference engine that constructs cause-and-effect graphs
-              from raw kernel events
-            </li>
-            <li>
-              A deterministic replay engine for reproducing production incidents
-              on development machines
-            </li>
-            <li>
-              A tool for infrastructure and systems engineering teams investigating
-              complex, low-level failures
-            </li>
-            <li>Complementary to your existing observability stack</li>
+            <li>A passive kernel event recorder</li>
+            <li>A causal inference engine</li>
+            <li>An incident replay system</li>
+            <li>A debugging layer for platform teams</li>
           </ul>
         </div>
-        <div class="pos-card pos-card-isnot">
-          <div class="pos-card-label">kprobe is not</div>
+        <div class="pos-card">
+          <h2>kprobe is not</h2>
           <ul>
-            <li>
-              A monitoring tool — it does not alert on thresholds or track SLOs
-            </li>
-            <li>A replacement for Datadog, Jaeger, or OpenTelemetry</li>
-            <li>
-              An APM platform — it does not aggregate application performance
-              metrics
-            </li>
-            <li>
-              A general-purpose observability tool — it is purpose-built for
-              kernel-level incident investigation
-            </li>
-            <li>Appropriate for systems not running on Linux kernel 5.15+</li>
+            <li>A replacement for APM or metrics</li>
+            <li>A generic dashboarding platform</li>
+            <li>A threshold alerting tool</li>
+            <li>Useful without Linux host visibility</li>
           </ul>
         </div>
       </div>
     </section>
 
-    <section class="design-section">
-      <div class="section-label">design philosophy</div>
-      <h2 class="section-heading">Every decision has a reason.</h2>
-      <div class="design-decisions">
-        <div class="decision">
-          <div class="decision-header">
-            <div class="decision-title">Passive by default</div>
-          </div>
-          <div class="decision-body">
-            kprobe attaches to the kernel and records. It does not require
-            application code changes, library imports, framework integrations,
-            or redeployment. The cost of adoption is a single Helm install. This
-            is not a convenience feature — it is a correctness feature. Any
-            instrumentation you add to your application changes its behaviour,
-            however slightly. kprobe's kernel-level approach sees the system as
-            it actually runs, not as it runs under instrumentation.
-          </div>
+    <section>
+      <div class="section-label">principles</div>
+      <div class="principles">
+        <div class="principle">
+          <span>01</span>
+          <h3>Observe without changing the app</h3>
+          <p>No SDK, import, sidecar, or redeploy. The recorder attaches at the kernel.</p>
         </div>
-        <div class="decision">
-          <div class="decision-header">
-            <div class="decision-title">Causal graphs over logs</div>
-          </div>
-          <div class="decision-body">
-            Logs tell you what happened. Causal graphs tell you why. The
-            difference matters enormously in incident investigation. A log entry
-            saying "write took 800ms" is not actionable. A causal graph showing
-            that a kernel scheduler preemption caused the delay, triggered by a
-            batch job on the same CPU core, with an edge connecting the
-            preemption event to the write delay, is actionable in seconds.
-            kprobe does not store more data — it structures data differently.
-          </div>
+        <div class="principle">
+          <span>02</span>
+          <h3>Explain cause, not just sequence</h3>
+          <p>Events become inspectable edges so engineers can see why a request failed.</p>
         </div>
-        <div class="decision">
-          <div class="decision-header">
-            <div class="decision-title">Replay as first-class feature</div>
-          </div>
-          <div class="decision-body">
-            Most observability tools treat incidents as read-only artifacts. You
-            can look at what happened, but you cannot interact with it. kprobe's
-            replay engine changes that. An incident becomes a test case. You can
-            verify a fix works against the exact production conditions that
-            caused the failure before deploying it. This changes the confidence
-            level of fixes from "this should work" to "this did work, against
-            the actual incident."
-          </div>
-        </div>
-        <div class="decision">
-          <div class="decision-header">
-            <div class="decision-title">
-              Application context as first-class concept
-            </div>
-          </div>
-          <div class="decision-body">
-            Generic observability tools often lose the system context that makes
-            incidents understandable. kprobe keeps request IDs, trace IDs,
-            service names, operations, and optional domain metadata attached to
-            kernel events. A kernel event is not just "PID 2841 made a write
-            syscall." It is "checkout request req-9f21 database write, delayed
-            by kernel memory pressure." The application context is preserved
-            end-to-end.
-          </div>
+        <div class="principle">
+          <span>03</span>
+          <h3>Turn incidents into test cases</h3>
+          <p>Replay preserves the production event timeline so fixes can be tested against reality.</p>
         </div>
       </div>
     </section>
 
-    <section class="stack-section">
-      <div class="section-label">technical foundations</div>
-      <h2 class="section-heading">The choices that make kprobe possible.</h2>
-      <div class="tech-grid">
-        <div class="tech-item">
-          <div class="tech-header">
-            <img
-              src="https://cdn.simpleicons.org/rust/f0eeeb"
-              width="18"
-              height="18"
-              alt="Rust"
-              class="tech-icon"
-            />
-            <div class="tech-name">Rust + Aya for eBPF</div>
-          </div>
-          <div class="tech-body">
-            The eBPF verifier rejects programs that could crash the kernel.
-            Writing verified eBPF in C is difficult and unsafe by nature. The
-            Aya framework compiles Rust directly to eBPF bytecode, giving us the
-            verifier's safety guarantees plus Rust's memory safety at the
-            language level. The entire probe stack — kernel-side programs and
-            userspace loader — is memory-safe. There is no C anywhere in the
-            codebase.
-          </div>
-        </div>
-        <div class="tech-item">
-          <div class="tech-header">
-            <img
-              src="https://cdn.simpleicons.org/apachekafka/f0eeeb"
-              width="18"
-              height="18"
-              alt="Kafka"
-              class="tech-icon"
-            />
-            <div class="tech-name">Kafka for event transport</div>
-          </div>
-          <div class="tech-body">
-            Kernel events arrive at millions per second. Kafka provides
-            back-pressure handling, durability, and replayability. If the causal
-            engine falls behind during a complex incident, events are not lost —
-            they queue in Kafka and are processed when the engine catches up.
-            Kafka's log structure also makes the raw event stream inherently
-            replayable, which is foundational to the replay engine.
-          </div>
-        </div>
-        <div class="tech-item">
-          <div class="tech-header">
-            <img
-              src="https://cdn.simpleicons.org/neo4j/008CC1"
-              width="18"
-              height="18"
-              alt="Neo4j"
-              class="tech-icon"
-            />
-            <div class="tech-name">Neo4j for causal graphs</div>
-          </div>
-          <div class="tech-body">
-            Causal relationships are inherently graph-shaped. Traversing from a
-            failed request to its root kernel cause in a relational database
-            requires recursive CTEs across multiple joins — slow and complex. In
-            Neo4j, the same traversal is a short Cypher query that runs in
-            milliseconds on graphs with millions of edges. The choice of storage
-            model is not incidental — it is what makes sub-second root cause
-            queries possible.
-          </div>
-        </div>
-        <div class="tech-item">
-          <div class="tech-header">
-            <img
-              src="https://cdn.simpleicons.org/clickhouse/FFCC01"
-              width="18"
-              height="18"
-              alt="ClickHouse"
-              class="tech-icon"
-            />
-            <div class="tech-name">ClickHouse for raw events</div>
-          </div>
-          <div class="tech-body">
-            The replay engine needs to retrieve all events for a specific
-            request, transaction, or trace in time order, from a table containing billions of rows.
-            ClickHouse is purpose-built for this — columnar storage, vectorized
-            execution, bloom filter indexes on transaction ID and PID. The same
-            query that would take minutes in Postgres takes under a second in
-            ClickHouse at this data volume.
-          </div>
-        </div>
-        <div class="tech-item">
-          <div class="tech-header">
-            <img
-              src="https://cdn.simpleicons.org/go/00ADD8"
-              width="18"
-              height="18"
-              alt="Go"
-              class="tech-icon"
-            />
-            <div class="tech-name">Go for the engine layer</div>
-          </div>
-          <div class="tech-body">
-            The causal engine, replay engine, and API server are all Go. Go's
-            goroutine model handles the concurrent event processing required for
-            real-time causal inference without the complexity of async Rust or
-            the overhead of a JVM. The standard library's `syscall` and `ptrace`
-            bindings are stable and well-understood, which is critical for the
-            replay engine's correctness.
-          </div>
-        </div>
-        <div class="tech-item">
-          <div class="tech-header">
-            <img
-              src="https://cdn.simpleicons.org/kubernetes/326CE5"
-              width="18"
-              height="18"
-              alt="Kubernetes"
-              class="tech-icon"
-            />
-            <div class="tech-name">DaemonSet deployment model</div>
-          </div>
-          <div class="tech-body">
-            The probe runs as a Kubernetes DaemonSet — one instance per node.
-            This is the only deployment model that guarantees every kernel event
-            on every node is captured. A deployment or sidecar model would miss
-            events on nodes where no instrumented pod happened to be running.
-            The DaemonSet is the architectural foundation of zero-gap coverage.
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="contribute-section">
-      <div class="section-label">open source</div>
-      <h2 class="section-heading">kprobe is open source.</h2>
-      <div class="contribute-body">
-        <p>
-          kprobe is in active early development. The core pipeline — eBPF probe,
-          Kafka transport, causal engine, Neo4j graph model, gRPC API — is
-          complete. The dashboard and replay panel are in progress.
-        </p>
-        <p>
-          If you work on infrastructure, observability tooling, distributed
-          systems, or low-level production debugging and want to contribute or share feedback, the
-          repository is open.
-        </p>
-      </div>
-      <div class="contribute-links">
-        <a
-          href="https://github.com/YHQZ1/kprobe"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="contribute-link-primary"
-        >
-          <img
-            src="https://cdn.simpleicons.org/github/f0eeeb"
-            width="16"
-            height="16"
-            alt="GitHub"
-          />
-          View on GitHub
-        </a>
-        <a href="/docs" class="contribute-link-secondary">Read the docs →</a>
-      </div>
-      <div class="contribute-stack-note">
-        Built with Rust · Go · TypeScript · React · Kafka · ClickHouse · Neo4j ·
-        Kubernetes
+    <section>
+      <div class="section-label">built on</div>
+      <div class="stack-strip">
+        <span>Rust + Aya</span>
+        <span>Go</span>
+        <span>Kafka</span>
+        <span>ClickHouse</span>
+        <span>Neo4j</span>
+        <span>Kubernetes</span>
       </div>
     </section>
   </div>
@@ -340,7 +129,7 @@ import Layout from "../layouts/Layout.astro";
 
   section {
     width: 100%;
-    padding: 0.5rem 2rem 4.5rem;
+    padding: 3rem 2rem;
     border-bottom: 1px solid var(--border-subtle);
   }
 
@@ -354,68 +143,121 @@ import Layout from "../layouts/Layout.astro";
     letter-spacing: 0.16em;
     text-transform: uppercase;
     color: var(--accent);
-    padding-top: 3rem;
-    margin-bottom: 1.25rem;
+    margin-bottom: 1rem;
   }
 
-  .section-heading {
-    font-size: clamp(1.4rem, 2.5vw, 2rem);
-    font-weight: 700;
-    letter-spacing: -0.025em;
-    line-height: 1.2;
-    color: var(--text-primary);
-    margin-bottom: 2.5rem;
-    max-width: 640px;
-  }
-
-  .about-hero {
+  .hero {
+    min-height: auto;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    gap: 3rem;
+    align-items: center;
+    background: var(--bg-subtle);
     padding-top: 4rem;
     padding-bottom: 4rem;
-    background: var(--bg-subtle);
   }
 
-  .hero-label {
-    font-size: 0.68rem;
-    font-weight: 700;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: var(--accent);
-    margin-bottom: 1.25rem;
+  .hero-copy {
+    max-width: 660px;
   }
 
-  .hero-title {
-    font-size: clamp(2rem, 4vw, 3rem);
+  .hero h1 {
+    max-width: 660px;
+    font-size: clamp(2rem, 3.5vw, 3.25rem);
     font-weight: 700;
     letter-spacing: -0.03em;
-    line-height: 1.1;
+    line-height: 1.08;
     color: var(--text-primary);
-    margin-bottom: 1.25rem;
-    max-width: 700px;
+    margin-bottom: 1.1rem;
   }
 
-  .hero-sub {
-    font-size: 1rem;
+  .hero p,
+  .story-card p,
+  .principle p {
     color: var(--text-secondary);
-    max-width: 620px;
     line-height: 1.8;
   }
 
-  .prose {
+  .hero p {
+    max-width: 560px;
+    font-size: 0.975rem;
+  }
+
+  .hero-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 1.75rem;
+  }
+
+  .btn-primary,
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 36px;
+    padding: 0.55rem 1.2rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: var(--button-text-on-accent);
+  }
+
+  .btn-secondary {
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+    background: var(--bg);
+  }
+
+  .btn-secondary:hover {
+    color: var(--text-primary);
+    border-color: var(--text-muted);
+    background: var(--bg-elevated);
+  }
+
+  .signal-panel {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--bg);
+    overflow: hidden;
+  }
+
+  .signal-row {
     display: flex;
     flex-direction: column;
-    gap: 1.25rem;
-    max-width: 680px;
+    gap: 0.25rem;
+    padding: 1rem 1.15rem;
+    border-bottom: 1px solid var(--border-subtle);
   }
 
-  .prose p {
-    font-size: 0.95rem;
-    color: var(--text-secondary);
-    line-height: 1.85;
+  .signal-row:last-child {
+    border-bottom: none;
   }
 
-  .positioning-grid {
+  .signal-row span {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .signal-row strong {
+    font-size: 0.92rem;
+    color: var(--text-primary);
+    letter-spacing: -0.01em;
+  }
+
+  .compact-grid,
+  .positioning-grid,
+  .principles {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 1px;
     background: var(--border-subtle);
     border: 1px solid var(--border-subtle);
@@ -423,262 +265,142 @@ import Layout from "../layouts/Layout.astro";
     overflow: hidden;
   }
 
-  .pos-card {
-    padding: 2rem;
-    background: var(--bg-subtle);
-  }
-
-  .pos-card-is {
+  .story-card,
+  .pos-card,
+  .principle {
     background: var(--bg);
+    padding: 1.5rem;
   }
-  .pos-card-isnot {
+
+  .story-card.muted,
+  .pos-card:not(.pos-card-is) {
     background: var(--bg-subtle);
   }
 
-  .pos-card-label {
-    font-size: 0.68rem;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--text-muted);
-    margin-bottom: 1rem;
-  }
-
-  .pos-card-is .pos-card-label {
-    color: var(--accent);
+  .story-card h2,
+  .pos-card h2 {
+    max-width: 520px;
+    font-size: clamp(1.25rem, 2.4vw, 1.75rem);
+    line-height: 1.15;
+    letter-spacing: -0.025em;
+    color: var(--text-primary);
+    margin-bottom: 0.85rem;
   }
 
   .pos-card ul {
     list-style: none;
     display: flex;
     flex-direction: column;
-    gap: 0.625rem;
+    gap: 0.5rem;
   }
 
   .pos-card li {
-    font-size: 0.855rem;
-    color: var(--text-secondary);
-    line-height: 1.6;
-    padding-left: 1rem;
     position: relative;
-  }
-
-  .pos-card-is li::before {
-    content: "✓";
-    position: absolute;
-    left: 0;
-    color: var(--accent);
-    font-size: 0.75rem;
-    top: 1px;
-  }
-
-  .pos-card-isnot li::before {
-    content: "·";
-    position: absolute;
-    left: 0;
-    color: var(--text-muted);
-    font-weight: 700;
-    font-size: 1.1rem;
-    top: -2px;
-  }
-
-  .design-decisions {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-    background: var(--border-subtle);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-lg);
-    overflow: hidden;
-  }
-
-  .decision {
-    background: var(--bg);
-    padding: 1.75rem 2rem;
-    display: grid;
-    grid-template-columns: 240px 1fr;
-    gap: 2rem;
-    align-items: start;
-  }
-
-  .decision:hover {
-    background: var(--bg-subtle);
-  }
-
-  .decision-title {
+    padding-left: 1rem;
+    color: var(--text-secondary);
     font-size: 0.9rem;
-    font-weight: 600;
+    line-height: 1.6;
+  }
+
+  .pos-card li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.65rem;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+
+  .principles {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .principle span {
+    display: block;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.72rem;
+    color: var(--accent);
+    margin-bottom: 1.25rem;
+  }
+
+  .principle h3 {
+    font-size: 1rem;
+    line-height: 1.3;
     color: var(--text-primary);
-    letter-spacing: -0.01em;
-    padding-top: 0.1rem;
+    margin-bottom: 0.65rem;
   }
 
-  .decision-body {
-    font-size: 0.855rem;
-    color: var(--text-secondary);
-    line-height: 1.8;
+  .principle p {
+    font-size: 0.86rem;
   }
 
-  .tech-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1px;
-    background: var(--border-subtle);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-lg);
-    overflow: hidden;
-  }
-
-  .tech-item {
-    background: var(--bg);
-    padding: 1.75rem;
+  .stack-strip {
     display: flex;
-    flex-direction: column;
-    gap: 0.875rem;
-  }
-
-  .tech-item:hover {
-    background: var(--bg-subtle);
-  }
-
-  .tech-header {
-    display: flex;
-    align-items: center;
-    gap: 0.625rem;
-  }
-
-  .tech-icon {
-    width: 18px;
-    height: 18px;
-    flex-shrink: 0;
-    opacity: 0.8;
-  }
-
-  .tech-name {
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: var(--text-primary);
-    letter-spacing: -0.01em;
-  }
-
-  .tech-body {
-    font-size: 0.825rem;
-    color: var(--text-muted);
-    line-height: 1.8;
-  }
-
-  .contribute-body {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-    max-width: 620px;
-    margin-bottom: 2rem;
-    margin-top: -1.5rem;
-  }
-
-  .contribute-body p {
-    font-size: 0.95rem;
-    color: var(--text-secondary);
-    line-height: 1.8;
-  }
-
-  .contribute-links {
-    display: flex;
-    align-items: center;
-    gap: 1.25rem;
-    margin-bottom: 2rem;
-  }
-
-  .contribute-link-primary {
-    display: inline-flex;
-    align-items: center;
+    flex-wrap: wrap;
     gap: 0.5rem;
-    padding: 0.6rem 1.35rem;
-    background: var(--bg-elevated);
+  }
+
+  .stack-strip span {
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: var(--text-primary);
-    text-decoration: none;
-    font-family: var(--font);
-  }
-
-  .contribute-link-primary:hover {
-    border-color: var(--text-muted);
     background: var(--bg-subtle);
-  }
-
-  .contribute-link-primary img {
-    filter: var(--icon-filter, none);
-  }
-
-  .contribute-link-secondary {
-    font-size: 0.875rem;
-    font-weight: 500;
     color: var(--text-secondary);
-    text-decoration: none;
+    padding: 0.45rem 0.7rem;
+    font-size: 0.82rem;
+    font-weight: 600;
   }
 
-  .contribute-link-secondary:hover {
-    color: var(--text-primary);
-  }
-
-  .contribute-stack-note {
-    font-size: 0.775rem;
-    color: var(--text-muted);
-    font-family: "JetBrains Mono", monospace;
-    letter-spacing: 0.02em;
-  }
-
-  :global([data-theme="light"]) .contribute-link-primary img {
-    filter: invert(1);
-  }
-
-  @media (max-width: 900px) {
-    section {
-      padding-left: 1.5rem;
-      padding-right: 1.5rem;
-    }
-
-    .decision {
-      grid-template-columns: 1fr;
-      gap: 0.75rem;
-    }
-  }
-
-  @media (max-width: 760px) {
-    section {
-      padding-left: 1.25rem;
-      padding-right: 1.25rem;
-      padding-bottom: 3rem;
-    }
-
-    .about-hero {
-      padding-top: 3rem;
-      padding-bottom: 3rem;
-    }
-
-    .positioning-grid,
-    .tech-grid {
-      grid-template-columns: 1fr;
-    }
-
+  @media (prefers-reduced-motion: no-preference) {
+    .signal-panel,
+    .story-card,
     .pos-card,
-    .decision,
-    .tech-item {
-      padding: 1.35rem;
+    .principle,
+    .stack-strip span {
+      transition:
+        background-color var(--motion-fast) var(--ease-standard),
+        border-color var(--motion-fast) var(--ease-standard),
+        transform var(--motion-fast) var(--ease-standard),
+        box-shadow var(--motion-fast) var(--ease-standard);
     }
 
-    .contribute-links {
+    .story-card:hover,
+    .pos-card:hover,
+    .principle:hover,
+    .stack-strip span:hover {
+      transform: translateY(-1px);
+      background: var(--bg-elevated);
+    }
+  }
+
+  @media (max-width: 940px) {
+    .hero,
+    .compact-grid,
+    .positioning-grid,
+    .principles {
+      grid-template-columns: 1fr;
+    }
+
+    .hero {
+      gap: 2rem;
+      min-height: auto;
+    }
+  }
+
+  @media (max-width: 640px) {
+    section {
+      padding: 2.5rem 1.25rem;
+    }
+
+    .hero-actions {
       align-items: stretch;
       flex-direction: column;
-      gap: 0.875rem;
     }
 
-    .contribute-link-primary,
-    .contribute-link-secondary {
-      justify-content: center;
+    .btn-primary,
+    .btn-secondary {
+      width: 100%;
     }
   }
 </style>

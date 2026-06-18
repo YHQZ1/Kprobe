@@ -268,20 +268,18 @@ function isActive(href: string) {
     font-weight: 500;
   }
 
+  @media (prefers-reduced-motion: no-preference) {
+    .nav-item {
+      transition:
+        color var(--motion-fast) var(--ease-standard),
+        background-color var(--motion-fast) var(--ease-standard),
+        transform var(--motion-fast) var(--ease-standard);
+    }
+  }
+
   .nav-item-active:hover {
     background: var(--accent-dim-hover);
     color: var(--accent);
-  }
-
-  aside::-webkit-scrollbar {
-    width: 4px;
-  }
-  aside::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  aside::-webkit-scrollbar-thumb {
-    background: var(--border);
-    border-radius: 2px;
   }
 
   @media (max-width: 768px) {
