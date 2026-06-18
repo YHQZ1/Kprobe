@@ -11,7 +11,10 @@ import type { ConnectionStatus } from "../types/events";
 
 const getWsUrl = () => {
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  return `${protocol}//${window.location.host}/ws`;
+  const url = new URL(`${protocol}//${window.location.host}/ws`);
+  const token = getToken();
+  if (token) url.searchParams.set("access_token", token);
+  return url.toString();
 };
 
 const INITIAL_BACKOFF = 1000;

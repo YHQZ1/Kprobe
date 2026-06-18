@@ -218,13 +218,14 @@ func (h *ReplayHandler) removeWatcher(sessionID string, target chan *pb.ReplayEv
 	chans := h.watchChans[sessionID]
 	for i, ch := range chans {
 		if ch == target {
-			h.watchChans[sessionID] = append(chans[:i], chans[i+1:]...)
+			remaining := append(chans[:i], chans[i+1:]...)
+			if len(remaining) == 0 {
+				delete(h.watchChans, sessionID)
+			} else {
+				h.watchChans[sessionID] = remaining
+			}
 			return
 		}
-	}
-
-	if len(h.watchChans[sessionID]) == 0 {
-		delete(h.watchChans, sessionID)
 	}
 }
 

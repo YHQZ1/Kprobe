@@ -2,6 +2,9 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
 	"net/http"
 	"sync"
 )
@@ -56,24 +59,38 @@ func (h *SettingsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
-	if r.Method == http.MethodGet {
-		json.NewEncoder(w).Encode(h.s)
+	switch r.Method {
+	case http.MethodGet:
+		h.mu.RLock()
+		settings := h.s
+		h.mu.RUnlock()
+		json.NewEncoder(w).Encode(settings)
 		return
-	}
-
-	if r.Method == http.MethodPut {
+	case http.MethodPut:
 		var updated Settings
-		if err := json.NewDecoder(r.Body).Decode(&updated); err == nil {
-			h.s = updated
+		decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20))
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&updated); err != nil {
+			http.Error(w, "invalid settings payload", http.StatusBadRequest)
+			return
 		}
-		json.NewEncoder(w).Encode(h.s)
-		return
-	}
+		if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+			http.Error(w, "invalid settings payload", http.StatusBadRequest)
+			return
+		}
+		if err := validateSettings(updated); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 
-	w.WriteHeader(http.StatusMethodNotAllowed)
+		h.mu.Lock()
+		h.s = updated
+		h.mu.Unlock()
+		json.NewEncoder(w).Encode(updated)
+		return
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
 }
 
 func (h *SettingsHandler) ResetHandler(w http.ResponseWriter, r *http.Request) {
@@ -97,4 +114,41 @@ func (h *SettingsHandler) ResetHandler(w http.ResponseWriter, r *http.Request) {
 	h.mu.Unlock()
 
 	json.NewEncoder(w).Encode(defaultSettings)
+}
+
+func validateSettings(s Settings) error {
+	if s.Version != defaultSettings.Version {
+		return fmt.Errorf("unsupported settings version")
+	}
+	if s.APIHost == "" || s.APIPort == "" {
+		return fmt.Errorf("apiHost and apiPort are required")
+	}
+	if !oneOf(s.Theme, "dark", "light", "system") {
+		return fmt.Errorf("invalid theme")
+	}
+	if !oneOf(s.TimestampFormat, "absolute", "relative", "nanosecond") {
+		return fmt.Errorf("invalid timestampFormat")
+	}
+	if s.MaxStreamEvents < 100 || s.MaxStreamEvents > 2000 {
+		return fmt.Errorf("maxStreamEvents must be between 100 and 2000")
+	}
+	if s.MaxGraphNodes < 10 || s.MaxGraphNodes > 500 {
+		return fmt.Errorf("maxGraphNodes must be between 10 and 500")
+	}
+	if s.RetentionDays < 1 || s.RetentionDays > 365 {
+		return fmt.Errorf("retentionDays must be between 1 and 365")
+	}
+	if !oneOf(s.ProbeOverhead, "minimal", "standard", "verbose") {
+		return fmt.Errorf("invalid probeOverhead")
+	}
+	return nil
+}
+
+func oneOf(value string, allowed ...string) bool {
+	for _, candidate := range allowed {
+		if value == candidate {
+			return true
+		}
+	}
+	return false
 }

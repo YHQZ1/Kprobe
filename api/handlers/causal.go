@@ -45,10 +45,11 @@ func (h *CausalHandler) QueryCausalChain(ctx context.Context, req *pb.QueryCausa
 
 	result, err := session.ExecuteRead(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
 		records, err := tx.Run(ctx, `
-			MATCH path = (root:KernelEvent)-[:CAUSED*]->(leaf:KernelEvent)
+			MATCH path = (root:KernelEvent)-[:CAUSED*1..100]->(leaf:KernelEvent)
 			WHERE root.transaction_id = $transaction_id
 			RETURN path
 			ORDER BY root.timestamp_ns ASC
+			LIMIT 10000
 		`, map[string]any{"transaction_id": req.TransactionId})
 		if err != nil {
 			return nil, err
@@ -60,12 +61,20 @@ func (h *CausalHandler) QueryCausalChain(ctx context.Context, req *pb.QueryCausa
 	}
 
 	seenNodes := map[string]bool{}
+	seenEdges := map[string]bool{}
 	var nodes []*pb.KernelEventProto
 	var edges []*pb.CausalEdgeProto
 
-	for _, record := range result.([]*neo4j.Record) {
-		path, _ := record.Get("path")
-		neo4jPath := path.(neo4j.Path)
+	records, ok := result.([]*neo4j.Record)
+	if !ok {
+		return nil, status.Error(codes.Internal, "neo4j query returned an unexpected result")
+	}
+	for _, record := range records {
+		path, found := record.Get("path")
+		neo4jPath, ok := path.(neo4j.Path)
+		if !found || !ok {
+			return nil, status.Error(codes.Internal, "neo4j query returned an invalid path")
+		}
 
 		for _, node := range neo4jPath.Nodes {
 			id := propString(node.Props, "event_id")
@@ -85,9 +94,19 @@ func (h *CausalHandler) QueryCausalChain(ctx context.Context, req *pb.QueryCausa
 		}
 
 		for _, rel := range neo4jPath.Relationships {
+			fromID := nodeEventID(rel.StartId, neo4jPath.Nodes)
+			toID := nodeEventID(rel.EndId, neo4jPath.Nodes)
+			if fromID == "" || toID == "" {
+				continue
+			}
+			edgeKey := fromID + "\x00" + toID + "\x00" + propString(rel.Props, "cause_type")
+			if seenEdges[edgeKey] {
+				continue
+			}
+			seenEdges[edgeKey] = true
 			edges = append(edges, &pb.CausalEdgeProto{
-				FromEventId:   nodeEventID(rel.StartId, neo4jPath.Nodes),
-				ToEventId:     nodeEventID(rel.EndId, neo4jPath.Nodes),
+				FromEventId:   fromID,
+				ToEventId:     toID,
 				CauseType:     propString(rel.Props, "cause_type"),
 				LatencyNs:     propUint64(rel.Props, "latency_ns"),
 				TransactionId: propString(rel.Props, "transaction_id"),
@@ -134,6 +153,9 @@ func (h *CausalHandler) QueryEvents(ctx context.Context, req *pb.QueryEventsRequ
 		}
 		events = append(events, &e)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, status.Errorf(codes.Internal, "clickhouse rows failed: %v", err)
+	}
 
 	return &pb.QueryEventsResponse{Events: events}, nil
 }
@@ -141,6 +163,9 @@ func (h *CausalHandler) QueryEvents(ctx context.Context, req *pb.QueryEventsRequ
 func (h *CausalHandler) QueryTimeRange(ctx context.Context, req *pb.QueryTimeRangeRequest) (*pb.QueryTimeRangeResponse, error) {
 	if req.FromNs == 0 || req.ToNs == 0 {
 		return nil, status.Error(codes.InvalidArgument, "from_ns and to_ns are required")
+	}
+	if req.FromNs > req.ToNs {
+		return nil, status.Error(codes.InvalidArgument, "from_ns must be less than or equal to to_ns")
 	}
 	if h.ch == nil {
 		return nil, status.Error(codes.Unavailable, "clickhouse is not configured")
@@ -173,6 +198,9 @@ func (h *CausalHandler) QueryTimeRange(ctx context.Context, req *pb.QueryTimeRan
 		}
 		events = append(events, &e)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, status.Errorf(codes.Internal, "clickhouse rows failed: %v", err)
+	}
 
 	return &pb.QueryTimeRangeResponse{Events: events}, nil
 }
@@ -183,7 +211,10 @@ func (h *CausalHandler) StreamEvents(req *pb.StreamEventsRequest, stream pb.Kpro
 
 	for {
 		select {
-		case event := <-ch:
+		case event, ok := <-ch:
+			if !ok {
+				return nil
+			}
 			if err := stream.Send(&pb.StreamEventsResponse{Event: event}); err != nil {
 				return err
 			}

@@ -74,8 +74,17 @@ func ValidAuthorization(raw, apiToken, jwtSecret string) bool {
 			return []byte(jwtSecret), nil
 		},
 		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}),
+		jwt.WithExpirationRequired(),
 	)
 	return err == nil && token.Valid
+}
+
+func ValidWebSocketRequest(r *http.Request, apiToken, jwtSecret string) bool {
+	if ValidAuthorization(r.Header.Get("Authorization"), apiToken, jwtSecret) {
+		return true
+	}
+	token := r.URL.Query().Get("access_token")
+	return token != "" && ValidAuthorization("Bearer "+token, apiToken, jwtSecret)
 }
 
 func HTTPMiddleware(apiToken, jwtSecret string, next http.Handler) http.Handler {

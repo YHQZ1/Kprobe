@@ -156,23 +156,33 @@ func main() {
 		})
 	})
 
-	mux.HandleFunc("/api/events/inject", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-		var evt pb.KernelEventProto
-		if err := json.NewDecoder(r.Body).Decode(&evt); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		if evt.TimestampNs == 0 {
-			evt.TimestampNs = uint64(time.Now().UnixNano())
-		}
-		hub.Broadcast(&evt)
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"status": "injected"})
-	})
+	if os.Getenv("KPROBE_ENABLE_EVENT_INJECTION") == "true" {
+		injectHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodPost {
+				http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+				return
+			}
+			var evt pb.KernelEventProto
+			decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20))
+			decoder.DisallowUnknownFields()
+			if err := decoder.Decode(&evt); err != nil {
+				http.Error(w, "invalid event payload", http.StatusBadRequest)
+				return
+			}
+			if evt.EventType == "" {
+				http.Error(w, "event_type is required", http.StatusBadRequest)
+				return
+			}
+			if evt.TimestampNs == 0 {
+				evt.TimestampNs = uint64(time.Now().UnixNano())
+			}
+			hub.Broadcast(&evt)
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]string{"status": "injected"})
+		})
+		mux.Handle("/api/events/inject", auth.HTTPMiddleware(apiToken, jwtSecret, injectHandler))
+		log.Println("event injection endpoint enabled")
+	}
 
 	mux.Handle("/auth/login", auth.LoginHandler(apiUser, apiPass, jwtSecret))
 	mux.HandleFunc("/auth/options", func(w http.ResponseWriter, r *http.Request) {
@@ -182,6 +192,10 @@ func main() {
 	})
 
 	mux.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+		if !auth.ValidWebSocketRequest(r, apiToken, jwtSecret) {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
 		conn, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
 			return
@@ -207,10 +221,13 @@ func main() {
 	})
 
 	httpSrv := &http.Server{
-		Addr:         ":8081",
-		Handler:      mux,
-		ReadTimeout:  5 * time.Second,
-		WriteTimeout: 5 * time.Second,
+		Addr:              ":8081",
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       5 * time.Second,
+		WriteTimeout:      5 * time.Second,
+		IdleTimeout:       60 * time.Second,
+		MaxHeaderBytes:    1 << 20,
 	}
 
 	go func() {

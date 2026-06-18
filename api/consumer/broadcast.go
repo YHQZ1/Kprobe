@@ -44,6 +44,16 @@ func (c *BroadcastConsumer) Consume(ctx context.Context) error {
 		var event types.KernelEvent
 		if err := json.Unmarshal(msg.Value, &event); err != nil {
 			log.Printf("broadcast consumer unmarshal error: %v", err)
+			if err := c.reader.CommitMessages(ctx, msg); err != nil {
+				log.Printf("broadcast commit error after invalid message: %v", err)
+			}
+			continue
+		}
+		if !event.EventType.Valid() {
+			log.Printf("broadcast consumer unknown event_type %q", event.EventType)
+			if err := c.reader.CommitMessages(ctx, msg); err != nil {
+				log.Printf("broadcast commit error after invalid event type: %v", err)
+			}
 			continue
 		}
 

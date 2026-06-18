@@ -3,6 +3,8 @@ package auth
 import (
 	"crypto/subtle"
 	"encoding/json"
+	"errors"
+	"io"
 	"log"
 	"net/http"
 	"time"
@@ -31,7 +33,13 @@ func LoginHandler(username, password, jwtSecret string) http.Handler {
 		}
 
 		var req loginRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20))
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&req); err != nil {
+			writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid request body"})
+			return
+		}
+		if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
 			writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid request body"})
 			return
 		}
