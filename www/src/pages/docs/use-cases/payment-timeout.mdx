@@ -1,0 +1,52 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Payment Timeout
+description: Investigate failed or slow payments with kprobe.
+---
+
+# Payment Timeout
+
+Use kprobe when a payment fails or slows down and the normal tools only show a timeout.
+
+## Symptom
+
+```text
+payment pay_123 failed
+ledger-service timeout after 750ms
+```
+
+Logs show the timeout. Traces show the ledger service was slow. Neither explains why the ledger service was slow.
+
+## What kprobe captures
+
+kprobe records:
+
+- ingress request timing
+- service process activity
+- read and write syscall latency
+- disk I/O stalls
+- TCP retransmits
+- scheduler delay
+- memory pressure events
+
+## Investigation
+
+Search for:
+
+```text
+payment_id = pay_123
+```
+
+Open the causal graph:
+
+```text
+ledger timeout
+  <- database write syscall delayed
+  <- block I/O queued behind compaction
+  <- node-level storage saturation
+```
+
+## Result
+
+Instead of stopping at “ledger timed out,” kprobe shows the machine-level cause that pushed the payment past its timeout budget.
+

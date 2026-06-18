@@ -1,0 +1,47 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Enrichment
+description: How kprobe adds application context to kernel events.
+---
+
+# Enrichment
+
+Enrichment turns low-level kernel events into incident evidence.
+
+Raw event:
+
+```text
+pid=4200 sys_write duration=842ms
+```
+
+Enriched event:
+
+```text
+service=ledger-service transaction=pay_123 trace=4bf92f sys_write duration=842ms
+```
+
+## Inputs
+
+Enrichment uses:
+
+- OpenTelemetry spans
+- Kubernetes or ECS metadata
+- process and cgroup data
+- configured service identity rules
+- request and transaction identifiers
+
+## Matching
+
+kprobe matches events using:
+
+- time windows
+- process ID and thread ID
+- cgroup ID
+- pod or task identity
+- trace/span timing
+- configured service rules
+
+## Output
+
+The enriched event carries both kernel facts and application context. This is the bridge between observability tools and kernel forensics.
+

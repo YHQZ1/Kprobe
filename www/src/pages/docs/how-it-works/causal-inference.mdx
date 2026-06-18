@@ -1,0 +1,44 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Causal Inference
+description: How kprobe builds root-cause chains from events.
+---
+
+# Causal Inference
+
+Causal inference is the process of turning ordered events into an explanation.
+
+kprobe does not simply show all events near a failure. It builds relationships between events that plausibly caused one another.
+
+## Example
+
+```text
+block_io write duration=842ms
+  -> sys_write duration=846ms
+  -> ledger span exceeded timeout
+  -> payment failed
+```
+
+## Signals
+
+kprobe uses several signals:
+
+- event ordering
+- shared process, thread, CPU, cgroup, or service
+- trace/span boundaries
+- resource relationships
+- known kernel-event patterns
+- configured incident rules
+
+## Output
+
+The output is a causal graph:
+
+- nodes are events, operations, services, or transactions
+- edges explain the relationship
+- edge metadata includes latency and cause type
+
+## Human review
+
+Causal graphs are designed to be inspectable. Engineers can click an edge and see the evidence behind it: timestamps, fields, matching rules, and related events.
+

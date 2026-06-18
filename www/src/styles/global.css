@@ -5,7 +5,7 @@
   src: url("/fonts/Raleway/Raleway-VariableFont_wght.ttf") format("truetype");
   font-weight: 100 900;
   font-style: normal;
-  font-display: swap;
+  font-display: block;
 }
 
 @font-face {
@@ -14,7 +14,7 @@
     format("truetype");
   font-weight: 100 900;
   font-style: italic;
-  font-display: swap;
+  font-display: block;
 }
 
 :root,
@@ -30,10 +30,13 @@
   --accent: #f59e0b;
   --accent-dim: rgba(245, 158, 11, 0.12);
   --accent-dim-hover: rgba(245, 158, 11, 0.2);
+  --overlay: rgba(0, 0, 0, 0.66);
+  --shadow-lg: 0 24px 64px rgba(0, 0, 0, 0.46);
+  --button-text-on-accent: #0e0e0f;
   --font: "Raleway", system-ui, -apple-system, sans-serif;
   --radius-sm: 4px;
   --radius-md: 8px;
-  --radius-lg: 12px;
+  --radius-lg: 8px;
 }
 
 [data-theme="light"] {
@@ -48,6 +51,9 @@
   --accent: #d97706;
   --accent-dim: rgba(217, 119, 6, 0.1);
   --accent-dim-hover: rgba(217, 119, 6, 0.18);
+  --overlay: rgba(14, 14, 15, 0.28);
+  --shadow-lg: 0 24px 64px rgba(14, 14, 15, 0.16);
+  --button-text-on-accent: #ffffff;
 }
 
 *,
@@ -56,13 +62,6 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
-  transition:
-    background-color 120ms ease,
-    border-color 120ms ease,
-    color 120ms ease,
-    fill 120ms ease,
-    stroke 120ms ease,
-    opacity 120ms ease;
 }
 
 html {
@@ -78,6 +77,12 @@ body {
   min-height: 100vh;
   line-height: 1.6;
   background-color: var(--bg);
+  color: var(--text-primary);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
 }
 
 ::selection {

@@ -1,0 +1,64 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Trace Correlation
+description: How kprobe connects kernel events to application requests.
+---
+
+# Trace Correlation
+
+Trace correlation connects kernel events to the application request, job, transaction, or payment that experienced them.
+
+Without correlation, a kernel event looks like this:
+
+```text
+pid=4200 sys_write duration=842ms
+```
+
+With correlation, it becomes useful:
+
+```text
+payment_id=pay_123 service=ledger-service operation=database_write sys_write duration=842ms
+```
+
+## Sources of context
+
+kprobe can use several sources of service context:
+
+- OpenTelemetry traces
+- Kubernetes pod and namespace metadata
+- container and cgroup metadata
+- process names
+- explicit service identity rules
+- request IDs or transaction IDs emitted by your application
+
+## Correlation keys
+
+The most common correlation fields are:
+
+| Field | Purpose |
+| --- | --- |
+| `trace_id` | Links kernel events to a distributed trace. |
+| `span_id` | Links a kernel event to a specific operation in a trace. |
+| `service_name` | Names the service that owned the process. |
+| `transaction_id` | Business or workflow identifier, such as payment ID. |
+| `pod_name` | Kubernetes pod that owned the process. |
+| `namespace` | Kubernetes namespace for the workload. |
+
+## How matching works
+
+kprobe combines time, process, cgroup, pod, and trace metadata. If an OpenTelemetry span says `ledger-service` handled `pay_123` from time A to time B, then kernel events from the same process or cgroup in that time range can inherit that context.
+
+## Best practice
+
+Emit a stable business identifier into traces:
+
+```text
+payment_id
+query_id
+job_id
+request_id
+transaction_id
+```
+
+That one field makes kprobe useful during real incidents because engineers can search for the thing customers or operators already know.
+

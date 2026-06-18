@@ -1,0 +1,33 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Monitor kprobe
+description: Monitor the health of kprobe itself.
+---
+
+# Monitor kprobe
+
+kprobe should be monitored like any production dependency.
+
+## Key metrics
+
+| Metric | Meaning |
+| --- | --- |
+| agent events captured | Number of events read from kernel buffers. |
+| agent events dropped | Events lost before delivery. |
+| publish latency | Time to publish events into the pipeline. |
+| pipeline lag | Delay between raw and enriched events. |
+| storage write latency | Time to persist timelines and graph updates. |
+| correlation rate | Percentage of events with service or trace context. |
+| query latency | API response time for timelines and graphs. |
+
+## Alerts
+
+Alert on:
+
+- agents missing from nodes
+- sustained event drops
+- high pipeline lag
+- storage write failures
+- correlation rate drop
+- API unavailable
+

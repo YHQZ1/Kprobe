@@ -1,0 +1,30 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Dropped Events
+description: Understand and reduce dropped kernel events.
+---
+
+# Dropped Events
+
+Dropped events mean kprobe could not capture or deliver every kernel event.
+
+## Common causes
+
+- event rate exceeds buffer capacity
+- downstream pipeline unavailable
+- agent CPU throttling
+- storage or broker backpressure
+- overly broad event capture policy
+
+## How to respond
+
+1. Check which event type is dropping.
+2. Increase agent buffer size.
+3. Confirm broker and storage health.
+4. Reduce capture scope if needed.
+5. Add node resources or shard storage.
+
+## Operational guidance
+
+Short bursts of drops may be acceptable in broad monitoring mode. Sustained drops during an incident reduce forensic confidence and should be treated as an operational issue.
+

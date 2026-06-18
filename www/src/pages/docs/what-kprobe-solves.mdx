@@ -1,0 +1,71 @@
+---
+layout: ../../layouts/DocsLayout.astro
+title: What kprobe Solves
+description: The incidents kprobe is designed to explain.
+---
+
+# What kprobe Solves
+
+kprobe is designed for incidents where application-level observability stops one layer too early.
+
+Logs, metrics, and traces are still necessary. kprobe does not replace them. It adds the missing operating-system context that explains why an otherwise normal application path became slow or failed.
+
+## The gap
+
+Most production debugging follows this pattern:
+
+```text
+Alert fires
+  -> dashboard shows latency
+  -> trace shows slow dependency
+  -> logs show timeout
+  -> engineer guesses why the dependency was slow
+```
+
+kprobe is built for the missing step:
+
+```text
+slow dependency
+  -> syscall delay
+  -> scheduler delay, TCP retransmit, page fault, or block I/O stall
+```
+
+## Problems kprobe is good at
+
+### Request timeouts
+
+kprobe identifies whether a timeout was caused by network retransmits, blocked writes, scheduler delay, memory pressure, or storage latency.
+
+### Database and ledger latency
+
+kprobe connects database writes, WAL flushes, fsync-like behavior, and block I/O stalls to the request or transaction that experienced them.
+
+### Network mystery delays
+
+kprobe records TCP-level behavior that application traces often hide, including retransmits and kernel-side send/receive timing.
+
+### Noisy-neighbor incidents
+
+kprobe can show when a colocated process, batch job, compaction task, or sidecar consumed CPU, memory, or disk resources at the exact time a foreground request slowed down.
+
+### Timing-sensitive bugs
+
+kprobe gives engineers an incident timeline that can be replayed, slowed down, and tested with alternate timing assumptions.
+
+## What kprobe does not solve
+
+kprobe is not the primary system for:
+
+- business analytics
+- long-term metric dashboards
+- log search
+- synthetic testing
+- generic APM trace collection
+- security event detection by itself
+
+Use those tools with kprobe. The product works best when traces and logs provide application context and kprobe provides kernel causality.
+
+## The one-sentence value
+
+**kprobe shows the kernel-level cause behind production incidents that look unexplained from logs, metrics, and traces alone.**
+

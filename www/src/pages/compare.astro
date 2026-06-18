@@ -1018,4 +1018,70 @@ import Layout from "../layouts/Layout.astro";
     color: var(--text-muted);
     line-height: 1.5;
   }
+
+  @media (max-width: 1080px) {
+    .tool-card {
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+    }
+
+    .tool-card-header {
+      grid-column: 1 / -1;
+      border-bottom: 1px solid var(--border-subtle);
+      padding-bottom: 1rem;
+    }
+
+    .stack-layer {
+      grid-template-columns: 160px 1fr;
+    }
+
+    .stack-layer-desc {
+      grid-column: 2;
+    }
+  }
+
+  @media (max-width: 760px) {
+    section {
+      padding-left: 1.25rem;
+      padding-right: 1.25rem;
+      padding-bottom: 3rem;
+    }
+
+    .compare-hero {
+      padding-top: 3rem;
+      padding-bottom: 3rem;
+    }
+
+    .gap-examples,
+    .scenario-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .tool-card {
+      grid-template-columns: 1fr;
+      padding: 1.35rem;
+    }
+
+    .compare-table {
+      min-width: 780px;
+      table-layout: auto;
+    }
+
+    .stack-layer {
+      grid-template-columns: 1fr;
+      gap: 0.5rem;
+      align-items: start;
+    }
+
+    .stack-layer-desc {
+      grid-column: auto;
+    }
+  }
+
+  @media (max-width: 430px) {
+    .gap-example,
+    .scenario-card {
+      padding: 1.25rem;
+    }
+  }
 </style>

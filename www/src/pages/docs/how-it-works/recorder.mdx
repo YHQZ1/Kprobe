@@ -1,0 +1,50 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Recorder
+description: How kprobe records kernel events from production nodes.
+---
+
+# Recorder
+
+The recorder is the node-level component that captures kernel events.
+
+It runs on Linux hosts and uses eBPF programs attached to kernel hooks. The recorder is passive: it does not sit in the request path, proxy application traffic, or require application code changes.
+
+## What it captures
+
+The recorder focuses on runtime events that explain production latency and failure:
+
+- TCP send, receive, and retransmit behavior
+- syscall read and write latency
+- scheduler switches and CPU contention
+- page faults and memory pressure
+- block I/O issue and completion
+
+## Deployment model
+
+In Kubernetes:
+
+```text
+one kprobe-agent pod per worker node
+```
+
+On ECS EC2 or bare Linux:
+
+```text
+one kprobe-agent process per host
+```
+
+## Event delivery
+
+Kernel-side eBPF programs write events to ring buffers. The userspace recorder reads those buffers, normalizes events into the kprobe event schema, and publishes them to the event pipeline.
+
+## Safety model
+
+The recorder is designed to:
+
+- fail closed without crashing workloads
+- expose dropped-event counters
+- avoid blocking the application path
+- report attachment and publish errors
+- enforce resource limits
+

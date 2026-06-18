@@ -1,0 +1,55 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Local Demo
+description: Run a complete kprobe demo environment on a development machine.
+---
+
+# Local Demo
+
+The local demo starts the kprobe backend and publishes a representative incident into the event pipeline. Use it to learn the console and API before installing kprobe on real Linux hosts.
+
+## Start the stack
+
+```bash
+make dev
+```
+
+This starts:
+
+- Kafka
+- ClickHouse
+- Neo4j
+- Vector
+- kprobe engine
+- kprobe API
+- kprobe console
+
+## Publish a demo incident
+
+In another terminal:
+
+```bash
+make demo
+```
+
+The demo publishes a transaction that includes:
+
+- ingress TCP activity
+- write syscall
+- page fault from a background worker
+- scheduler switch
+- read syscall
+- egress TCP activity
+
+## Open the console
+
+```text
+http://127.0.0.1:5173
+```
+
+Search for the demo transaction ID printed by the command.
+
+## What to look for
+
+Use the timeline to inspect the event order. Use the causal graph to see how background memory pressure and scheduler behavior contributed to the request path. Use replay to step through the incident timeline.
+

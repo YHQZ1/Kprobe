@@ -1,0 +1,82 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Install on Amazon ECS EC2
+description: Run kprobe on ECS container instances.
+---
+
+# Install on Amazon ECS EC2
+
+For ECS clusters using the EC2 launch type, run one kprobe recorder on every ECS container instance. The recorder observes the host kernel and captures events from tasks running on that machine.
+
+## Deployment model
+
+```text
+ECS container instance
+  -> payment-api task
+  -> ledger-service task
+  -> kprobe host agent
+```
+
+The agent runs with host-level privileges and ships events to the kprobe backend.
+
+## Prerequisites
+
+- ECS cluster using EC2 launch type
+- Linux container instances with kernel 5.15+ recommended
+- IAM permissions to pull the kprobe image and read required metadata
+- Network access from instances to the kprobe backend
+- OpenTelemetry tracing from application services, recommended
+
+## Install pattern
+
+Most ECS deployments use one of these patterns:
+
+- systemd service installed in the EC2 AMI
+- ECS daemon service with privileged host access
+- user data bootstrap script that starts the agent
+
+Example ECS daemon service configuration:
+
+```json
+{
+  "family": "kprobe-agent",
+  "networkMode": "host",
+  "requiresCompatibilities": ["EC2"],
+  "containerDefinitions": [
+    {
+      "name": "kprobe-agent",
+      "image": "ghcr.io/kprobe/agent:latest",
+      "privileged": true,
+      "essential": true,
+      "environment": [
+        { "name": "KPROBE_CLUSTER", "value": "prod-payments" },
+        { "name": "KPROBE_BACKEND", "value": "https://kprobe.internal" }
+      ],
+      "mountPoints": [
+        { "sourceVolume": "sys", "containerPath": "/sys", "readOnly": true },
+        { "sourceVolume": "debugfs", "containerPath": "/sys/kernel/debug" }
+      ]
+    }
+  ],
+  "volumes": [
+    { "name": "sys", "host": { "sourcePath": "/sys" } },
+    { "name": "debugfs", "host": { "sourcePath": "/sys/kernel/debug" } }
+  ]
+}
+```
+
+## Verify
+
+Check that every ECS container instance has one running kprobe agent:
+
+```bash
+aws ecs list-container-instances --cluster prod-payments
+aws ecs list-tasks --cluster prod-payments --service-name kprobe-agent
+```
+
+The console should show each container instance as a reporting node.
+
+## Fargate note
+
+Pure ECS Fargate does not expose the host kernel to your task. kprobe can still ingest traces and application metadata from Fargate workloads, but full eBPF kernel capture requires EC2-backed compute.
+

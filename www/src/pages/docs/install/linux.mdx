@@ -1,0 +1,70 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Install on Bare Linux
+description: Run kprobe directly on Linux servers or virtual machines.
+---
+
+# Install on Bare Linux
+
+Use the Linux installation path for virtual machines, bare-metal fleets, or environments managed by systemd, Ansible, Terraform, or other host-based automation.
+
+## Prerequisites
+
+- Linux kernel 5.15+ with BTF support
+- root or equivalent permissions to load eBPF programs
+- network access to the kprobe backend
+- systemd, recommended
+
+## Install the agent
+
+Download and install the recorder:
+
+```bash
+curl -fsSL https://install.kprobe.dev/linux.sh | sudo bash
+```
+
+Configure the agent:
+
+```bash
+sudo kprobe agent configure \
+  --cluster prod-payments \
+  --backend https://kprobe.internal \
+  --service-discovery systemd
+```
+
+Start the service:
+
+```bash
+sudo systemctl enable --now kprobe-agent
+```
+
+## Verify
+
+```bash
+sudo systemctl status kprobe-agent
+sudo journalctl -u kprobe-agent -f
+```
+
+The agent should report attached probes and event publish status.
+
+## Service identity
+
+On bare Linux, kprobe can identify services using:
+
+- process names
+- systemd unit names
+- cgroup paths
+- container metadata
+- manually configured service rules
+
+Example:
+
+```yaml
+serviceIdentity:
+  rules:
+    - match:
+        processName: ledger-service
+      serviceName: ledger-service
+      environment: production
+```
+

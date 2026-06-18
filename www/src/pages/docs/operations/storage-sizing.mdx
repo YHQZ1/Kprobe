@@ -1,0 +1,31 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Storage Sizing
+description: Estimate storage requirements for kprobe.
+---
+
+# Storage Sizing
+
+kprobe storage depends on event volume and retention.
+
+## Inputs
+
+Estimate:
+
+- number of nodes
+- average events per second per node
+- retention days
+- average event size
+- index and graph overhead
+
+## Example
+
+```text
+50 nodes
+2,000 events/sec/node
+1 KB/event
+14 days retention
+```
+
+This workload requires storage planning for high-volume time-series data and graph growth. For large clusters, use managed or external storage and tune capture policy by namespace and event type.
+

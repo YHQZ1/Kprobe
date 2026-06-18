@@ -1,0 +1,36 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Data Collected
+description: What kprobe records and what it avoids by default.
+---
+
+# Data Collected
+
+kprobe records metadata about kernel activity and service context. It is designed for incident forensics, not packet capture or application payload storage.
+
+## Collected by default
+
+- event type
+- timestamp
+- process and thread ID
+- CPU
+- cgroup or container identity
+- service and pod metadata
+- trace and span identifiers
+- transaction or request identifiers
+- event duration
+- event-specific metadata such as byte counts
+
+## Not collected by default
+
+- request bodies
+- response bodies
+- full packet payloads
+- secrets
+- database row contents
+- customer payment card data
+
+## Sensitive identifiers
+
+Business identifiers such as payment IDs or customer IDs can be sensitive. Configure redaction or hashing when those IDs should not be stored directly.
+

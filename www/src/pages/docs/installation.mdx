@@ -1,154 +1,135 @@
 ---
 layout: ../../layouts/DocsLayout.astro
-title: Installation
-description: Install kprobe into a Kubernetes cluster using Helm.
+title: Installation Overview
+description: Choose the right kprobe installation path for your environment.
 ---
 
-# Installation
+# Installation Overview
 
-kprobe deploys into any Kubernetes cluster with a single Helm command. No changes to existing services are required.
+kprobe runs closest to the machines that execute your workloads. The recorder must observe the host Linux kernel, so the deployment model depends on how much control you have over the compute layer.
 
-## Prerequisites
+## Choose an installation path
 
-Before installing kprobe, verify your environment meets these requirements:
+| Environment | Recommended path | Notes |
+| --- | --- | --- |
+| Amazon EKS on EC2 nodes | [Install on EKS](/docs/install/eks) | Best production experience. kprobe runs as a DaemonSet. |
+| Amazon ECS on EC2 | [Install on ECS EC2](/docs/install/ecs-ec2) | Run one host agent per ECS container instance. |
+| Bare Linux or VM fleet | [Install on Linux](/docs/install/linux) | Run the recorder as a system service. |
+| Local evaluation | [Local Demo](/docs/install/local-demo) | Start the backend and publish a demo incident. |
+| Fargate-only workloads | Use trace-only integration | Full eBPF capture requires host kernel access. |
 
-- **Kubernetes 1.26+** — kprobe uses server-side apply and modern RBAC features
-- **Linux kernel 5.15+** on all nodes — required for eBPF BTF support. Check with `uname -r`
-- **Helm 3.x** — for chart installation
-- **Node resources** — minimum 4 CPU and 8GB RAM per node to accommodate probe overhead
+## What gets installed
 
-### Checking kernel version
+A full kprobe deployment includes:
 
-```bash
-uname -r
-```
+- recorder agents on nodes or hosts
+- event pipeline for ingest, validation, and delivery
+- storage for timelines and causal graphs
+- API service for queries and replay
+- web console for incident investigation
+- service accounts, RBAC, secrets, and configuration
+- internal health checks and metrics
 
-The output should be `5.15.0` or higher. If you are running a managed Kubernetes service:
+In production, many teams use managed storage instead of bundled infrastructure. For example, Kafka-compatible streaming, managed ClickHouse, and managed graph storage can be configured through Helm values.
 
-| Provider | Default kernel                 | Notes                         |
-| -------- | ------------------------------ | ----------------------------- |
-| EKS      | 5.10+ (AL2), 6.1+ (AL2023)     | AL2023 nodes recommended      |
-| GKE      | 5.15+ (Container-Optimized OS) | Default node image is fine    |
-| AKS      | 5.15+                          | Ubuntu node pools recommended |
+## Deployment topology
 
-### Checking BTF support
+A standard production topology looks like this:
 
-```bash
-ls /sys/kernel/btf/vmlinux
-```
+1. The kprobe recorder runs on every Linux node that hosts selected workloads.
+2. The recorder emits raw kernel events into the event pipeline.
+3. The pipeline validates, samples, redacts, and enriches events with Kubernetes and OpenTelemetry context.
+4. The timeline store keeps the ordered event log for search and replay.
+5. The graph store keeps causal edges for root-cause traversal.
+6. The API and console expose investigation workflows to engineers.
 
-If this file exists, BTF is enabled on the node.
+The recorder is intentionally close to the kernel. Everything after the recorder can run inside the same cluster, in a shared observability cluster, or against managed services.
 
-## Installing with Helm
+## Requirements
 
-Add the kprobe Helm repository:
+| Requirement | Description |
+| --- | --- |
+| Linux kernel | 5.15+ with BTF support is recommended for CO-RE eBPF programs. |
+| Host access | The recorder requires permissions to load eBPF programs and read perf/ring buffer data. |
+| Kubernetes | 1.26+ for Kubernetes deployments. |
+| Helm | 3.x for Kubernetes installation. |
+| OpenTelemetry | Recommended for trace, service, and request correlation. |
 
-```bash
-helm repo add kprobe https://charts.kprobe.io
-helm repo update
-```
+## Install decision matrix
 
-Install kprobe into its own namespace:
+| Question | Recommended choice |
+| --- | --- |
+| Do you run Kubernetes with EC2-backed Linux nodes? | Install the Helm chart and run the recorder as a DaemonSet. |
+| Do you need strict separation from application clusters? | Run storage and API in an observability cluster, and run only agents in workload clusters. |
+| Are you evaluating locally? | Use the local demo path and publish synthetic incident events. |
+| Are you Fargate-only? | Use kprobe for trace correlation only, or add an EC2 node group for workloads that need kernel forensics. |
+| Do you already run Kafka or ClickHouse? | Point kprobe at your managed/existing services through Helm values. |
+
+## Production install pattern
+
+Most production users install kprobe with a values file:
 
 ```bash
 helm install kprobe kprobe/kprobe \
-  --namespace monitoring \
-  --create-namespace
+  --namespace kprobe \
+  --create-namespace \
+  -f values-prod.yaml
 ```
 
-Verify the installation:
+The values file defines:
+
+- cluster name
+- namespaces and workloads to observe
+- storage mode
+- retention period
+- OpenTelemetry endpoint
+- authentication provider
+- resource requests and limits
+- dashboard exposure
+
+## Post-install smoke test
+
+Run the smoke test from a namespace that kprobe is configured to observe:
 
 ```bash
-kubectl get pods -n monitoring
+kubectl run kprobe-smoke \
+  --namespace payments \
+  --image=curlimages/curl \
+  --restart=Never \
+  --command -- sh -c "curl -sS https://example.com >/dev/null"
 ```
 
-You should see pods for each component:
+Then open the console and search for the namespace, pod name, or generated request ID. A healthy install should show:
 
-```
-NAME                              READY   STATUS    RESTARTS
-kprobe-probe-xxxxx                1/1     Running   0
-kprobe-engine-xxxxxxx-xxxxx       1/1     Running   0
-kprobe-api-xxxxxxx-xxxxx          1/1     Running   0
-kprobe-replay-xxxxxxx-xxxxx       1/1     Running   0
-kprobe-dashboard-xxxxxxx-xxxxx    1/1     Running   0
-```
+- the pod mapped to a service identity
+- outbound TCP events
+- syscall events from the process
+- an ordered timeline
+- a correlation status indicating whether an OpenTelemetry trace was attached
 
-## Accessing the dashboard
+If the smoke test produces no events, start with [No Events](/docs/troubleshooting/no-events).
 
-Port-forward the dashboard service:
+## Verify installation
+
+After installation, verify these checks:
 
 ```bash
-kubectl port-forward svc/kprobe-dashboard 3000:3000 -n monitoring
+kubectl get pods -n kprobe
+kubectl get daemonset -n kprobe
+kubectl logs -n kprobe daemonset/kprobe-agent
 ```
 
-Open `http://localhost:3000` in your browser.
+The console should show:
 
-## Local development
+- connected agents
+- incoming kernel events
+- service metadata
+- trace correlation status
+- storage health
 
-For local development, kprobe uses a split model — infrastructure runs in Docker Compose, services run natively. This avoids Docker rebuilds on every code change.
+## Next steps
 
-### Prerequisites
-
-- Go 1.22+
-- Rust 1.85+ with stable and nightly toolchains
-- Nightly `rust-src`: `rustup toolchain install nightly --component rust-src`
-- `bpf-linker`: `cargo install bpf-linker` (`--no-default-features` on macOS)
-- Node.js 20+
-- Docker + Docker Compose
-- Linux kernel 5.15+ (required on the target system for the eBPF probe — not your dev machine)
-
-### Setup
-
-Clone the repository:
-
-```bash
-git clone https://github.com/YHQZ1/kprobe
-cd kprobe
-```
-
-Start infrastructure (Kafka, ClickHouse, Neo4j, Vector):
-
-```bash
-make infra
-```
-
-Start the complete local stack:
-
-```bash
-make dev
-```
-
-On macOS, publish demo events through the real Kafka pipeline because eBPF capture requires Linux:
-
-```bash
-make demo
-```
-
-You can also run each service in a separate terminal:
-
-```bash
-make engine   # causal engine
-make api      # gRPC API server on :8080
-make replay   # replay engine
-make web      # React dashboard on :5173
-```
-
-### Local ports
-
-| Service      | Port |
-| ------------ | ---- |
-| API (gRPC)   | 8080 |
-| Dashboard    | 5173 |
-| Kafka        | 9092 |
-| ClickHouse   | 8123 |
-| Neo4j (HTTP) | 7474 |
-| Neo4j (Bolt) | 7687 |
-
-## Uninstalling
-
-```bash
-helm uninstall kprobe -n monitoring
-kubectl delete namespace monitoring
-```
-
-Note: this will delete all recorded event data stored in ClickHouse and Neo4j. Export any data you need before uninstalling.
+- [Install on EKS](/docs/install/eks)
+- [Install on ECS EC2](/docs/install/ecs-ec2)
+- [Configure OpenTelemetry](/docs/configuration/opentelemetry)
+- [Monitor kprobe](/docs/operations/monitor-kprobe)

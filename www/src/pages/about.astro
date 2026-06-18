@@ -609,6 +609,10 @@ import Layout from "../layouts/Layout.astro";
     background: var(--bg-subtle);
   }
 
+  .contribute-link-primary img {
+    filter: var(--icon-filter, none);
+  }
+
   .contribute-link-secondary {
     font-size: 0.875rem;
     font-weight: 500;
@@ -625,5 +629,56 @@ import Layout from "../layouts/Layout.astro";
     color: var(--text-muted);
     font-family: "JetBrains Mono", monospace;
     letter-spacing: 0.02em;
+  }
+
+  :global([data-theme="light"]) .contribute-link-primary img {
+    filter: invert(1);
+  }
+
+  @media (max-width: 900px) {
+    section {
+      padding-left: 1.5rem;
+      padding-right: 1.5rem;
+    }
+
+    .decision {
+      grid-template-columns: 1fr;
+      gap: 0.75rem;
+    }
+  }
+
+  @media (max-width: 760px) {
+    section {
+      padding-left: 1.25rem;
+      padding-right: 1.25rem;
+      padding-bottom: 3rem;
+    }
+
+    .about-hero {
+      padding-top: 3rem;
+      padding-bottom: 3rem;
+    }
+
+    .positioning-grid,
+    .tech-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .pos-card,
+    .decision,
+    .tech-item {
+      padding: 1.35rem;
+    }
+
+    .contribute-links {
+      align-items: stretch;
+      flex-direction: column;
+      gap: 0.875rem;
+    }
+
+    .contribute-link-primary,
+    .contribute-link-secondary {
+      justify-content: center;
+    }
   }
 </style>

@@ -1,0 +1,36 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Dashboard Issues
+description: Troubleshoot console and API connectivity problems.
+---
+
+# Dashboard Issues
+
+## Symptom
+
+The console cannot connect, login fails, or live events do not stream.
+
+## Checks
+
+- API pod is ready
+- console can reach API service
+- WebSocket endpoint is reachable
+- authentication configuration is valid
+- ingress or proxy supports WebSocket upgrades
+
+## Commands
+
+```bash
+kubectl get svc -n kprobe
+kubectl logs -n kprobe deploy/kprobe-api
+kubectl logs -n kprobe deploy/kprobe-console
+```
+
+## Fixes
+
+- verify ingress routes
+- confirm TLS and hostnames
+- enable WebSocket upgrade headers
+- check SSO callback URL
+- port-forward the console to isolate ingress issues
+

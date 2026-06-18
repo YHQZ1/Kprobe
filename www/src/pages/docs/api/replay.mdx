@@ -1,0 +1,40 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Replay API
+description: Create and control replay sessions.
+---
+
+# Replay API
+
+Use the Replay API to create, inspect, and control incident replay sessions.
+
+## Start replay
+
+```text
+POST /api/replay/sessions
+```
+
+```json
+{
+  "transaction_id": "pay_123",
+  "speed_factor": 0.5,
+  "extra_latency_ns": 100000000
+}
+```
+
+## Controls
+
+```text
+POST /api/replay/sessions/{id}/play
+POST /api/replay/sessions/{id}/pause
+POST /api/replay/sessions/{id}/seek
+POST /api/replay/sessions/{id}/stop
+```
+
+## Use cases
+
+- step through an incident
+- test timeout changes
+- inject latency
+- reproduce timing-sensitive behavior
+

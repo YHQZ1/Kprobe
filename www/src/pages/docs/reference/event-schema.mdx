@@ -1,0 +1,40 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Event Schema
+description: kprobe kernel event schema reference.
+---
+
+# Event Schema
+
+All kprobe events share a common top-level schema.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `event_id` | string | Unique event identifier. |
+| `event_type` | string | Kernel event type. |
+| `timestamp_ns` | uint64 | Nanosecond timestamp. |
+| `pid` | uint32 | Process ID. |
+| `tid` | uint32 | Thread ID. |
+| `cpu` | uint32 | CPU where the event occurred. |
+| `cgroup_id` | uint64 | Linux cgroup identifier. |
+| `service_name` | string | Correlated service name. |
+| `transaction_id` | string | Request, payment, query, or workflow identifier. |
+| `trace_id` | string | OpenTelemetry trace ID. |
+| `span_id` | string | OpenTelemetry span ID. |
+| `duration_ns` | uint64 | Duration when available. |
+| `return_value` | int64 | Syscall return value when available. |
+| `payload` | object | Event-specific metadata. |
+
+## Event types
+
+| Type | Description |
+| --- | --- |
+| `tcp_send` | TCP send activity. |
+| `tcp_recv` | TCP receive activity. |
+| `tcp_retransmit` | TCP packet retransmission. |
+| `sys_read` | Read syscall. |
+| `sys_write` | Write syscall. |
+| `sched_switch` | CPU scheduler switch. |
+| `page_fault` | Page fault event. |
+| `block_io` | Block device I/O. |
+

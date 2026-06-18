@@ -3,18 +3,53 @@ const currentPath = Astro.url.pathname;
 
 const nav = [
   {
-    group: "Getting Started",
+    group: "Start Here",
     items: [
-      { label: "Introduction", href: "/docs" },
-      { label: "Installation", href: "/docs/installation" },
+      { label: "Overview", href: "/docs" },
       { label: "Quickstart", href: "/docs/quickstart" },
+      { label: "What kprobe Solves", href: "/docs/what-kprobe-solves" },
+      { label: "Architecture at a Glance", href: "/docs/architecture" },
+    ],
+  },
+  {
+    group: "Install",
+    items: [
+      { label: "Installation Overview", href: "/docs/installation" },
+      { label: "Amazon EKS", href: "/docs/install/eks" },
+      { label: "Amazon ECS on EC2", href: "/docs/install/ecs-ec2" },
+      { label: "Bare Linux", href: "/docs/install/linux" },
+      { label: "Local Demo", href: "/docs/install/local-demo" },
+    ],
+  },
+  {
+    group: "Core Concepts",
+    items: [
+      { label: "Kernel Events", href: "/docs/concepts/kernel-events" },
+      { label: "Trace Correlation", href: "/docs/concepts/trace-correlation" },
+      { label: "Causal Graphs", href: "/docs/concepts/causal-graphs" },
+      { label: "Replay Sessions", href: "/docs/concepts/replay-sessions" },
+      { label: "Service Identity", href: "/docs/concepts/service-identity" },
     ],
   },
   {
     group: "How It Works",
     items: [
-      { label: "Overview", href: "/docs/how-it-works" },
-      { label: "Architecture", href: "/docs/architecture" },
+      { label: "System Flow", href: "/docs/how-it-works" },
+      { label: "Recorder", href: "/docs/how-it-works/recorder" },
+      { label: "Event Pipeline", href: "/docs/how-it-works/event-pipeline" },
+      { label: "Enrichment", href: "/docs/how-it-works/enrichment" },
+      { label: "Causal Inference", href: "/docs/how-it-works/causal-inference" },
+      { label: "Storage", href: "/docs/how-it-works/storage" },
+    ],
+  },
+  {
+    group: "Use Cases",
+    items: [
+      { label: "Payment Timeout", href: "/docs/use-cases/payment-timeout" },
+      { label: "Database Write Latency", href: "/docs/use-cases/database-write-latency" },
+      { label: "TCP Retransmits", href: "/docs/use-cases/tcp-retransmits" },
+      { label: "Scheduler Delay", href: "/docs/use-cases/scheduler-delay" },
+      { label: "Noisy Neighbor", href: "/docs/use-cases/noisy-neighbor" },
     ],
   },
   {
@@ -26,17 +61,61 @@ const nav = [
     ],
   },
   {
-    group: "API",
+    group: "Configuration",
+    items: [
+      { label: "Configuration Overview", href: "/docs/configuration" },
+      { label: "Helm Values", href: "/docs/configuration/helm-values" },
+      { label: "Agent", href: "/docs/configuration/agent" },
+      { label: "OpenTelemetry", href: "/docs/configuration/opentelemetry" },
+      { label: "Storage", href: "/docs/configuration/storage" },
+    ],
+  },
+  {
+    group: "Operations",
+    items: [
+      { label: "Production Deployment", href: "/docs/operations/production" },
+      { label: "Monitor kprobe", href: "/docs/operations/monitor-kprobe" },
+      { label: "Dropped Events", href: "/docs/operations/dropped-events" },
+      { label: "Storage Sizing", href: "/docs/operations/storage-sizing" },
+    ],
+  },
+  {
+    group: "Security",
+    items: [
+      { label: "Security Overview", href: "/docs/security" },
+      { label: "Permissions Model", href: "/docs/security/permissions" },
+      { label: "Data Collected", href: "/docs/security/data-collected" },
+      { label: "Authentication", href: "/docs/security/authentication" },
+    ],
+  },
+  {
+    group: "API Reference",
     items: [
       { label: "Overview", href: "/docs/api/overview" },
+      { label: "Events API", href: "/docs/api/events" },
+      { label: "Causal Graph API", href: "/docs/api/causal-graph" },
+      { label: "Replay API", href: "/docs/api/replay" },
+      { label: "Streaming API", href: "/docs/api/streaming" },
       { label: "gRPC Reference", href: "/docs/api/reference" },
     ],
   },
   {
-    group: "Configuration",
+    group: "Troubleshooting",
     items: [
-      { label: "Configuration", href: "/docs/configuration" },
-      { label: "Security", href: "/docs/security" },
+      { label: "Overview", href: "/docs/troubleshooting" },
+      { label: "Agent Issues", href: "/docs/troubleshooting/agent" },
+      { label: "No Events", href: "/docs/troubleshooting/no-events" },
+      { label: "No Correlation", href: "/docs/troubleshooting/no-correlation" },
+      { label: "Dashboard Issues", href: "/docs/troubleshooting/dashboard" },
+    ],
+  },
+  {
+    group: "Reference",
+    items: [
+      { label: "Event Schema", href: "/docs/reference/event-schema" },
+      { label: "Edge Types", href: "/docs/reference/edge-types" },
+      { label: "Supported Platforms", href: "/docs/reference/supported-platforms" },
+      { label: "Glossary", href: "/docs/reference/glossary" },
       { label: "FAQ", href: "/docs/faq" },
     ],
   },
@@ -172,6 +251,10 @@ function isActive(href: string) {
     text-decoration: none;
     letter-spacing: 0.01em;
     line-height: 1.4;
+  }
+
+  .nav-item + .nav-item {
+    margin-top: 2px;
   }
 
   .nav-item:hover {

@@ -1,65 +1,107 @@
 ---
 layout: ../../layouts/DocsLayout.astro
-title: Introduction
-description: What kprobe is, what it does, and when to use it.
+title: Overview
+description: kprobe is kernel-level incident forensics for production systems.
 ---
 
-# Introduction
+# Overview
 
-kprobe is a kernel-level flight recorder for production systems. It uses eBPF to attach directly to the Linux kernel and capture runtime events — network packet timing, CPU scheduling decisions, memory pressure events, database write latency — without touching a single line of your application code.
+kprobe is a kernel-level incident forensics platform for production systems. It records what the Linux kernel did during an incident, correlates those events with application traces, and explains how low-level runtime behavior caused a user-facing failure.
 
-When something breaks in production, kprobe constructs a causal graph of what happened, down to the kernel-level event that triggered the failure. It then helps you replay the incident on a development machine, hours after it happened.
+When a payment, query, job, or request times out, conventional observability usually shows the symptom:
 
-## What kprobe is not
+- the request crossed its latency budget
+- a dependency was slow
+- a service returned an error
+- a retry storm began
 
-kprobe is not a monitoring tool. It does not alert on thresholds or aggregate metrics into dashboards for ongoing operational visibility. Tools like Prometheus and Grafana do that well.
+kprobe answers the next question:
 
-kprobe is not a tracing tool. It does not replace Jaeger or OpenTelemetry. It augments them — correlating their traces with kernel-level events to give you the full picture.
+**What happened underneath the application that made it fail?**
 
-kprobe is a **flight recorder and a debugger** for your distributed production system.
+## What kprobe does
 
-## The problem it solves
+kprobe installs a recorder on each Linux host or Kubernetes node. The recorder uses eBPF to capture kernel events such as:
 
-Every popular observability tool operates above your application code. They see only what you explicitly instrument. The hardest production failures often happen below your code, at the operating system level:
+- TCP send, receive, and retransmit activity
+- read and write syscalls
+- scheduler switches
+- page faults and memory pressure
+- block I/O issue and completion events
 
-- A kernel scheduler delays a critical database write by 50ms
-- Memory pressure from a background job causes a GC pause at exactly the wrong moment
-- A TCP retransmit pushes a request past its timeout budget
+kprobe then attaches service context to those events. A low-level kernel event becomes part of a real incident:
 
-None of this is visible to Datadog, Jaeger, or OpenTelemetry. kprobe sees all of it.
+```text
+payment_id=pay_8f21
+service=ledger-service
+operation=database_write
+kernel_event=block_io
+duration=842ms
+```
 
-## Core components
+The result is a causal graph that connects the application symptom to the kernel-level cause.
 
-kprobe has three components that work together continuously from the moment of deployment.
+## Product model
 
-**The Recorder** — An eBPF probe deployed as a Kubernetes DaemonSet on every node. It attaches to kernel tracepoints and captures every relevant event with nanosecond precision. No application code changes required.
+kprobe has five main parts:
 
-**The Causal Engine** — Consumes the enriched kernel event stream and builds a directed causal graph that answers not just what happened but why. It uses request, service, trace, and transaction context when present, with native OpenTelemetry span correlation planned next. Stored in Neo4j and traversable in milliseconds.
+| Layer | Purpose |
+| --- | --- |
+| Recorder | Captures kernel events from each node with eBPF. |
+| Pipeline | Streams, validates, enriches, and stores events. |
+| Correlation | Joins kernel events with traces, services, pods, and request IDs. |
+| Causal engine | Builds a graph of what caused what across the incident. |
+| Console and API | Lets engineers search, inspect, replay, and integrate incident data. |
 
-**The Replay Engine** — Uses Linux `ptrace` to intercept system calls of a sandboxed process and serve them from the recorded event log. Any production incident can be reproduced exactly on a development machine.
+## A simple incident
 
-## When to use kprobe
+Suppose a customer payment fails because the ledger service times out.
 
-kprobe is designed for teams running distributed systems on Kubernetes where:
+Application logs show:
 
-- Incidents involve ambiguous intermediate states, stuck requests, delayed writes, or cascading retries
-- Root cause analysis takes hours and never fully confirms the cause
-- Failures happen at the OS level — GC pauses, network retransmits, scheduler delays — not in application code
-- You need to verify a fix works against the exact production incident before deploying
+```text
+payment pay_123 failed: ledger timeout
+```
 
-## Requirements
+Tracing shows:
 
-| Component      | Requirement                      |
-| -------------- | -------------------------------- |
-| Kubernetes     | 1.26+                            |
-| Linux kernel   | 5.15+ with BTF support           |
-| Helm           | 3.x                              |
-| Node resources | 4 CPU / 8GB RAM minimum per node |
+```text
+payment-api -> ledger-service -> database write: 1.2s
+```
 
-Linux kernel 5.15+ with BTF (BPF Type Format) support is a hard requirement — eBPF CO-RE (Compile Once, Run Everywhere) depends on it. Most modern cloud provider managed Kubernetes offerings (EKS, GKE, AKS) meet this requirement by default.
+kprobe shows:
 
-## Next steps
+```text
+payment-api received pay_123
+  -> ledger-service started write syscall
+  -> block device queued the write behind compaction I/O
+  -> write syscall completed after 842ms
+  -> ledger-service missed its timeout
+  -> payment failed
+```
 
-- [Installation](/docs/installation) — deploy kprobe into your cluster
-- [Quickstart](/docs/quickstart) — run your first causal trace
-- [How it works](/docs/how-it-works) — deep dive into the architecture
+The difference is not more telemetry. The difference is a root-cause path.
+
+## Who uses kprobe
+
+kprobe is built for teams that operate production systems where milliseconds matter:
+
+- payment gateways
+- distributed databases
+- trading, ledger, and settlement systems
+- high-throughput APIs
+- queue and stream processing platforms
+- latency-sensitive microservice systems
+
+The primary users are SREs, platform engineers, backend engineers, and incident responders.
+
+## How to read these docs
+
+If you are new to kprobe, start with [Quickstart](/docs/quickstart), then read [Core Concepts](/docs/concepts/kernel-events).
+
+If you are deploying kprobe, start with [Installation](/docs/installation), then choose [Amazon EKS](/docs/install/eks), [Amazon ECS on EC2](/docs/install/ecs-ec2), or [Bare Linux](/docs/install/linux).
+
+If you are operating kprobe in production, start with [Production Deployment](/docs/operations/production), [Monitor kprobe](/docs/operations/monitor-kprobe), and [Security](/docs/security).
+
+If you are integrating kprobe into another product or internal platform, start with [API Overview](/docs/api/overview) and [Event Schema](/docs/reference/event-schema).
+

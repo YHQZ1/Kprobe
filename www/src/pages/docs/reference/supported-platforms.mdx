@@ -1,0 +1,23 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Supported Platforms
+description: Platforms and environments supported by kprobe.
+---
+
+# Supported Platforms
+
+| Platform | Support level | Notes |
+| --- | --- | --- |
+| EKS on EC2 | Full | Recommended AWS deployment. |
+| ECS on EC2 | Full | Requires host agent. |
+| Bare Linux | Full | System service deployment. |
+| Self-managed Kubernetes | Full | Requires Linux nodes and RBAC. |
+| EKS Fargate | Limited | Trace-only for Fargate workloads. |
+| ECS Fargate | Limited | No full host-kernel recorder. |
+| macOS | Demo only | No Linux eBPF capture. |
+| Windows | Not supported | kprobe targets Linux kernel events. |
+
+## Kernel requirements
+
+Linux kernel 5.15+ with BTF support is recommended.
+

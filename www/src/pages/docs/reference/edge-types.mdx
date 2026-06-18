@@ -1,0 +1,22 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Edge Types
+description: Causal edge types used by kprobe.
+---
+
+# Edge Types
+
+Causal edges explain why one event is related to another.
+
+| Edge | Meaning |
+| --- | --- |
+| `SEQUENTIAL` | Events occurred sequentially in the same execution context. |
+| `TCP_RTT` | TCP send and receive activity contributed to request timing. |
+| `DISK_TO_SYSCALL` | Storage I/O delayed a syscall. |
+| `MEMORY_PRESSURE` | Page faults or memory pressure delayed work. |
+| `CPU_CONTENTION` | Scheduler behavior delayed a process or thread. |
+| `SCHED_DELAY` | A process was ready but waited for CPU. |
+| `TRACE_CONTEXT` | Kernel event belongs to a trace or span. |
+
+Edges include latency and evidence fields so engineers can inspect why kprobe created the relationship.
+

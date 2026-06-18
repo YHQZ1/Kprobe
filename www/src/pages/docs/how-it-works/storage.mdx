@@ -1,0 +1,40 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Storage
+description: How kprobe stores timelines and causal graphs.
+---
+
+# Storage
+
+kprobe stores two different shapes of data:
+
+| Store | Data shape | Used for |
+| --- | --- | --- |
+| Timeline storage | Ordered event records | Search, timeline, replay, history. |
+| Causal graph storage | Nodes and edges | Root-cause traversal and graph view. |
+
+## Timeline storage
+
+Timeline storage is optimized for timestamped event queries:
+
+- events by transaction ID
+- events by trace ID
+- events in a time range
+- events by service or node
+- events above a latency threshold
+
+## Causal graph storage
+
+Graph storage is optimized for traversal:
+
+```text
+failed payment
+  <- timeout
+  <- syscall delay
+  <- block I/O stall
+```
+
+## Retention
+
+Retention should reflect your incident response window. Many teams start with 7 to 30 days of high-resolution event history, then archive or downsample older data.
+

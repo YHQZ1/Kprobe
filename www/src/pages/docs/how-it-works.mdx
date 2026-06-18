@@ -1,109 +1,63 @@
 ---
 layout: ../../layouts/DocsLayout.astro
-title: How It Works
-description: A detailed walkthrough of kprobe's three core components.
+title: System Flow
+description: How kprobe turns kernel events into incident explanations.
 ---
 
-# How It Works
+# System Flow
 
-kprobe has three core components that work together continuously from the moment of deployment: the Recorder, the Causal Engine, and the Replay Engine.
+kprobe turns low-level runtime activity into a searchable incident explanation.
 
-## The Recorder
+## End-to-end flow
 
-The Recorder is an eBPF probe that runs as a Kubernetes DaemonSet — one instance per node. It attaches silently to kernel-level tracepoints and captures every relevant event with nanosecond precision.
+```text
+1. A production workload runs on Linux.
+2. The recorder captures kernel events with eBPF.
+3. Events are streamed through the pipeline.
+4. Enrichment adds service, trace, and transaction context.
+5. Timeline storage preserves the ordered event history.
+6. The causal engine creates graph relationships.
+7. The API exposes timelines, graphs, and replay sessions.
+8. The console helps engineers investigate the incident.
+```
 
-### eBPF and Aya
+## Example payment flow
 
-The probe is written entirely in Rust using the [Aya](https://aya-rs.dev) framework. Aya compiles Rust directly to eBPF bytecode, meaning the entire probe stack — kernel-side programs and userspace loader — is memory-safe with no C code anywhere.
+```text
+payment-api receives pay_123
+  -> ledger-service starts database write
+  -> kernel issues block I/O
+  -> write waits behind compaction traffic
+  -> ledger-service misses timeout
+  -> payment fails
+```
 
-This is a deliberate architectural decision. Traditional eBPF tools are written in C with all the memory safety risks that entails. Aya eliminates that class of bugs entirely.
+kprobe records both sides of the incident:
 
-### What it captures
+- the application context: payment, service, trace, span
+- the kernel cause: block I/O delay, syscall duration, scheduler behavior
 
-The probe attaches to these kernel tracepoints:
+## What makes kprobe different
 
-| Hook            | What it captures                               |
-| --------------- | ---------------------------------------------- |
-| `tcp_sendmsg`   | TCP send — network packet timing, byte count   |
-| `tcp_recvmsg`   | TCP receive — network packet timing            |
-| `sys_write`     | Write syscall — database write latency, fd     |
-| `sys_read`      | Read syscall — database read latency           |
-| `sched_switch`  | CPU scheduling decisions — preemptions, delays |
-| `mm_page_fault` | Memory pressure events                         |
+Most observability tools are application-up. kprobe is kernel-up.
 
-Every event includes: nanosecond timestamp, process ID, thread ID, CPU core, event type, and duration.
+Application-up tools answer:
 
-### Ring buffer management
+```text
+Which service was slow?
+```
 
-The userspace agent loads the eBPF programs into the kernel and manages ring buffers. Events are batched and streamed to the `kernel.raw` Kafka topic, where Vector parses and forwards them to `kernel.enriched`.
+kprobe answers:
 
-The probe is designed to have minimal overhead — typically under 1% CPU on active nodes.
+```text
+What did the kernel do underneath that made the service slow?
+```
 
-## The Causal Engine
+## Read next
 
-Raw kernel events alone are noise. The Causal Engine, written in Go, transforms them into a structured understanding of cause and effect.
+- [Recorder](/docs/how-it-works/recorder)
+- [Event Pipeline](/docs/how-it-works/event-pipeline)
+- [Enrichment](/docs/how-it-works/enrichment)
+- [Causal Inference](/docs/how-it-works/causal-inference)
+- [Storage](/docs/how-it-works/storage)
 
-### Application and trace context
-
-Before causal analysis, the enrichment layer carries application context when it exists on the incoming event: transaction ID, service name, trace ID, and span ID. OpenTelemetry span ingestion is the next planned integration, where spans will be matched to kernel events by process ID and timestamp. That gives every kernel event service context:
-
-- Not `PID 2847 made a write syscall`
-- But `checkout request req-9f21 database write, triggered by trace 4d8c`
-
-The causal engine consumes this context from the `kernel.enriched` Kafka topic.
-
-### Causal inference
-
-The engine performs causal inference across the enriched stream:
-
-1. Groups events into time windows
-2. Identifies shared resources between events (same PID, same fd, same CPU core)
-3. Draws causal edges where one event demonstrably triggered another
-4. Maps kernel primitives to service-level operations — request handlers, database writes, queue consumers, storage flushes, and RPC calls
-
-### Graph storage
-
-The resulting causal graph is written to Neo4j. Each service or kernel event becomes a node. Each causal relationship becomes a directed edge with a weight representing latency impact.
-
-Cypher queries can traverse from any service-level event to its root kernel cause in milliseconds, even across graphs with hundreds of thousands of edges.
-
-## The Replay Engine
-
-The Replay Engine allows any recorded incident to be reproduced exactly, on a development machine, at any point after it happened.
-
-### How ptrace works here
-
-The replay engine uses Linux `ptrace` to intercept the system calls of a sandboxed process. Instead of letting system calls reach the real kernel, the engine intercepts them and serves responses from the ClickHouse event log.
-
-The application behaves exactly as it did in production — same inputs, same timing, same kernel responses — because it is receiving exactly the same syscall responses it received in production.
-
-### Timing injection
-
-The replay engine supports modifying the replay before running it:
-
-- **Timeout changes** — increase or decrease timeout thresholds to test fixes
-- **Artificial delay** — add latency to specific syscalls to surface race conditions
-- **Failure injection** — simulate a syscall returning an error to test error handling paths
-
-This makes it possible to verify a proposed fix works against the exact production incident before deploying it.
-
-## Data flowProduction cluster
-
-│
-├── eBPF probe (Rust/Aya)
-│ └── Kafka: kernel.raw
-│
-└── OpenTelemetry (existing)
-│
-└── Vector (correlation on PID + timestamp)
-│
-├── ClickHouse (raw event store)
-└── Kafka: kernel.enriched
-│
-Go Causal Engine
-│
-Neo4j (causal graph)
-│
-Go gRPC API
-│
-React Dashboard

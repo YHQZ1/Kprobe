@@ -1,0 +1,56 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Service Identity
+description: How kprobe identifies workloads and maps kernel events to services.
+---
+
+# Service Identity
+
+Service identity is how kprobe knows that a kernel event belongs to a meaningful workload such as `payment-api`, `ledger-service`, or `risk-worker`.
+
+## Identity sources
+
+kprobe can identify services from:
+
+- Kubernetes namespace, pod, deployment, and container metadata
+- ECS task and service metadata
+- systemd unit names
+- process names
+- cgroup paths
+- OpenTelemetry resource attributes
+- explicit configuration rules
+
+## Recommended labels
+
+Use consistent workload labels:
+
+```yaml
+app.kubernetes.io/name: ledger-service
+app.kubernetes.io/part-of: payments
+app.kubernetes.io/environment: production
+```
+
+For OpenTelemetry, use:
+
+```text
+service.name=ledger-service
+deployment.environment=production
+service.namespace=payments
+```
+
+## Why identity matters
+
+Kernel events are low-level. Service identity makes them understandable.
+
+Without identity:
+
+```text
+pid=4200 block_io duration=842ms
+```
+
+With identity:
+
+```text
+service=ledger-service pod=ledger-7f9c transaction=pay_123 block_io duration=842ms
+```
+

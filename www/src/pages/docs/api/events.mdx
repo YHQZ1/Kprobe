@@ -1,0 +1,38 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Events API
+description: Query recorded kernel events.
+---
+
+# Events API
+
+Use the Events API to query recorded kernel events by transaction, trace, service, node, event type, or time range.
+
+## Common queries
+
+```text
+GET /api/events?transaction_id=pay_123
+GET /api/events?trace_id=4bf92f
+GET /api/events?service=ledger-service&from=...&to=...
+GET /api/events?event_type=block_io&min_duration_ms=100
+```
+
+## Response shape
+
+```json
+{
+  "events": [
+    {
+      "event_id": "evt_01J...",
+      "event_type": "sys_write",
+      "timestamp_ns": 1781520000000000000,
+      "service_name": "ledger-service",
+      "transaction_id": "pay_123",
+      "duration_ns": 842000000
+    }
+  ]
+}
+```
+
+See [Event Schema](/docs/reference/event-schema) for all fields.
+

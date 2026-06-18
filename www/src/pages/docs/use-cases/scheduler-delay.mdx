@@ -1,0 +1,36 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Scheduler Delay
+description: Investigate CPU scheduling delays and contention.
+---
+
+# Scheduler Delay
+
+Scheduler delay happens when a process is ready to run but does not get CPU time quickly enough.
+
+## Symptom
+
+```text
+service has CPU available overall, but individual requests pause unexpectedly
+```
+
+## What kprobe captures
+
+kprobe records scheduler switches and connects them to service activity, CPU, process, thread, and request context.
+
+## Causal pattern
+
+```text
+batch-worker runs on CPU 2
+  -> payment-api thread waits
+  -> sys_read resumes late
+  -> request exceeds timeout
+```
+
+## What to check
+
+- CPU core involved
+- process that ran before the delayed service
+- cgroup or pod responsible
+- whether the delay repeats across requests
+

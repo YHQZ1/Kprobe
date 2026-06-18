@@ -1,0 +1,67 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Kernel Events
+description: What kernel events are and how kprobe uses them.
+---
+
+# Kernel Events
+
+A kernel event is a timestamped record of something the Linux kernel observed while running your workload.
+
+kprobe records kernel events because many production failures are caused by behavior below the application layer. A service can appear slow because it waited on disk, lost CPU time, hit memory pressure, or retransmitted network packets.
+
+## Examples
+
+| Event | What it means |
+| --- | --- |
+| `tcp_send` | A process sent data through TCP. |
+| `tcp_recv` | A process received data through TCP. |
+| `tcp_retransmit` | The kernel retransmitted a TCP packet. |
+| `sys_read` | A process performed a read syscall. |
+| `sys_write` | A process performed a write syscall. |
+| `sched_switch` | The scheduler switched CPU execution between tasks. |
+| `page_fault` | A process accessed memory that required kernel handling. |
+| `block_io` | The kernel issued or completed storage I/O. |
+
+## Required fields
+
+Every kprobe event has a common shape:
+
+```json
+{
+  "event_id": "evt_01J...",
+  "event_type": "block_io",
+  "timestamp_ns": 1781520000000000000,
+  "pid": 4200,
+  "tid": 4200,
+  "cpu": 3,
+  "cgroup_id": 112233,
+  "service_name": "ledger-service",
+  "transaction_id": "pay_123",
+  "trace_id": "4bf92f...",
+  "span_id": "00f067...",
+  "duration_ns": 842000000,
+  "payload": {
+    "block_op": "write",
+    "block_bytes": 4096
+  }
+}
+```
+
+## Why nanosecond timestamps matter
+
+Kernel events often happen within microseconds of each other. kprobe stores timestamps in nanoseconds so it can reconstruct order across syscalls, scheduler activity, network events, and storage operations.
+
+## Event payloads
+
+The top-level fields are stable across all event types. The `payload` field contains event-specific data.
+
+For example:
+
+- TCP events include data length and retransmit metadata
+- syscall events include file descriptor and byte count
+- block I/O events include operation, sector, and byte count
+- page fault events include address and flags
+
+See [Event Schema](/docs/reference/event-schema) for the full reference.
+

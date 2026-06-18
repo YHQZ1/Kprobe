@@ -1,0 +1,34 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Noisy Neighbor
+description: Find colocated workloads that interfere with production requests.
+---
+
+# Noisy Neighbor
+
+A noisy neighbor is another workload on the same host that consumes shared resources at the wrong time.
+
+## Examples
+
+- compaction saturates disk
+- batch job causes page faults
+- sidecar consumes CPU
+- backup process floods network
+- another pod triggers heavy block I/O
+
+## How kprobe helps
+
+kprobe records events across the node, not just inside one service. That makes it possible to connect a customer-facing delay to a different workload on the same machine.
+
+## Causal pattern
+
+```text
+backup-worker block_io spike
+  -> ledger-service write waits
+  -> payment request times out
+```
+
+## Investigation path
+
+Search by failed transaction, open the graph, then expand cross-process or cross-service edges to see which workload contributed to the delay.
+

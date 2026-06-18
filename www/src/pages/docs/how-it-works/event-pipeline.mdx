@@ -1,0 +1,46 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Event Pipeline
+description: How kprobe moves events from nodes to storage and analysis.
+---
+
+# Event Pipeline
+
+The event pipeline moves kernel events from recorder agents to storage and analysis services.
+
+## Responsibilities
+
+The pipeline must:
+
+- accept high-volume event streams
+- buffer during downstream pressure
+- validate event shape
+- preserve ordering where possible
+- route invalid events to a dead-letter path
+- make event delivery observable
+
+## Topics
+
+A typical deployment uses:
+
+| Stream | Purpose |
+| --- | --- |
+| `kernel.raw` | Events directly from recorder agents. |
+| `kernel.enriched` | Validated events with normalized fields. |
+| `otel.spans` | Trace spans used for correlation. |
+| `kernel.dlq` | Invalid or unparseable events. |
+
+## Why buffering matters
+
+During an incident, event volume can spike exactly when downstream systems are under pressure. The pipeline protects kprobe from losing the most important data at the worst time.
+
+## Verification
+
+Operators should be able to answer:
+
+- Are agents publishing events?
+- Is the pipeline accepting them?
+- Is enrichment keeping up?
+- Are events reaching storage?
+- Are any events being dropped or sent to the DLQ?
+

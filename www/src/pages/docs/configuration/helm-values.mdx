@@ -1,0 +1,53 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Helm Values
+description: Configure kprobe with Helm values.
+---
+
+# Helm Values
+
+Use Helm values to configure kprobe for your environment.
+
+## Minimal production values
+
+```yaml
+clusterName: prod-payments
+
+watch:
+  namespaces:
+    - payments
+    - ledger
+
+otel:
+  enabled: true
+  endpoint: otel-collector.observability.svc.cluster.local:4317
+
+storage:
+  mode: managed
+  retentionDays: 14
+
+console:
+  exposure: internal
+```
+
+## Common values
+
+| Value | Type | Default | Description |
+| --- | --- | --- | --- |
+| `clusterName` | string | required | Human-readable cluster name. |
+| `watch.namespaces` | list | `[]` | Namespaces kprobe should observe. Empty means all namespaces. |
+| `agent.enabled` | bool | `true` | Deploy recorder agents. |
+| `agent.privileged` | bool | `true` | Required for eBPF host access. |
+| `otel.enabled` | bool | `false` | Enable OpenTelemetry correlation. |
+| `otel.endpoint` | string | none | OpenTelemetry Collector endpoint. |
+| `storage.mode` | string | `bundled` | `bundled`, `managed`, or `external`. |
+| `storage.retentionDays` | number | `14` | High-resolution event retention. |
+| `console.exposure` | string | `internal` | `internal`, `ingress`, or `disabled`. |
+
+## Validate configuration
+
+```bash
+helm template kprobe kprobe/kprobe -f values-prod.yaml
+helm lint kprobe/kprobe
+```
+

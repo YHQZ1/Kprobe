@@ -1,0 +1,37 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Authentication
+description: Secure access to the kprobe API and console.
+---
+
+# Authentication
+
+Production deployments should protect the kprobe console and API with your organization's identity provider.
+
+## Supported patterns
+
+- SSO through OIDC
+- private ingress behind an identity-aware proxy
+- service-to-service tokens for API clients
+- short-lived user sessions
+- audit logs for administrative actions
+
+## Recommended setup
+
+```yaml
+auth:
+  mode: oidc
+  oidc:
+    issuer: https://idp.example.com
+    clientIdSecretRef: kprobe-oidc-client
+```
+
+## API access
+
+API clients should use scoped tokens with the minimum permissions needed:
+
+- read events
+- read causal graphs
+- manage replay sessions
+- administer configuration
+

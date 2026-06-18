@@ -1,0 +1,37 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Agent Configuration
+description: Configure the kprobe recorder agent.
+---
+
+# Agent Configuration
+
+The agent is the recorder that runs on each node or host.
+
+## Key options
+
+| Option | Description |
+| --- | --- |
+| `agent.enabled` | Deploy the recorder. |
+| `agent.privileged` | Run with host permissions needed for eBPF. |
+| `agent.resources` | CPU and memory requests and limits. |
+| `agent.nodeSelector` | Limit which nodes run kprobe. |
+| `agent.tolerations` | Allow scheduling on tainted nodes. |
+| `agent.eventBufferSize` | Ring buffer sizing for event capture. |
+| `agent.dropPolicy` | Behavior when buffers are full. |
+
+## Example
+
+```yaml
+agent:
+  enabled: true
+  privileged: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+```
+

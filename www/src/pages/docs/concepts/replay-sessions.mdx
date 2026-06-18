@@ -1,0 +1,48 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Replay Sessions
+description: Replay an incident timeline and test timing hypotheses.
+---
+
+# Replay Sessions
+
+A replay session is an interactive reconstruction of an incident timeline.
+
+Replay helps engineers answer:
+
+- What happened first?
+- Which delay pushed the request over its timeout?
+- What if a timeout was longer?
+- What if network latency was higher?
+- What if a specific failure happened earlier?
+
+## Timeline replay
+
+The baseline replay mode plays recorded events in their original order and timing.
+
+```text
+event 1 at +0ms
+event 2 at +2ms
+event 3 at +842ms
+event 4 at +850ms
+```
+
+You can pause, seek, slow down, or speed up the incident.
+
+## Timing injection
+
+kprobe can run a what-if replay with alternate timing:
+
+- add network latency
+- multiply storage latency
+- override timeout budgets
+- inject a failure at a selected event
+
+## Full syscall replay
+
+For supported workloads, kprobe can use recorded syscall behavior to reproduce a process-level incident in a controlled sandbox. This mode is designed for deep debugging and validation of timing-sensitive fixes.
+
+## When to use replay
+
+Use replay after a causal graph identifies a plausible cause. The graph tells you where to look. Replay helps you test whether the timeline supports the hypothesis.
+

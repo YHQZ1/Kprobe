@@ -1,0 +1,195 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Install on Amazon EKS
+description: Deploy kprobe into an EKS cluster with EC2 worker nodes.
+---
+
+# Install on Amazon EKS
+
+Amazon EKS with EC2 worker nodes is the recommended AWS deployment model for kprobe. The recorder runs as a DaemonSet, so every node that runs your workloads also runs one kprobe agent.
+
+## Prerequisites
+
+- EKS cluster with EC2 managed node groups or self-managed nodes
+- Kubernetes 1.26+
+- Linux kernel 5.15+ with BTF support
+- Helm 3.x
+- `kubectl` access with permission to create namespaces, service accounts, RBAC, DaemonSets, Deployments, and Services
+- OpenTelemetry Collector endpoint, recommended
+
+## Install
+
+Create a production values file:
+
+```yaml
+clusterName: prod-payments
+
+agent:
+  enabled: true
+  mode: daemonset
+  privileged: true
+
+watch:
+  namespaces:
+    - payments
+    - ledger
+    - risk
+
+otel:
+  enabled: true
+  endpoint: otel-collector.observability.svc.cluster.local:4317
+
+storage:
+  mode: managed
+  retentionDays: 14
+
+console:
+  exposure: internal
+```
+
+For larger clusters, split agent, pipeline, API, and storage settings explicitly:
+
+```yaml
+clusterName: prod-payments
+environment: production
+
+agent:
+  enabled: true
+  mode: daemonset
+  privileged: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  buffers:
+    ringBufferBytes: 16777216
+    dropPolicy: prefer-low-value-events
+
+pipeline:
+  replicas: 3
+  delivery: at-least-once
+
+storage:
+  timeline:
+    type: clickhouse
+    endpoint: clickhouse.observability.internal:9440
+    retentionDays: 14
+  graph:
+    type: neo4j
+    endpoint: neo4j.observability.internal:7687
+
+auth:
+  provider: oidc
+  issuerUrl: https://idp.example.com
+
+watch:
+  namespaces:
+    - payments
+    - ledger
+    - risk
+  labels:
+    observability.kprobe.io/enabled: "true"
+```
+
+Install kprobe:
+
+```bash
+helm repo add kprobe https://charts.kprobe.io
+helm repo update
+
+helm install kprobe kprobe/kprobe \
+  --namespace kprobe \
+  --create-namespace \
+  -f values-prod.yaml
+```
+
+## Verify agents
+
+```bash
+kubectl get pods -n kprobe -l app.kubernetes.io/component=agent
+kubectl get daemonset -n kprobe kprobe-agent
+```
+
+You should see one ready agent pod per Linux worker node.
+
+## Verify the full event path
+
+Check each stage before trusting the deployment during an incident:
+
+```bash
+kubectl -n kprobe get pods
+kubectl -n kprobe logs daemonset/kprobe-agent --tail=100
+kubectl -n kprobe logs deploy/kprobe-pipeline --tail=100
+kubectl -n kprobe logs deploy/kprobe-api --tail=100
+```
+
+Then confirm data is moving:
+
+- agent logs show loaded programs and attached probes
+- pipeline logs show accepted batches and no sustained drops
+- API health checks report timeline and graph storage as ready
+- console shows connected agents and recent events
+
+Do this once after install and again after the first real workload rollout.
+
+## Open the console
+
+For a private test:
+
+```bash
+kubectl port-forward -n kprobe svc/kprobe-console 3000:80
+```
+
+Open:
+
+```text
+http://localhost:3000
+```
+
+For production, expose the console through an internal ingress, VPN, or identity-aware proxy.
+
+## Confirm workload visibility
+
+Run:
+
+```bash
+kubectl logs -n kprobe daemonset/kprobe-agent
+```
+
+The agent should report:
+
+- loaded eBPF programs
+- attached kernel probes
+- active event buffers
+- observed namespaces
+- event publish status
+
+## Roll out safely
+
+Start with one low-risk namespace before observing the whole cluster:
+
+1. Label a single namespace for capture.
+2. Generate a small amount of normal workload traffic.
+3. Confirm event rates, CPU, memory, and drop counters.
+4. Add the next production namespace.
+5. Only enable broad capture after storage sizing is confirmed.
+
+This staged rollout prevents a successful install from becoming an overloaded data pipeline.
+
+## Common EKS notes
+
+Fargate-only EKS workloads cannot run a node-level DaemonSet. If some workloads run on Fargate and others run on EC2 nodes, kprobe captures full kernel context for the EC2-backed workloads and trace-only context for Fargate workloads.
+
+Use node selectors and tolerations if your cluster has dedicated node pools:
+
+```yaml
+agent:
+  nodeSelector:
+    kprobe.io/recording: "enabled"
+  tolerations:
+    - key: "observability"
+      operator: "Exists"
+```

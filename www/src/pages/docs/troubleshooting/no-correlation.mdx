@@ -1,0 +1,28 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: No Correlation
+description: Troubleshoot events without service, trace, or transaction context.
+---
+
+# No Correlation
+
+## Symptom
+
+Kernel events appear, but they are not connected to services, traces, or transaction IDs.
+
+## Likely causes
+
+- OpenTelemetry is not enabled
+- collector endpoint is wrong
+- services do not emit trace IDs
+- business IDs are not attached to spans
+- service identity labels are missing
+
+## Fixes
+
+- enable OpenTelemetry correlation
+- verify collector reachability
+- add `service.name` and `deployment.environment`
+- add a stable business ID such as `payment_id` or `transaction_id`
+- configure service identity rules
+

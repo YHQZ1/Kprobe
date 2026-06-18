@@ -1,0 +1,91 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Production Deployment
+description: Run kprobe reliably in production.
+---
+
+# Production Deployment
+
+Production kprobe deployments should be treated as infrastructure: secured, monitored, versioned, and upgraded through change control.
+
+## Recommended pattern
+
+- install with Helm and a checked-in values file
+- observe only production namespaces that need kernel forensics
+- connect OpenTelemetry before relying on transaction search
+- use managed or external storage for high-volume clusters
+- expose the console internally behind SSO
+- monitor agent health, event rates, drops, and storage latency
+
+## Deployment checklist
+
+- agents ready on every intended node
+- event pipeline healthy
+- timeline storage accepting events
+- causal graph storage healthy
+- API healthy
+- console reachable internally
+- OpenTelemetry correlation active
+- alerting configured for dropped events
+
+## Rollout model
+
+Treat kprobe like a production data plane, not like a dashboard plugin.
+
+| Phase | Scope | Goal |
+| --- | --- | --- |
+| Evaluation | local demo or staging namespace | Validate investigation workflow and team fit. |
+| Pilot | one production namespace | Measure event volume, overhead, and correlation quality. |
+| Limited production | critical namespaces only | Use kprobe during real incidents and tune retention. |
+| Broad production | multiple clusters or platforms | Standardize values, auth, storage, and runbooks. |
+
+Each phase should have a rollback plan. Disabling capture for a namespace should not require uninstalling the platform.
+
+## Production values strategy
+
+Keep Helm values in source control and separate them by environment:
+
+```text
+infra/kprobe/
+  values-common.yaml
+  values-staging.yaml
+  values-prod-us-east-1.yaml
+  values-prod-eu-west-1.yaml
+```
+
+The common file should define defaults such as auth provider, console exposure, retention defaults, and resource requests. Environment files should define cluster names, storage endpoints, namespace allowlists, and region-specific limits.
+
+## Operational SLOs
+
+kprobe is usually used during incidents, so its own health matters. Track:
+
+| Signal | Why it matters |
+| --- | --- |
+| Agent readiness | Missing agents create blind spots on nodes. |
+| Event drop rate | Dropped events lower replay and causal confidence. |
+| Pipeline lag | Lag means the console is behind reality during an incident. |
+| Timeline write latency | Slow writes delay search and replay. |
+| Graph write latency | Slow graph writes delay root-cause traversal. |
+| Correlation coverage | Low coverage means traces and kernel events are not being joined. |
+
+## Change management
+
+Before upgrading kprobe:
+
+1. Read the release notes for probe, API, storage schema, and Helm changes.
+2. Upgrade staging first and replay known incident fixtures.
+3. Confirm agent attach success on each kernel version in use.
+4. Confirm dashboards and API queries still work.
+5. Roll production by cluster, starting with the least critical one.
+
+## Incident-mode usage
+
+During an incident, operators should avoid changing capture settings unless needed. Start by searching for the failed transaction, trace ID, service, pod, or time window. Then inspect:
+
+- the ordered kernel timeline
+- causal graph root node and edge evidence
+- dropped-event counters during the incident window
+- replay availability for the transaction
+- whether the affected workload moved between nodes
+
+If causal confidence is low, preserve the event window and investigate missing correlation rather than assuming the graph is complete.

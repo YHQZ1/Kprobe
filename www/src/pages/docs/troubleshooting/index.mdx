@@ -1,0 +1,27 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Troubleshooting
+description: Diagnose common kprobe problems.
+---
+
+# Troubleshooting
+
+Use troubleshooting pages when kprobe is installed but data is missing, delayed, or not connected to application context.
+
+## Common paths
+
+| Symptom | Start here |
+| --- | --- |
+| Agent pod is not ready | [Agent Issues](/docs/troubleshooting/agent) |
+| Console shows no events | [No Events](/docs/troubleshooting/no-events) |
+| Events have no service or trace | [No Correlation](/docs/troubleshooting/no-correlation) |
+| Console cannot connect | [Dashboard Issues](/docs/troubleshooting/dashboard) |
+
+## General checks
+
+```bash
+kubectl get pods -n kprobe
+kubectl logs -n kprobe daemonset/kprobe-agent
+kubectl logs -n kprobe deploy/kprobe-api
+```
+

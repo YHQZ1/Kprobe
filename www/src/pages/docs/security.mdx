@@ -1,102 +1,38 @@
 ---
 layout: ../../layouts/DocsLayout.astro
-title: Security
-description: kprobe's privilege model, data storage, and network exposure.
+title: Security Overview
+description: Security model, permissions, and data handling in kprobe.
 ---
 
-# Security
+# Security Overview
 
-## Privilege model
+kprobe observes production systems at the kernel layer, so its security model must be explicit.
 
-The eBPF probe requires elevated privileges to load programs into the kernel. The probe pod runs with the following capabilities:
+The recorder requires elevated host permissions to load eBPF programs and read kernel event buffers. kprobe limits that access to passive observation and exposes configuration controls for data collection, retention, authentication, and access.
 
-```yaml
-securityContext:
-  capabilities:
-    add:
-      - CAP_BPF
-      - CAP_PERFMON
-      - CAP_SYS_RESOURCE
-```
+## Security goals
 
-`CAP_BPF` and `CAP_PERFMON` are the minimal capabilities required for eBPF programs since Linux 5.8. Earlier approaches required `CAP_SYS_ADMIN` — kprobe explicitly avoids this.
+- collect only the kernel and metadata needed for incident forensics
+- avoid application payload capture by default
+- isolate recorder, pipeline, API, and console permissions
+- support private deployment and SSO
+- expose audit and health signals
+- make privileged access visible and reviewable
 
-All other kprobe components (causal engine, API server, replay engine, dashboard) run as non-privileged pods with no special capabilities.
+## Main controls
 
-## What data kprobe stores
+| Control | Purpose |
+| --- | --- |
+| RBAC | Limits Kubernetes permissions. |
+| Agent capabilities | Grants only the host access needed for eBPF capture. |
+| Namespace filters | Restricts observed workloads. |
+| Retention policies | Limits how long high-resolution event data is stored. |
+| Authentication | Controls API and console access. |
+| Audit logs | Records administrative access and configuration changes. |
 
-kprobe stores the following data in ClickHouse:
+## Read next
 
-- Kernel event metadata: timestamp, PID, TID, CPU core, event type, duration
-- Network events: byte counts, connection direction (no packet payloads)
-- Syscall events: file descriptor numbers, byte counts (no file contents)
-- Financial context: transaction IDs and service names correlated from OTel traces
+- [Permissions Model](/docs/security/permissions)
+- [Data Collected](/docs/security/data-collected)
+- [Authentication](/docs/security/authentication)
 
-**kprobe does not store:**
-
-- Packet payloads or TCP stream contents
-- File contents read or written via syscalls
-- Environment variables or process arguments
-- Credentials or secrets
-
-The causal graph in Neo4j stores only node and edge metadata derived from the above.
-
-## Data retention
-
-Default retention is 30 days in ClickHouse. Configure via:
-
-```yaml
-clickhouse:
-  retentionDays: 30
-```
-
-Neo4j causal graphs are retained indefinitely by default. Configure a TTL policy:
-
-```yaml
-neo4j:
-  graphRetentionDays: 90
-```
-
-## Network exposure
-
-By default, no kprobe service is exposed outside the cluster. The API server, dashboard, Neo4j, and ClickHouse are all ClusterIP services accessible only within the cluster.
-
-Access the dashboard via port-forward:
-
-```bash
-kubectl port-forward svc/kprobe-dashboard 3000:3000 -n monitoring
-```
-
-If you need to expose the API externally, use an ingress with TLS and enable API authentication:
-
-```yaml
-api:
-  auth:
-    enabled: true
-    type: bearer
-    secret: your-secret-here
-
-ingress:
-  enabled: true
-  host: kprobe.internal.yourdomain.com
-  tls: true
-```
-
-## Neo4j credentials
-
-The default Neo4j password is `kprobe_secret`. **Change this before any production deployment:**
-
-```yaml
-neo4j:
-  password: your-strong-password-here
-```
-
-## RBAC
-
-kprobe creates the following Kubernetes RBAC resources:
-
-- A `ServiceAccount` for the probe DaemonSet with permissions to read node metadata
-- A `ClusterRole` allowing the probe to access BPF filesystem paths
-- Standard `Role` objects for each service to access their own ConfigMaps and Secrets
-
-No kprobe component has cluster-admin or broad namespace-level permissions.

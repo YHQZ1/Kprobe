@@ -1,0 +1,63 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Causal Graphs
+description: How kprobe represents cause and effect.
+---
+
+# Causal Graphs
+
+A causal graph is kprobe's explanation of what caused what during an incident.
+
+Nodes are events. Edges are causal relationships between events.
+
+```text
+page_fault
+  -> scheduler delay
+  -> write syscall delay
+  -> ledger timeout
+  -> payment failure
+```
+
+## Why a graph
+
+Incidents are rarely linear. A slow request can involve one service, a downstream service, a database, a node-level scheduler delay, and an unrelated background worker. A graph lets kprobe connect those events without flattening them into a log stream.
+
+## Node types
+
+Common graph nodes include:
+
+- kernel events
+- service operations
+- trace spans
+- processes
+- pods
+- transactions or requests
+
+## Edge types
+
+Common edges include:
+
+- `SEQUENTIAL`
+- `TCP_RTT`
+- `DISK_TO_SYSCALL`
+- `MEMORY_PRESSURE`
+- `CPU_CONTENTION`
+- `SCHED_DELAY`
+- `TRACE_CONTEXT`
+
+See [Edge Types](/docs/reference/edge-types) for the full reference.
+
+## Reading a causal graph
+
+Start at the failed operation and walk backward:
+
+```text
+payment failed
+  <- ledger timeout
+  <- database write delayed
+  <- block I/O stall
+  <- compaction worker saturated disk
+```
+
+The goal is not to show every event. The goal is to show the smallest useful chain that explains the incident.
+

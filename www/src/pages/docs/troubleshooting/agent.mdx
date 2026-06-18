@@ -1,0 +1,35 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Agent Issues
+description: Troubleshoot kprobe recorder startup and attachment problems.
+---
+
+# Agent Issues
+
+## Symptom
+
+The kprobe agent is not ready or reports probe attachment failures.
+
+## Checks
+
+```bash
+kubectl get pods -n kprobe -l app.kubernetes.io/component=agent
+kubectl describe pod -n kprobe -l app.kubernetes.io/component=agent
+kubectl logs -n kprobe daemonset/kprobe-agent
+```
+
+## Likely causes
+
+- unsupported kernel
+- missing BTF support
+- insufficient permissions
+- security policy blocks privileged agent
+- node selector or toleration mismatch
+
+## Fixes
+
+- confirm kernel version and BTF support
+- review Helm agent permissions
+- check Pod Security Admission or admission controller policies
+- schedule the agent only on supported Linux nodes
+

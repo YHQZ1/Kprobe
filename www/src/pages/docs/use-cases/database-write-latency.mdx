@@ -1,0 +1,39 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Database Write Latency
+description: Connect slow writes to syscall and block I/O behavior.
+---
+
+# Database Write Latency
+
+Database writes can slow down because of storage queues, fsync pressure, compaction, noisy neighbors, or scheduler delay. kprobe connects those causes to the application operation that felt the latency.
+
+## Symptom
+
+```text
+p99 database write latency increased from 12ms to 900ms
+```
+
+## What to inspect
+
+Use the timeline to inspect:
+
+- `sys_write`
+- `block_io`
+- scheduler switches near the write
+- page faults in the same service
+- colocated workloads doing heavy I/O
+
+## Causal pattern
+
+```text
+compaction worker block_io
+  -> foreground write queued
+  -> sys_write duration increased
+  -> request timeout
+```
+
+## Best practice
+
+Emit query IDs, transaction IDs, or operation names into traces. That makes it possible to search for the slow write directly in kprobe.
+

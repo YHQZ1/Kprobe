@@ -1,0 +1,46 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Causal Graph API
+description: Query root-cause graphs.
+---
+
+# Causal Graph API
+
+Use the Causal Graph API to retrieve nodes and edges for an incident.
+
+## Query by transaction
+
+```text
+GET /api/causal-graph?transaction_id=pay_123
+```
+
+## Response shape
+
+```json
+{
+  "nodes": [
+    {
+      "id": "evt_block_1",
+      "type": "kernel_event",
+      "label": "block_io",
+      "service_name": "ledger-service"
+    }
+  ],
+  "edges": [
+    {
+      "from": "evt_block_1",
+      "to": "evt_write_1",
+      "cause_type": "DISK_TO_SYSCALL",
+      "latency_ns": 842000000
+    }
+  ]
+}
+```
+
+## Use cases
+
+- render the graph view
+- embed kprobe explanations in internal incident tools
+- attach root-cause evidence to postmortems
+- compare causal paths across incidents
+

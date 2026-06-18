@@ -1,0 +1,35 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: No Events
+description: Troubleshoot missing kernel events.
+---
+
+# No Events
+
+## Symptom
+
+The console opens, but no kernel events appear.
+
+## Checks
+
+- agent pods are ready
+- event pipeline is healthy
+- storage is accepting writes
+- selected namespaces include your workloads
+- event filters are not too restrictive
+
+## Commands
+
+```bash
+kubectl logs -n kprobe daemonset/kprobe-agent
+kubectl logs -n kprobe deploy/kprobe-engine
+kubectl logs -n kprobe deploy/kprobe-api
+```
+
+## Fixes
+
+- expand namespace filters
+- verify workload runs on an observed node
+- check dropped-event metrics
+- confirm backend connectivity from the agent
+

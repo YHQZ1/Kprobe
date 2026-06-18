@@ -1,4 +1,6 @@
 ---
+import SearchModal from "./SearchModal";
+
 const navLinks = [
   { label: "Docs", href: "/docs" },
   { label: "Compare", href: "/compare" },
@@ -126,19 +128,23 @@ const currentPath = Astro.url.pathname;
     </div>
   </div>
 
-  <div id="search-portal"></div>
+  <SearchModal client:only="react" />
 
   <script>
     function applyTheme(theme: string) {
       document.documentElement.setAttribute("data-theme", theme);
       localStorage.setItem("kprobe-theme", theme);
+      window.dispatchEvent(
+        new CustomEvent("kprobe-theme-change", { detail: theme }),
+      );
     }
 
     function init() {
+      if (document.documentElement.dataset.navbarReady === "true") return;
+      document.documentElement.dataset.navbarReady = "true";
+
       const html = document.documentElement;
       const toggle = document.getElementById("theme-toggle");
-      const searchTrigger = document.getElementById("search-trigger");
-      const portal = document.getElementById("search-portal");
 
       applyTheme(localStorage.getItem("kprobe-theme") || "dark");
 
@@ -146,45 +152,6 @@ const currentPath = Astro.url.pathname;
         applyTheme(
           html.getAttribute("data-theme") === "dark" ? "light" : "dark",
         );
-      });
-
-      import("react").then(({ createElement }) => {
-        import("react-dom/client").then(({ createRoot }) => {
-          import("./SearchModal.tsx").then(({ default: SearchModal }) => {
-            let searchOpen = false;
-            let root: ReturnType<typeof createRoot> | null = null;
-
-            function renderModal(open: boolean) {
-              if (!portal) return;
-              if (!root) root = createRoot(portal);
-              root.render(
-                createElement(SearchModal, {
-                  open,
-                  onClose: () => {
-                    searchOpen = false;
-                    renderModal(false);
-                  },
-                }),
-              );
-            }
-
-            function openSearch() {
-              searchOpen = true;
-              renderModal(true);
-            }
-
-            searchTrigger?.addEventListener("click", openSearch);
-
-            window.addEventListener("keydown", (e) => {
-              if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-                e.preventDefault();
-                searchOpen
-                  ? ((searchOpen = false), renderModal(false))
-                  : openSearch();
-              }
-            });
-          });
-        });
       });
     }
 
@@ -212,8 +179,9 @@ const currentPath = Astro.url.pathname;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0 2rem;
+      padding: 0 clamp(1rem, 4vw, 2rem);
       position: relative;
+      gap: 1rem;
     }
 
     .brand {
@@ -280,6 +248,7 @@ const currentPath = Astro.url.pathname;
       font-weight: 400;
       cursor: pointer;
       min-width: 160px;
+      max-width: 220px;
     }
 
     .search-btn:hover {
@@ -355,6 +324,59 @@ const currentPath = Astro.url.pathname;
 
     [data-theme="light"] #icon-moon {
       display: flex;
+    }
+
+    @media (max-width: 900px) {
+      .nav-links {
+        position: static;
+        transform: none;
+        margin-left: auto;
+      }
+
+      .search-btn {
+        min-width: 38px;
+        width: 38px;
+        height: 34px;
+        justify-content: center;
+        padding: 0;
+      }
+
+      .search-btn span,
+      .search-btn kbd {
+        display: none;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .brand-name {
+        display: none;
+      }
+
+      .nav-links {
+        gap: 0;
+      }
+
+      .nav-link {
+        font-size: 0.8rem;
+        padding: 0.35rem 0.45rem;
+      }
+
+      .github-btn span {
+        display: none;
+      }
+
+      .github-btn {
+        width: 34px;
+        height: 34px;
+        justify-content: center;
+        padding: 0;
+      }
+    }
+
+    @media (max-width: 430px) {
+      .nav-link[href="/compare"] {
+        display: none;
+      }
     }
   </style>
 </header>

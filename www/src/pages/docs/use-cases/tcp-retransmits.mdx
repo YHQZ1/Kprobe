@@ -1,0 +1,38 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: TCP Retransmits
+description: Find network retransmits behind slow requests.
+---
+
+# TCP Retransmits
+
+TCP retransmits can push a request over its latency budget without showing up clearly in application logs.
+
+## Symptom
+
+```text
+bank-adapter p95 latency increased
+some calls timed out
+```
+
+## What kprobe shows
+
+kprobe records TCP send, receive, and retransmit events for the process handling the request.
+
+Example chain:
+
+```text
+payment-api calls bank-adapter
+  -> tcp_send
+  -> tcp_retransmit
+  -> delayed tcp_recv
+  -> bank response arrives after timeout
+```
+
+## Use this page when
+
+- traces show a slow network dependency
+- logs show intermittent timeout
+- cloud metrics show no obvious host failure
+- only some requests are affected
+

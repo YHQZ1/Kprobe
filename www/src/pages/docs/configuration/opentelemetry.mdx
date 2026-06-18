@@ -1,0 +1,45 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: OpenTelemetry Configuration
+description: Connect kprobe to traces and spans.
+---
+
+# OpenTelemetry Configuration
+
+OpenTelemetry gives kprobe application context. It tells kprobe which request, service, span, or transaction was active when a kernel event occurred.
+
+## Enable correlation
+
+```yaml
+otel:
+  enabled: true
+  endpoint: otel-collector.observability.svc.cluster.local:4317
+```
+
+## Recommended attributes
+
+Emit these attributes when possible:
+
+| Attribute | Example |
+| --- | --- |
+| `service.name` | `ledger-service` |
+| `service.namespace` | `payments` |
+| `deployment.environment` | `production` |
+| `kprobe.transaction_id` | `pay_123` |
+| `http.route` | `/payments/{id}/capture` |
+| `db.operation` | `write` |
+
+## Searchable business IDs
+
+For incident response, the most useful field is the one operators already know:
+
+```text
+payment_id
+query_id
+order_id
+job_id
+transaction_id
+```
+
+Map that value to `kprobe.transaction_id` or configure a custom transaction field.
+

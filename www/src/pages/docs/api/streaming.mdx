@@ -1,0 +1,29 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Streaming API
+description: Subscribe to live kprobe events.
+---
+
+# Streaming API
+
+Use the Streaming API for live event views, custom dashboards, and incident automation.
+
+## WebSocket stream
+
+```text
+wss://kprobe.example.com/ws/events
+```
+
+Messages use the same event schema as historical queries.
+
+## Server-streaming RPC
+
+kprobe also exposes streaming RPCs for clients that use gRPC.
+
+## Common uses
+
+- live event stream in the console
+- custom operational dashboards
+- incident automation
+- integration with internal platforms
+

@@ -1,0 +1,40 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Permissions Model
+description: Why kprobe needs host permissions and how to scope them.
+---
+
+# Permissions Model
+
+kprobe's recorder needs host-level permissions because eBPF programs attach to the Linux kernel.
+
+## Why privileged access is required
+
+The recorder must:
+
+- load eBPF programs
+- attach probes to kernel hooks
+- read kernel event buffers
+- map process and cgroup identity
+- observe network, syscall, scheduler, memory, and block I/O events
+
+## Kubernetes permissions
+
+kprobe uses Kubernetes RBAC to read metadata needed for service identity:
+
+- pods
+- namespaces
+- nodes
+- deployments or replica sets
+- service accounts
+
+It does not need permission to modify application workloads.
+
+## Scoping recommendations
+
+- observe only required namespaces
+- run agents only on selected node pools when possible
+- expose the console privately
+- integrate with SSO
+- review agent capabilities during security approval
+

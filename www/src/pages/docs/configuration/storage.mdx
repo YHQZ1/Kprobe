@@ -1,0 +1,37 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Storage Configuration
+description: Configure timeline and graph storage.
+---
+
+# Storage Configuration
+
+kprobe stores timelines and causal graphs separately because they serve different query patterns.
+
+## Modes
+
+| Mode | Description |
+| --- | --- |
+| `bundled` | Deploy storage with kprobe. Best for trials and small clusters. |
+| `managed` | Use kprobe-managed cloud storage. Best for most teams. |
+| `external` | Connect to your own Kafka, ClickHouse, or graph backend. |
+
+## Retention
+
+```yaml
+storage:
+  retentionDays: 14
+```
+
+Choose retention based on your incident investigation window. Payment and database teams often keep 14 to 30 days of high-resolution events.
+
+## Sizing inputs
+
+Storage sizing depends on:
+
+- nodes observed
+- event types enabled
+- request volume
+- retention period
+- sampling and filtering policy
+
