@@ -1,7 +1,7 @@
 use anyhow::Context as _;
 use aya::{
     Ebpf,
-    maps::{Array, AsyncRingBuf},
+    maps::{Array, RingBuf},
     programs::{KProbe, TracePoint},
 };
 use aya_log::EbpfLogger;
@@ -167,23 +167,23 @@ async fn main() -> anyhow::Result<()> {
 
     info!("11 probes attached");
 
-    let tcp_buf = AsyncRingBuf::try_from(
+    let tcp_buf = RingBuf::try_from(
         ebpf.take_map("EVENTS_TCP")
             .context("map EVENTS_TCP not found")?,
     )?;
-    let syscall_buf = AsyncRingBuf::try_from(
+    let syscall_buf = RingBuf::try_from(
         ebpf.take_map("EVENTS_SYSCALL")
             .context("map EVENTS_SYSCALL not found")?,
     )?;
-    let sched_buf = AsyncRingBuf::try_from(
+    let sched_buf = RingBuf::try_from(
         ebpf.take_map("EVENTS_SCHED")
             .context("map EVENTS_SCHED not found")?,
     )?;
-    let fault_buf = AsyncRingBuf::try_from(
+    let fault_buf = RingBuf::try_from(
         ebpf.take_map("EVENTS_PAGE_FAULT")
             .context("map EVENTS_PAGE_FAULT not found")?,
     )?;
-    let block_buf = AsyncRingBuf::try_from(
+    let block_buf = RingBuf::try_from(
         ebpf.take_map("EVENTS_BLOCK")
             .context("map EVENTS_BLOCK not found")?,
     )?;

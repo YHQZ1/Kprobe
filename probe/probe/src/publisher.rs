@@ -1,4 +1,4 @@
-use aya::maps::AsyncRingBuf;
+use aya::maps::RingBuf;
 use log::{info, warn};
 use probe_common::{
     BlockEvent, PageFaultEvent, SchedEvent, SyscallDir, SyscallEvent, SyscallOp, TcpEvent,
@@ -13,13 +13,18 @@ fn unix_timestamp_ns(monotonic_ns: u64, offset_ns: u64) -> u64 {
 }
 
 pub async fn drain_tcp(
-    mut buf: AsyncRingBuf<aya::maps::MapData>,
+    mut buf: RingBuf<aya::maps::MapData>,
     producer: FutureProducer,
     timestamp_offset_ns: u64,
 ) {
     let mut fallback: VecDeque<(String, String)> = VecDeque::with_capacity(5000);
-    while let Some(item) = buf.next().await {
-        let event = unsafe { &*(item.as_ptr() as *const TcpEvent) };
+    loop {
+        let Some(item) = buf.next() else {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+            continue;
+        };
+        let event = unsafe { *(item.as_ptr() as *const TcpEvent) };
+        drop(item);
         let event_type = match event.event_type {
             TcpEventType::Send => "tcp_send",
             TcpEventType::Recv => "tcp_recv",
@@ -72,13 +77,18 @@ pub async fn drain_tcp(
 }
 
 pub async fn drain_sched(
-    mut buf: AsyncRingBuf<aya::maps::MapData>,
+    mut buf: RingBuf<aya::maps::MapData>,
     producer: FutureProducer,
     timestamp_offset_ns: u64,
 ) {
     let mut fallback: VecDeque<(String, String)> = VecDeque::with_capacity(5000);
-    while let Some(item) = buf.next().await {
-        let event = unsafe { &*(item.as_ptr() as *const SchedEvent) };
+    loop {
+        let Some(item) = buf.next() else {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+            continue;
+        };
+        let event = unsafe { *(item.as_ptr() as *const SchedEvent) };
+        drop(item);
         let payload = serde_json::json!({
             "event_id": "",
             "event_type": "sched_switch",
@@ -128,13 +138,18 @@ pub async fn drain_sched(
 }
 
 pub async fn drain_syscall(
-    mut buf: AsyncRingBuf<aya::maps::MapData>,
+    mut buf: RingBuf<aya::maps::MapData>,
     producer: FutureProducer,
     timestamp_offset_ns: u64,
 ) {
     let mut fallback: VecDeque<(String, String)> = VecDeque::with_capacity(5000);
-    while let Some(item) = buf.next().await {
-        let event = unsafe { &*(item.as_ptr() as *const SyscallEvent) };
+    loop {
+        let Some(item) = buf.next() else {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+            continue;
+        };
+        let event = unsafe { *(item.as_ptr() as *const SyscallEvent) };
+        drop(item);
         let event_type = match event.op {
             SyscallOp::Read => "sys_read",
             SyscallOp::Write => "sys_write",
@@ -190,13 +205,18 @@ pub async fn drain_syscall(
 }
 
 pub async fn drain_page_fault(
-    mut buf: AsyncRingBuf<aya::maps::MapData>,
+    mut buf: RingBuf<aya::maps::MapData>,
     producer: FutureProducer,
     timestamp_offset_ns: u64,
 ) {
     let mut fallback: VecDeque<(String, String)> = VecDeque::with_capacity(5000);
-    while let Some(item) = buf.next().await {
-        let event = unsafe { &*(item.as_ptr() as *const PageFaultEvent) };
+    loop {
+        let Some(item) = buf.next() else {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+            continue;
+        };
+        let event = unsafe { *(item.as_ptr() as *const PageFaultEvent) };
+        drop(item);
         let payload = serde_json::json!({
             "event_id": "",
             "event_type": "page_fault",
@@ -245,13 +265,18 @@ pub async fn drain_page_fault(
 }
 
 pub async fn drain_block(
-    mut buf: AsyncRingBuf<aya::maps::MapData>,
+    mut buf: RingBuf<aya::maps::MapData>,
     producer: FutureProducer,
     timestamp_offset_ns: u64,
 ) {
     let mut fallback: VecDeque<(String, String)> = VecDeque::with_capacity(5000);
-    while let Some(item) = buf.next().await {
-        let event = unsafe { &*(item.as_ptr() as *const BlockEvent) };
+    loop {
+        let Some(item) = buf.next() else {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+            continue;
+        };
+        let event = unsafe { *(item.as_ptr() as *const BlockEvent) };
+        drop(item);
         let payload = serde_json::json!({
             "event_id": "",
             "event_type": "block_io",
