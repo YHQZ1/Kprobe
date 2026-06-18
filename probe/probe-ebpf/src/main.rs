@@ -1,11 +1,11 @@
 #![no_std]
 #![no_main]
 
-mod tcp;
+mod block;
+mod fault;
 mod sched;
 mod syscall;
-mod fault;
-mod block;
+mod tcp;
 
 use aya_ebpf::macros::map;
 use aya_ebpf::maps::{Array, RingBuf};

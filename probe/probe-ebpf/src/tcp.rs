@@ -1,10 +1,13 @@
+use crate::{DROP_COUNTERS, EVENTS_TCP};
 use aya_ebpf::{
-    helpers::{bpf_get_current_cgroup_id, bpf_get_current_pid_tgid, bpf_get_smp_processor_id, bpf_ktime_get_ns},
+    helpers::{
+        bpf_get_current_cgroup_id, bpf_get_current_pid_tgid, bpf_get_smp_processor_id,
+        bpf_ktime_get_ns,
+    },
     macros::kprobe,
     programs::ProbeContext,
 };
 use probe_common::{TcpEvent, TcpEventType};
-use crate::{DROP_COUNTERS, EVENTS_TCP};
 
 #[kprobe]
 pub fn probe_tcp_send(ctx: ProbeContext) -> u32 {

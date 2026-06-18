@@ -1,7 +1,8 @@
+use anyhow::Context as _;
 use aya::{
+    Ebpf,
     maps::{Array, AsyncRingBuf},
     programs::{KProbe, TracePoint},
-    Ebpf,
 };
 use aya_log::EbpfLogger;
 use log::{info, warn};
@@ -61,84 +62,135 @@ async fn main() -> anyhow::Result<()> {
         warn!("failed to initialize eBPF logger: {e}");
     }
 
-    let tcp_send: &mut KProbe = ebpf.program_mut("probe_tcp_send").unwrap().try_into()?;
-    tcp_send.load()?;
-    tcp_send.attach("tcp_sendmsg", 0)?;
+    let tcp_send: &mut KProbe = ebpf
+        .program_mut("probe_tcp_send")
+        .context("program probe_tcp_send not found")?
+        .try_into()?;
+    tcp_send.load().context("load probe_tcp_send")?;
+    tcp_send
+        .attach("tcp_sendmsg", 0)
+        .context("attach probe_tcp_send to tcp_sendmsg")?;
 
-    let tcp_recv: &mut KProbe = ebpf.program_mut("probe_tcp_recv").unwrap().try_into()?;
-    tcp_recv.load()?;
-    tcp_recv.attach("tcp_recvmsg", 0)?;
+    let tcp_recv: &mut KProbe = ebpf
+        .program_mut("probe_tcp_recv")
+        .context("program probe_tcp_recv not found")?
+        .try_into()?;
+    tcp_recv.load().context("load probe_tcp_recv")?;
+    tcp_recv
+        .attach("tcp_recvmsg", 0)
+        .context("attach probe_tcp_recv to tcp_recvmsg")?;
 
     let tcp_retransmit: &mut KProbe = ebpf
         .program_mut("probe_tcp_retransmit")
-        .unwrap()
+        .context("program probe_tcp_retransmit not found")?
         .try_into()?;
-    tcp_retransmit.load()?;
-    tcp_retransmit.attach("tcp_retransmit_skb", 0)?;
+    tcp_retransmit.load().context("load probe_tcp_retransmit")?;
+    tcp_retransmit
+        .attach("tcp_retransmit_skb", 0)
+        .context("attach probe_tcp_retransmit to tcp_retransmit_skb")?;
 
     let sys_enter_read: &mut TracePoint = ebpf
         .program_mut("probe_sys_enter_read")
-        .unwrap()
+        .context("program probe_sys_enter_read not found")?
         .try_into()?;
-    sys_enter_read.load()?;
-    sys_enter_read.attach("syscalls", "sys_enter_read")?;
+    sys_enter_read.load().context("load probe_sys_enter_read")?;
+    sys_enter_read
+        .attach("syscalls", "sys_enter_read")
+        .context("attach probe_sys_enter_read to syscalls:sys_enter_read")?;
 
     let sys_exit_read: &mut TracePoint = ebpf
         .program_mut("probe_sys_exit_read")
-        .unwrap()
+        .context("program probe_sys_exit_read not found")?
         .try_into()?;
-    sys_exit_read.load()?;
-    sys_exit_read.attach("syscalls", "sys_exit_read")?;
+    sys_exit_read.load().context("load probe_sys_exit_read")?;
+    sys_exit_read
+        .attach("syscalls", "sys_exit_read")
+        .context("attach probe_sys_exit_read to syscalls:sys_exit_read")?;
 
     let sys_enter_write: &mut TracePoint = ebpf
         .program_mut("probe_sys_enter_write")
-        .unwrap()
+        .context("program probe_sys_enter_write not found")?
         .try_into()?;
-    sys_enter_write.load()?;
-    sys_enter_write.attach("syscalls", "sys_enter_write")?;
+    sys_enter_write
+        .load()
+        .context("load probe_sys_enter_write")?;
+    sys_enter_write
+        .attach("syscalls", "sys_enter_write")
+        .context("attach probe_sys_enter_write to syscalls:sys_enter_write")?;
 
     let sys_exit_write: &mut TracePoint = ebpf
         .program_mut("probe_sys_exit_write")
-        .unwrap()
+        .context("program probe_sys_exit_write not found")?
         .try_into()?;
-    sys_exit_write.load()?;
-    sys_exit_write.attach("syscalls", "sys_exit_write")?;
+    sys_exit_write.load().context("load probe_sys_exit_write")?;
+    sys_exit_write
+        .attach("syscalls", "sys_exit_write")
+        .context("attach probe_sys_exit_write to syscalls:sys_exit_write")?;
 
-    let sched_switch: &mut TracePoint =
-        ebpf.program_mut("probe_sched_switch").unwrap().try_into()?;
-    sched_switch.load()?;
-    sched_switch.attach("sched", "sched_switch")?;
+    let sched_switch: &mut TracePoint = ebpf
+        .program_mut("probe_sched_switch")
+        .context("program probe_sched_switch not found")?
+        .try_into()?;
+    sched_switch.load().context("load probe_sched_switch")?;
+    sched_switch
+        .attach("sched", "sched_switch")
+        .context("attach probe_sched_switch to sched:sched_switch")?;
 
     let page_fault: &mut TracePoint = ebpf
         .program_mut("probe_mm_page_fault")
-        .unwrap()
+        .context("program probe_mm_page_fault not found")?
         .try_into()?;
-    page_fault.load()?;
-    page_fault.attach("exceptions", "page_fault_user")?;
+    page_fault.load().context("load probe_mm_page_fault")?;
+    page_fault
+        .attach("exceptions", "page_fault_user")
+        .context("attach probe_mm_page_fault to exceptions:page_fault_user")?;
 
     let block_issue: &mut TracePoint = ebpf
         .program_mut("probe_block_rq_issue")
-        .unwrap()
+        .context("program probe_block_rq_issue not found")?
         .try_into()?;
-    block_issue.load()?;
-    block_issue.attach("block", "block_rq_issue")?;
+    block_issue.load().context("load probe_block_rq_issue")?;
+    block_issue
+        .attach("block", "block_rq_issue")
+        .context("attach probe_block_rq_issue to block:block_rq_issue")?;
 
     let block_complete: &mut TracePoint = ebpf
         .program_mut("probe_block_rq_complete")
-        .unwrap()
+        .context("program probe_block_rq_complete not found")?
         .try_into()?;
-    block_complete.load()?;
-    block_complete.attach("block", "block_rq_complete")?;
+    block_complete
+        .load()
+        .context("load probe_block_rq_complete")?;
+    block_complete
+        .attach("block", "block_rq_complete")
+        .context("attach probe_block_rq_complete to block:block_rq_complete")?;
 
     info!("11 probes attached");
 
-    let tcp_buf = AsyncRingBuf::try_from(ebpf.take_map("EVENTS_TCP").unwrap())?;
-    let syscall_buf = AsyncRingBuf::try_from(ebpf.take_map("EVENTS_SYSCALL").unwrap())?;
-    let sched_buf = AsyncRingBuf::try_from(ebpf.take_map("EVENTS_SCHED").unwrap())?;
-    let fault_buf = AsyncRingBuf::try_from(ebpf.take_map("EVENTS_PAGE_FAULT").unwrap())?;
-    let block_buf = AsyncRingBuf::try_from(ebpf.take_map("EVENTS_BLOCK").unwrap())?;
+    let tcp_buf = AsyncRingBuf::try_from(
+        ebpf.take_map("EVENTS_TCP")
+            .context("map EVENTS_TCP not found")?,
+    )?;
+    let syscall_buf = AsyncRingBuf::try_from(
+        ebpf.take_map("EVENTS_SYSCALL")
+            .context("map EVENTS_SYSCALL not found")?,
+    )?;
+    let sched_buf = AsyncRingBuf::try_from(
+        ebpf.take_map("EVENTS_SCHED")
+            .context("map EVENTS_SCHED not found")?,
+    )?;
+    let fault_buf = AsyncRingBuf::try_from(
+        ebpf.take_map("EVENTS_PAGE_FAULT")
+            .context("map EVENTS_PAGE_FAULT not found")?,
+    )?;
+    let block_buf = AsyncRingBuf::try_from(
+        ebpf.take_map("EVENTS_BLOCK")
+            .context("map EVENTS_BLOCK not found")?,
+    )?;
 
-    let drop_map = ebpf.map("DROP_COUNTERS").unwrap();
+    let drop_map = ebpf
+        .map("DROP_COUNTERS")
+        .context("map DROP_COUNTERS not found")?;
     let drop_counters: Array<_, u64> = Array::try_from(drop_map)?;
     let timestamp_offset_ns = realtime_offset_ns()?;
 

@@ -1,10 +1,13 @@
+use crate::{DROP_COUNTERS, EVENTS_PAGE_FAULT};
 use aya_ebpf::{
-    helpers::{bpf_get_current_cgroup_id, bpf_get_current_pid_tgid, bpf_get_smp_processor_id, bpf_ktime_get_ns},
+    helpers::{
+        bpf_get_current_cgroup_id, bpf_get_current_pid_tgid, bpf_get_smp_processor_id,
+        bpf_ktime_get_ns,
+    },
     macros::tracepoint,
     programs::TracePointContext,
 };
 use probe_common::PageFaultEvent;
-use crate::{DROP_COUNTERS, EVENTS_PAGE_FAULT};
 
 #[repr(C)]
 struct PageFaultArgs {

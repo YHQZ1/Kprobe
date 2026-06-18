@@ -1,10 +1,10 @@
+use crate::{DROP_COUNTERS, EVENTS_SCHED};
 use aya_ebpf::{
     helpers::{bpf_get_current_cgroup_id, bpf_get_smp_processor_id, bpf_ktime_get_ns},
     macros::tracepoint,
     programs::TracePointContext,
 };
 use probe_common::SchedEvent;
-use crate::{DROP_COUNTERS, EVENTS_SCHED};
 
 #[repr(C)]
 struct SchedSwitchArgs {
