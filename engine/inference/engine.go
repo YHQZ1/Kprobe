@@ -15,12 +15,14 @@ const (
 	windowDuration    = 100 * time.Millisecond
 	causalThresholdNs = 50_000_000
 	crossProcWinSize  = 200
+	blockIOWinSize    = 5000
 )
 
 type Engine struct {
 	store           *graph.Neo4jStore
 	window          []types.KernelEvent
 	crossProcWindow []types.KernelEvent
+	blockIOWindow   []types.KernelEvent
 	ticker          *time.Ticker
 	input           chan types.KernelEvent
 	done            chan struct{}
@@ -31,6 +33,7 @@ func NewEngine(store *graph.Neo4jStore) *Engine {
 		store:           store,
 		window:          make([]types.KernelEvent, 0, 10000),
 		crossProcWindow: make([]types.KernelEvent, 0, crossProcWinSize),
+		blockIOWindow:   make([]types.KernelEvent, 0, blockIOWinSize),
 		ticker:          time.NewTicker(windowDuration),
 		input:           make(chan types.KernelEvent, 50000),
 		done:            make(chan struct{}),
@@ -138,19 +141,16 @@ func (e *Engine) processWindow(ctx context.Context, events []types.KernelEvent) 
 		}
 	}
 
-	for _, ev := range events {
-		if isCrossProcCandidate(ev.EventType) {
-			e.crossProcWindow = append(e.crossProcWindow, ev)
-		}
-	}
-
-	if len(e.crossProcWindow) > crossProcWinSize {
-		e.crossProcWindow = e.crossProcWindow[len(e.crossProcWindow)-crossProcWinSize:]
-	}
+	e.rememberCrossProcCandidates(events)
 
 	for _, ev := range events {
 		if !isBlocking(ev.EventType) {
 			continue
+		}
+		for _, prior := range e.blockIOWindow {
+			if edge, ok := tryCreateCrossProcEdge(prior, ev); ok {
+				edges = append(edges, edge)
+			}
 		}
 		for _, prior := range e.crossProcWindow {
 			if edge, ok := tryCreateCrossProcEdge(prior, ev); ok {
@@ -166,6 +166,28 @@ func (e *Engine) processWindow(ctx context.Context, events []types.KernelEvent) 
 	}
 
 	return nil
+}
+
+func (e *Engine) rememberCrossProcCandidates(events []types.KernelEvent) {
+	for _, ev := range events {
+		if ev.EventType == types.EventTypeBlockIO {
+			e.blockIOWindow = append(e.blockIOWindow, ev)
+			continue
+		}
+		if isCrossProcCandidate(ev.EventType) {
+			e.crossProcWindow = append(e.crossProcWindow, ev)
+		}
+	}
+
+	e.crossProcWindow = trimEventWindow(e.crossProcWindow, crossProcWinSize)
+	e.blockIOWindow = trimEventWindow(e.blockIOWindow, blockIOWinSize)
+}
+
+func trimEventWindow(events []types.KernelEvent, max int) []types.KernelEvent {
+	if len(events) <= max {
+		return events
+	}
+	return events[len(events)-max:]
 }
 
 func (e *Engine) tryCreateEdge(events []types.KernelEvent, i, j int, crossThread bool) (graph.EdgeBatch, bool) {
@@ -304,8 +326,7 @@ func crossProcCause(prior, ev types.KernelEvent) string {
 }
 
 func isCrossProcCandidate(t types.EventType) bool {
-	return t == types.EventTypeBlockIO ||
-		t == types.EventTypeSchedSwitch ||
+	return t == types.EventTypeSchedSwitch ||
 		t == types.EventTypePageFault
 }
 

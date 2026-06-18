@@ -122,7 +122,7 @@ func TestIsCrossProcCandidate(t *testing.T) {
 		eventType types.EventType
 		expected  bool
 	}{
-		{eventType: types.EventTypeBlockIO, expected: true},
+		{eventType: types.EventTypeBlockIO, expected: false},
 		{eventType: types.EventTypeSchedSwitch, expected: true},
 		{eventType: types.EventTypePageFault, expected: true},
 		{eventType: types.EventTypeSysRead, expected: false},
@@ -137,6 +137,46 @@ func TestIsCrossProcCandidate(t *testing.T) {
 				t.Errorf("isCrossProcCandidate() expected %v, got %v", tt.expected, got)
 			}
 		})
+	}
+}
+
+func TestRememberCrossProcCandidatesKeepsBlockIOSeparate(t *testing.T) {
+	engine := NewEngine(nil)
+	defer engine.ticker.Stop()
+
+	events := []types.KernelEvent{
+		{EventID: "block-1", EventType: types.EventTypeBlockIO},
+		{EventID: "sched-1", EventType: types.EventTypeSchedSwitch},
+		{EventID: "fault-1", EventType: types.EventTypePageFault},
+		{EventID: "read-1", EventType: types.EventTypeSysRead},
+	}
+
+	engine.rememberCrossProcCandidates(events)
+
+	if len(engine.blockIOWindow) != 1 {
+		t.Fatalf("expected one block event, got %d", len(engine.blockIOWindow))
+	}
+	if engine.blockIOWindow[0].EventID != "block-1" {
+		t.Fatalf("unexpected block window contents: %+v", engine.blockIOWindow)
+	}
+	if len(engine.crossProcWindow) != 2 {
+		t.Fatalf("expected two scheduler/fault events, got %d", len(engine.crossProcWindow))
+	}
+}
+
+func TestTrimEventWindowKeepsNewestEvents(t *testing.T) {
+	events := []types.KernelEvent{
+		{EventID: "oldest"},
+		{EventID: "middle"},
+		{EventID: "newest"},
+	}
+
+	got := trimEventWindow(events, 2)
+	if len(got) != 2 {
+		t.Fatalf("expected two events, got %d", len(got))
+	}
+	if got[0].EventID != "middle" || got[1].EventID != "newest" {
+		t.Fatalf("expected newest events to be retained, got %+v", got)
 	}
 }
 
