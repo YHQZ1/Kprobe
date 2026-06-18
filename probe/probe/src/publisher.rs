@@ -12,6 +12,14 @@ fn unix_timestamp_ns(monotonic_ns: u64, offset_ns: u64) -> u64 {
     monotonic_ns.saturating_add(offset_ns)
 }
 
+fn block_sector_json(sector: u64) -> serde_json::Value {
+    if sector == u64::MAX {
+        serde_json::Value::Null
+    } else {
+        serde_json::json!(sector)
+    }
+}
+
 pub async fn drain_tcp(
     mut buf: RingBuf<aya::maps::MapData>,
     producer: FutureProducer,
@@ -292,9 +300,9 @@ pub async fn drain_block(
             "duration_ns": 0,
             "return_value": 0,
             "payload": {
-                "block_sector": event.sector,
+                "block_sector": block_sector_json(event.sector),
                 "block_bytes": event.bytes,
-                "block_op": if event.op == 0 { "read" } else { "write" },
+                "block_op": if event.sector == u64::MAX { "flush" } else if event.op == 0 { "read" } else { "write" },
                 "block_phase": match event.dir {
                     probe_common::BlockDir::Issue => "issue",
                     probe_common::BlockDir::Complete => "complete",
